@@ -79,7 +79,8 @@ def cmd_enrich(args, cfg) -> None:
         progress=lambda total, desc: tqdm(total=total, desc=f"{desc:<8}", unit="id", ncols=90))
     try:
         r = e.run(include_ads=api.get("fetch_ad_videos", True) and not args.skip_ads,
-                  retry_missing=args.retry_missing)
+                  retry_missing=args.retry_missing,
+                  shorts_max_duration=cfg.section("shorts").get("max_duration_seconds", 180))
     except enrich.ApiKeyError as err:
         sys.exit(f"The API rejected your key: {err}\nCheck YOUTUBE_API_KEY in .env and that "
                  "'YouTube Data API v3' is enabled for the key's project.")
@@ -88,7 +89,8 @@ def cmd_enrich(args, cfg) -> None:
 
     print(f"\nThis run: {r.units:,} units. Videos found {r.videos_ok:,}, missing {r.videos_missing:,}. "
           f"Channels found {r.channels_ok:,}, missing {r.channels_missing:,}."
-          + (f" Categories: {r.categories}." if r.categories else ""))
+          + (f" Categories: {r.categories}." if r.categories else "")
+          + (f" Video shapes checked: {r.shapes:,}." if r.shapes else ""))
     if r.stopped:
         print(f"Stopped early ({r.stopped}). {r.videos_left:,} videos and {r.channels_left:,} channels "
               "left; rerun after the quota resets (midnight Pacific) to continue.")

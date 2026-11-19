@@ -4,7 +4,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
@@ -67,7 +67,9 @@ CREATE TABLE IF NOT EXISTS videos (
     thumb_small    TEXT,
     thumb_large    TEXT,
     view_count     INTEGER,
-    like_count     INTEGER
+    like_count     INTEGER,
+    embed_w        INTEGER,          -- player embed size: aspect ratio tells Shorts (vertical) apart.
+    embed_h        INTEGER           -- NULL = not checked, -1 = API returned nothing
 );
 CREATE INDEX IF NOT EXISTS ix_videos_channel ON videos(channel_id);
 
@@ -119,8 +121,20 @@ def connect(path: Path) -> sqlite3.Connection:
     return conn
 
 
+# Columns added after a table was first created: (table, column, type)
+_ADDED_COLUMNS = [("videos", "embed_w", "INTEGER"), ("videos", "embed_h", "INTEGER")]
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, col, typ in _ADDED_COLUMNS:
+        cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if cols and col not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    _migrate(conn)
     set_meta(conn, "schema_version", str(SCHEMA_VERSION))
     conn.commit()
 

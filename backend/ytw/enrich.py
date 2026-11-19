@@ -140,6 +140,7 @@ def video_row(item: dict, now: str) -> tuple:
         _best_thumb(thumbs, ("medium", "high", "default")),
         _best_thumb(thumbs, ("maxres", "standard", "high", "medium", "default")),
         _int(st.get("viewCount")), _int(st.get("likeCount")),
+        _int(item.get("player", {}).get("embedWidth")), _int(item.get("player", {}).get("embedHeight")),
     )
 
 
@@ -159,7 +160,9 @@ def channel_row(item: dict, now: str) -> tuple:
 
 VIDEO_COLS = ("video_id, status, fetched_at, title, channel_id, channel_title, published_at, "
               "duration_raw, duration_s, live, was_live, category_id, tags, topics, thumb_small, "
-              "thumb_large, view_count, like_count")
+              "thumb_large, view_count, like_count, embed_w, embed_h")
+VIDEO_PARTS = "snippet,contentDetails,statistics,topicDetails,liveStreamingDetails,player"
+PLAYER_PARAMS = {"maxHeight": 1000}  # makes the API report the video's real aspect ratio
 CHANNEL_COLS = ("channel_id, status, fetched_at, title, handle, avatar_url, subscriber_count, "
                 "video_count, view_count, country, created_at, topics")
 
@@ -200,6 +203,7 @@ class EnrichResult:
     channels_ok: int = 0
     channels_missing: int = 0
     categories: int = 0
+    shapes: int = 0  # short videos whose aspect ratio was backfilled
     units: int = 0
     stopped: str | None = None  # reason if stopped early
     videos_left: int = 0
@@ -235,14 +239,14 @@ class Enricher:
         return data
 
     def _run_batches(self, ids: list[str], endpoint: str, part: str, cols: str, row_fn,
-                     table: str, key_col: str, desc: str) -> None:
+                     table: str, key_col: str, desc: str, extra: dict | None = None) -> None:
         """Fetch ids in batches; counts go to self.res.<desc>_ok / <desc>_missing as we go."""
-        bar = self.progress(len(ids), desc) if self.progress else None
+        bar = self.progress(len(ids), desc) if self.progress and ids else None
         try:
             for i in range(0, len(ids), self.batch):
                 chunk = ids[i:i + self.batch]
                 data = self._call(endpoint, {"part": part, "id": ",".join(chunk),
-                                             "maxResults": self.batch}, len(chunk))
+                                             "maxResults": self.batch, **(extra or {})}, len(chunk))
                 now = datetime.now(timezone.utc).isoformat()
                 rows = [row_fn(it, now) for it in data.get("items", [])]
                 got = {r[0] for r in rows}
@@ -270,18 +274,45 @@ class Enricher:
         self.conn.commit()
         self.res.categories = len(rows)
 
-    def run(self, include_ads: bool = True, retry_missing: bool = False) -> EnrichResult:
+    def backfill_player(self, max_duration: int) -> None:
+        """Fetch only the player part for short watched videos cached before it was requested."""
+        ids = [r[0] for r in self.conn.execute(
+            "SELECT v.video_id FROM videos v WHERE v.status='ok' AND v.embed_w IS NULL "
+            "AND v.duration_s BETWEEN 1 AND ? AND EXISTS (SELECT 1 FROM entries e WHERE "
+            "e.video_id=v.video_id AND e.kind IN ('video','music','unavailable'))", (max_duration,))]
+        bar = self.progress(len(ids), "shapes") if self.progress and ids else None
+        try:
+            for i in range(0, len(ids), self.batch):
+                chunk = ids[i:i + self.batch]
+                data = self._call("videos", {"part": "player", "id": ",".join(chunk), **PLAYER_PARAMS},
+                                  len(chunk))
+                got = {it["id"]: it.get("player", {}) for it in data.get("items", [])}
+                self.conn.executemany("UPDATE videos SET embed_w=?, embed_h=? WHERE video_id=?", (
+                    (_int(got[v].get("embedWidth")) if v in got else -1,
+                     _int(got[v].get("embedHeight")) if v in got else -1, v) for v in chunk))
+                self.conn.commit()
+                self.res.shapes += len(chunk)
+                if bar:
+                    bar.update(len(chunk))
+        finally:
+            if bar:
+                bar.close()
+
+    def run(self, include_ads: bool = True, retry_missing: bool = False,
+            shorts_max_duration: int | None = 180) -> EnrichResult:
         r = self.res
         try:
             self.fetch_categories()
             vids = pending_video_ids(self.conn, include_ads, retry_missing)
             self._run_batches(
-                vids, "videos", "snippet,contentDetails,statistics,topicDetails,liveStreamingDetails",
-                VIDEO_COLS, video_row, "videos", "video_id", "videos")
+                vids, "videos", VIDEO_PARTS, VIDEO_COLS, video_row, "videos", "video_id", "videos",
+                extra=PLAYER_PARAMS)
             chans = pending_channel_ids(self.conn, retry_missing)
             self._run_batches(
                 chans, "channels", "snippet,statistics,topicDetails",
                 CHANNEL_COLS, channel_row, "channels", "channel_id", "channels")
+            if shorts_max_duration:
+                self.backfill_player(shorts_max_duration)
         except QuotaExceeded as e:
             r.stopped = f"quota: {e}"
         except KeyboardInterrupt:

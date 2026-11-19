@@ -46,7 +46,14 @@ class FakeApi:
         ids = params["id"].split(",")
         assert len(ids) <= 50
         if endpoint == "videos":
-            return {"items": [self._video(i) for i in ids if i in self.known]}
+            parts = params["part"].split(",")
+            if parts == ["player"]:
+                return {"items": [{"id": i, "player": self._player(i)} for i in ids if i in self.known]}
+            items = [self._video(i) for i in ids if i in self.known]
+            if "player" in parts:
+                for it in items:
+                    it["player"] = self._player(it["id"])
+            return {"items": items}
         if endpoint == "channels":
             return {"items": [{"id": c, "snippet": {"title": f"Channel {c}", "thumbnails": {
                 "medium": {"url": f"https://img/{c}.jpg"}}},
@@ -67,6 +74,10 @@ class FakeApi:
             item["snippet"]["liveBroadcastContent"] = "live"
             item["liveStreamingDetails"] = {"actualStartTime": "2024-01-01T00:00:00Z"}
         return item
+
+    def _player(self, vid):
+        vertical = parse_duration(self.known[vid]) and parse_duration(self.known[vid]) <= 60
+        return {"embedWidth": "563" if vertical else "1778", "embedHeight": "1000"}
 
 
 @pytest.fixture
@@ -152,3 +163,41 @@ def test_budget_stops_before_calling(conn):
     r = Enricher(conn, "test-key", fetch=api, budget=1, batch_size=2).run()
     assert len(api.calls) == 1  # only the categories call fit
     assert r.stopped and "budget" in r.stopped
+
+
+def test_player_shape_fetched_with_videos(conn):
+    Enricher(conn, "test-key", fetch=FakeApi(KNOWN)).run()
+    shape = dict((r[0], (r[1], r[2])) for r in conn.execute(
+        "SELECT video_id, embed_w, embed_h FROM videos WHERE status='ok'"))
+    assert shape["adbrand0001"] == (563, 1000)      # 30s -> vertical
+    assert shape["videoBBBB01"] == (1778, 1000)     # 10h -> landscape
+
+
+def test_player_backfill_for_old_cache(conn):
+    Enricher(conn, "test-key", fetch=FakeApi(KNOWN)).run()
+    # simulate rows cached before the player part existed
+    conn.execute("UPDATE videos SET embed_w=NULL, embed_h=NULL")
+    api = FakeApi(KNOWN)
+    r = Enricher(conn, "test-key", fetch=api).run(shorts_max_duration=180)
+    asked = {i for ep, p in api.calls if p.get("part") == "player" for i in p["id"].split(",")}
+    # only short (<=180s) *watched* videos: the 30s ad and the 3m30s song are skipped
+    assert asked == {"unavail0001"}
+    assert r.shapes == 1
+    assert conn.execute("SELECT embed_w FROM videos WHERE video_id='unavail0001'").fetchone()[0] == 563
+    # second run asks for nothing
+    api2 = FakeApi(KNOWN)
+    Enricher(conn, "test-key", fetch=api2).run()
+    assert api2.calls == []
+
+
+def test_migration_adds_columns():
+    import sqlite3
+    c = sqlite3.connect(":memory:")
+    # a v2 database: same schema, minus the columns added later
+    old = db.SCHEMA.replace("    like_count     INTEGER,", "    like_count     INTEGER")
+    old = "\n".join(line for line in old.splitlines() if "embed_" not in line)
+    c.executescript(old)
+    assert "embed_w" not in {r[1] for r in c.execute("PRAGMA table_info(videos)")}
+    db.init_db(c)
+    cols = {r[1] for r in c.execute("PRAGMA table_info(videos)")}
+    assert {"embed_w", "embed_h"} <= cols
