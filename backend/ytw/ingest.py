@@ -1,0 +1,39 @@
+"""Load parsed Takeout data into SQLite. Safe to rerun: rows are deduplicated."""
+from __future__ import annotations
+
+import sqlite3
+from dataclasses import fields
+from operator import attrgetter
+from datetime import datetime, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from . import db
+from .parser import Entry, parse_watch_history
+
+_ENTRY_COLS = [f.name for f in fields(Entry)]
+_entry_row = attrgetter(*_ENTRY_COLS)
+
+
+def insert_entries(conn: sqlite3.Connection, entries: list[Entry]) -> int:
+    """Insert entries, skipping ones already present. Returns number of new rows."""
+    before = conn.total_changes
+    conn.executemany(
+        f"INSERT OR IGNORE INTO entries ({', '.join(_ENTRY_COLS)}) "
+        f"VALUES ({', '.join('?' * len(_ENTRY_COLS))})",
+        map(_entry_row, entries),
+    )
+    return conn.total_changes - before
+
+
+def ingest_watch_history(conn: sqlite3.Connection, path: Path, tz: ZoneInfo) -> dict:
+    entries = parse_watch_history(path.read_bytes(), tz)
+    added = insert_entries(conn, entries)
+    db.set_meta(conn, "watch_history_ingested_at", datetime.now(timezone.utc).isoformat())
+    db.set_meta(conn, "timezone", str(tz))
+    conn.commit()
+    return {"parsed": len(entries), "added": added}
+
+
+def kind_counts(conn: sqlite3.Connection) -> dict[str, int]:
+    return dict(conn.execute("SELECT kind, COUNT(*) FROM entries GROUP BY kind ORDER BY 2 DESC").fetchall())
