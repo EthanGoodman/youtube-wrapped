@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ytw import db  # noqa: E402
 from ytw.config import force_utf8_stdout, load_config  # noqa: E402
-from ytw.ingest import ingest_watch_history, kind_counts  # noqa: E402
+from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
 
 
 def cmd_ingest(args, cfg) -> None:
@@ -32,6 +32,14 @@ def cmd_ingest(args, cfg) -> None:
     print(f"Watch history: parsed {res['parsed']:,}, added {res['added']:,} new "
           f"({time.perf_counter() - t:.1f}s)")
 
+    search = Path(args.search) if args.search else cfg.data_dir / "search-history.json"
+    if search.exists():
+        res = ingest_search_history(conn, search, cfg.tz)
+        print(f"Search history: parsed {res['parsed']:,} ({res['searches']:,} real searches), "
+              f"added {res['added']:,} new")
+    else:
+        print("Search history: not found (optional)")
+
     print("\nEntries by type:")
     for kind, n in kind_counts(conn).items():
         print(f"  {kind:<15}{n:>10,}")
@@ -46,6 +54,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("ingest", help="Load Takeout JSON into the database")
     p.add_argument("--watch", help="path to watch-history.json (default: data/)")
+    p.add_argument("--search", help="path to search-history.json (default: data/)")
     p.set_defaults(func=cmd_ingest)
 
     args = ap.parse_args()

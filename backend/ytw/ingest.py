@@ -9,10 +9,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from . import db
-from .parser import Entry, parse_watch_history
+from .parser import Entry, Search, parse_search_history, parse_watch_history
 
 _ENTRY_COLS = [f.name for f in fields(Entry)]
 _entry_row = attrgetter(*_ENTRY_COLS)
+_SEARCH_COLS = [f.name for f in fields(Search)]
+_search_row = attrgetter(*_SEARCH_COLS)
 
 
 def insert_entries(conn: sqlite3.Connection, entries: list[Entry]) -> int:
@@ -33,6 +35,20 @@ def ingest_watch_history(conn: sqlite3.Connection, path: Path, tz: ZoneInfo) -> 
     db.set_meta(conn, "timezone", str(tz))
     conn.commit()
     return {"parsed": len(entries), "added": added}
+
+
+def ingest_search_history(conn: sqlite3.Connection, path: Path, tz: ZoneInfo) -> dict:
+    searches = parse_search_history(path.read_bytes(), tz)
+    before = conn.total_changes
+    conn.executemany(
+        f"INSERT OR IGNORE INTO searches ({', '.join(_SEARCH_COLS)}) "
+        f"VALUES ({', '.join('?' * len(_SEARCH_COLS))})",
+        map(_search_row, searches),
+    )
+    added = conn.total_changes - before
+    conn.commit()
+    return {"parsed": len(searches), "added": added,
+            "searches": sum(1 for s in searches if s.kind == "search")}
 
 
 def kind_counts(conn: sqlite3.Connection) -> dict[str, int]:

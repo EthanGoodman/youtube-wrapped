@@ -186,3 +186,42 @@ def parse_watch_history(raw: bytes | list, tz: ZoneInfo) -> list[Entry]:
 
 def load_watch_history(path: Path, tz: ZoneInfo) -> list[Entry]:
     return parse_watch_history(path.read_bytes(), tz)
+
+
+# ---------------------------------------------------------------- search history
+
+@dataclass(slots=True)
+class Search:
+    kind: str              # "search" for real searches; "ad" / "other" for the ad noise in the file
+    time_utc: str
+    epoch: float
+    local_iso: str
+    local_date: str
+    local_hour: int
+    local_dow: int
+    query: str | None
+    url: str | None
+    dedupe_key: str
+
+
+def parse_search_entry(e: dict, tz: ZoneInfo) -> Search:
+    title = e.get("title") or ""
+    url = e.get("titleUrl")
+    if _is_ad(e) or title.startswith(("Visited ", "Answered survey question")):
+        kind, query = "ad", None
+    elif title.startswith("Searched for "):
+        kind, query = "search", clean_text(title[len("Searched for "):])
+    else:
+        kind, query = "other", None
+    dt = datetime.fromisoformat(e["time"].replace("Z", "+00:00"))
+    local = dt.astimezone(tz)
+    return Search(kind=kind, time_utc=e["time"], epoch=dt.timestamp(), local_iso=local.isoformat(),
+                  local_date=local.strftime("%Y-%m-%d"), local_hour=local.hour, local_dow=local.weekday(),
+                  query=query, url=url, dedupe_key=f"{e['time']}|{url or title}")
+
+
+def parse_search_history(raw: bytes | list, tz: ZoneInfo) -> list[Search]:
+    data = orjson.loads(raw) if isinstance(raw, (bytes, str)) else raw
+    out = [parse_search_entry(e, tz) for e in data if e.get("time")]
+    out.sort(key=lambda s: s.epoch)
+    return out
