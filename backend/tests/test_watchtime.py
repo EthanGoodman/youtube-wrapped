@@ -161,3 +161,9 @@ def test_build_writes_local_fields():
     # corrected start 03:30Z on Mar 10 = 22:30 EST on Mar 9
     assert (r["local_date"], r["local_hour"], r["month"], r["year"]) == ("2024-03-09", 22, "2024-03", 2024)
     assert r["delayed_fix"] == 1 and r["is_background"] == 1
+
+
+def test_clean_tags():
+    from ytw.lookups import clean_tags
+    tags = ["FIFA 19", "fifa 19", " #Ultimate  Team ", "W2S", "w2s", "2019", "a", "video", "pack opening"]
+    assert clean_tags(tags, "W2S", frozenset({"video"})) == ["fifa 19", "ultimate team", "pack opening"]

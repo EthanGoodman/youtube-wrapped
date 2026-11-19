@@ -17,6 +17,7 @@ from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts 
 from ytw import enrich  # noqa: E402
 from ytw.investigate import report as delay_report  # noqa: E402
 from ytw.preroll import link_prerolls  # noqa: E402
+from ytw.lookups import build_lookups  # noqa: E402
 from ytw.watchtime import WatchConfig, build_watches  # noqa: E402
 
 
@@ -108,7 +109,10 @@ def rebuild(conn, cfg) -> None:
     """Recompute derived tables (watch time, sessions, rollups)."""
     t = time.perf_counter()
     n = build_watches(conn, WatchConfig.from_config(cfg), cfg.tz)
-    print(f"Built {n:,} watches ({time.perf_counter() - t:.1f}s)")
+    tg = cfg.section("tags")
+    nt, ng = build_lookups(conn, frozenset(tg.get("stopwords", [])), tg.get("min_videos", 2))
+    conn.execute("ANALYZE")
+    print(f"Built {n:,} watches, {nt:,} genre and {ng:,} tag links ({time.perf_counter() - t:.1f}s)")
 
 
 def cmd_build(args, cfg) -> None:

@@ -39,6 +39,13 @@ preroll_window_seconds = 60     # an ad this close before a video is treated as 
 max_duration_seconds = 180
 title_hints = ["#shorts", "#short"]
 
+[tags]
+min_videos = 2  # ignore tags used on only one watched video
+# Tags dropped from "top tags" (the channel's own name is always dropped)
+stopwords = ["video", "videos", "youtube", "youtuber", "new", "funny", "vlog", "best", "viral",
+             "trending", "shorts", "short", "fyp", "foryou", "for you", "subscribe", "2019", "2020",
+             "2021", "2022", "2023", "2024", "2025", "2026"]
+
 [background]
 # Sleep/background audio (can be excluded from watch time): at least min_duration long (or live)
 # AND a keyword in the title/tags, OR a listed channel, OR a delayed (6h) log.

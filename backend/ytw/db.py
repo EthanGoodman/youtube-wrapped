@@ -131,11 +131,19 @@ CREATE TABLE IF NOT EXISTS watches (
     delayed_fix   INTEGER NOT NULL,  -- 1 if start was moved back to its pre-roll ad
     category_id   TEXT
 );
-CREATE INDEX IF NOT EXISTS ix_watches_date    ON watches(local_date);
+-- covering index: date-range stats read everything they need from it
+CREATE INDEX IF NOT EXISTS ix_watches_date    ON watches(local_date, is_background, bucket, est_s, max_s,
+                                                         channel_id, video_id, category_id);
 CREATE INDEX IF NOT EXISTS ix_watches_epoch   ON watches(start_epoch);
 CREATE INDEX IF NOT EXISTS ix_watches_channel ON watches(channel_id, local_date);
 CREATE INDEX IF NOT EXISTS ix_watches_video   ON watches(video_id);
 CREATE INDEX IF NOT EXISTS ix_watches_session ON watches(session_id);
+
+-- Derived lookups (rebuilt by `build`)
+CREATE TABLE IF NOT EXISTS video_topics (video_id TEXT NOT NULL, topic TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_video_topics ON video_topics(video_id, topic);
+CREATE TABLE IF NOT EXISTS video_tags (video_id TEXT NOT NULL, tag TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_video_tags ON video_tags(video_id, tag);
 
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
