@@ -1,0 +1,26 @@
+# YouTube Wrapped configuration. Edit freely; rerun `python backend/cli.py ingest` after changes.
+
+[general]
+timezone = "America/New_York"
+data_dir = "data"
+db_file = "data/wrapped.db"
+
+[watchtime]
+session_gap_minutes = 30        # a gap longer than this ends a session
+max_seconds_per_video = 10800   # 3h cap on any single video's estimate
+last_in_session_cap_seconds = 1800  # cap for the last video of a session when duration is unknown
+unknown_duration_fallback_seconds = 600  # used before enrichment / for unavailable videos
+
+[ads]
+preroll_window_seconds = 60     # an ad this close before a video is treated as its pre-roll
+
+[shorts]
+max_duration_seconds = 180
+title_hints = ["#shorts", "#short"]
+
+[background]
+# Videos treated as sleep/background audio (can be excluded from watch time)
+min_duration_seconds = 3600
+keywords = ["sleep", "rain", "thunder", "white noise", "brown noise", "black screen",
+            "ambience", "ambient", "relaxing", "lofi", "lo-fi", "asmr", "fan noise", "10 hours"]
+channels = []  # channel IDs or exact names to always treat as background
