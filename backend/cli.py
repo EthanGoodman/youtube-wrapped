@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ytw import db  # noqa: E402
 from ytw.config import force_utf8_stdout, load_config  # noqa: E402
 from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
+from ytw import enrich  # noqa: E402
 from ytw.investigate import report as delay_report  # noqa: E402
 from ytw.preroll import link_prerolls  # noqa: E402
 
@@ -58,6 +59,46 @@ def cmd_investigate_delay(args, cfg) -> None:
     print(delay_report(conn, cfg.section("background").get("keywords", []), args.min_gap_hours))
 
 
+def cmd_enrich(args, cfg) -> None:
+    conn = db.connect(cfg.db_path)
+    db.init_db(conn)
+    if not conn.execute("SELECT 1 FROM entries LIMIT 1").fetchone():
+        sys.exit("No data yet. Run `python backend/cli.py ingest` first.")
+    if not cfg.api_key:
+        print("No YOUTUBE_API_KEY in .env, skipping enrichment. The app still works with "
+              "reduced stats (no durations, categories, genres or thumbnails).")
+        return
+    from tqdm import tqdm
+
+    api = cfg.section("api")
+    budget = args.budget or api.get("daily_budget_units", 9500)
+    used = enrich.units_used_today(conn)
+    print(f"Quota used today (Pacific day {enrich.quota_day()}): {used:,} / budget {budget:,}")
+    e = enrich.Enricher(
+        conn, cfg.api_key, budget=budget, batch_size=api.get("batch_size", 50),
+        progress=lambda total, desc: tqdm(total=total, desc=f"{desc:<8}", unit="id", ncols=90))
+    try:
+        r = e.run(include_ads=api.get("fetch_ad_videos", True) and not args.skip_ads,
+                  retry_missing=args.retry_missing)
+    except enrich.ApiKeyError as err:
+        sys.exit(f"The API rejected your key: {err}\nCheck YOUTUBE_API_KEY in .env and that "
+                 "'YouTube Data API v3' is enabled for the key's project.")
+    except enrich.ApiError as err:
+        sys.exit(f"API error: {err}\nProgress so far is saved; rerun to continue.")
+
+    print(f"\nThis run: {r.units:,} units. Videos found {r.videos_ok:,}, missing {r.videos_missing:,}. "
+          f"Channels found {r.channels_ok:,}, missing {r.channels_missing:,}."
+          + (f" Categories: {r.categories}." if r.categories else ""))
+    if r.stopped:
+        print(f"Stopped early ({r.stopped}). {r.videos_left:,} videos and {r.channels_left:,} channels "
+              "left; rerun after the quota resets (midnight Pacific) to continue.")
+    c = enrich.coverage(conn)
+    pct = 100 * c["watched_ok"] / max(1, c["watched_ids"])
+    print(f"Coverage: {c['watched_ok']:,} of {c['watched_ids']:,} watched video IDs enriched ({pct:.1f}%); "
+          f"{c['unavailable_recovered']:,} 'unavailable' videos recovered; "
+          f"{c['channels_ok']:,} channels. Quota used today: {c['units_today']:,}.")
+
+
 def main() -> None:
     force_utf8_stdout()
     ap = argparse.ArgumentParser(prog="ytw")
@@ -66,6 +107,12 @@ def main() -> None:
     p.add_argument("--watch", help="path to watch-history.json (default: data/)")
     p.add_argument("--search", help="path to search-history.json (default: data/)")
     p.set_defaults(func=cmd_ingest)
+
+    p = sub.add_parser("enrich", help="Fetch video/channel details from the YouTube Data API")
+    p.add_argument("--retry-missing", action="store_true", help="refetch IDs the API didn't return before")
+    p.add_argument("--skip-ads", action="store_true", help="don't look up ad videos")
+    p.add_argument("--budget", type=int, help="max quota units to use today")
+    p.set_defaults(func=cmd_enrich)
 
     p = sub.add_parser("investigate-delay", help="Report on videos logged hours after their pre-roll ad")
     p.add_argument("--min-gap-hours", type=float, default=1.0)
