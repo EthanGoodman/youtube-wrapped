@@ -17,6 +17,7 @@ from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts 
 from ytw import enrich  # noqa: E402
 from ytw.investigate import report as delay_report  # noqa: E402
 from ytw.preroll import link_prerolls  # noqa: E402
+from ytw.watchtime import WatchConfig, build_watches  # noqa: E402
 
 
 def cmd_ingest(args, cfg) -> None:
@@ -51,6 +52,7 @@ def cmd_ingest(args, cfg) -> None:
         print(f"  {kind:<15}{n:>10,}")
     row = conn.execute("SELECT MIN(local_iso), MAX(local_iso) FROM entries").fetchone()
     print(f"\nRange: {row[0]}  ->  {row[1]}")
+    rebuild(conn, cfg)
     conn.close()
 
 
@@ -99,6 +101,26 @@ def cmd_enrich(args, cfg) -> None:
     print(f"Coverage: {c['watched_ok']:,} of {c['watched_ids']:,} watched video IDs enriched ({pct:.1f}%); "
           f"{c['unavailable_recovered']:,} 'unavailable' videos recovered; "
           f"{c['channels_ok']:,} channels. Quota used today: {c['units_today']:,}.")
+    rebuild(conn, cfg)
+
+
+def rebuild(conn, cfg) -> None:
+    """Recompute derived tables (watch time, sessions, rollups)."""
+    t = time.perf_counter()
+    n = build_watches(conn, WatchConfig.from_config(cfg), cfg.tz)
+    print(f"Built {n:,} watches ({time.perf_counter() - t:.1f}s)")
+
+
+def cmd_build(args, cfg) -> None:
+    conn = db.connect(cfg.db_path)
+    db.init_db(conn)
+    rebuild(conn, cfg)
+    r = conn.execute(
+        "SELECT COUNT(*), SUM(est_s)/3600.0, SUM(max_s)/3600.0, COUNT(DISTINCT session_id), "
+        "SUM(delayed_fix), SUM(is_background), SUM(bucket='short'), SUM(bucket='music') FROM watches").fetchone()
+    print(f"  estimated watch time: {r[1]:,.0f} h (max possible {r[2]:,.0f} h)")
+    print(f"  sessions: {r[3]:,}  delayed logs fixed: {r[4]:,}  background: {r[5]:,}  "
+          f"Shorts: {r[6]:,}  music: {r[7]:,}")
 
 
 def main() -> None:
@@ -115,6 +137,9 @@ def main() -> None:
     p.add_argument("--skip-ads", action="store_true", help="don't look up ad videos")
     p.add_argument("--budget", type=int, help="max quota units to use today")
     p.set_defaults(func=cmd_enrich)
+
+    p = sub.add_parser("build", help="Recompute watch time, sessions and rollups (after editing config)")
+    p.set_defaults(func=cmd_build)
 
     p = sub.add_parser("investigate-delay", help="Report on videos logged hours after their pre-roll ad")
     p.add_argument("--min-gap-hours", type=float, default=1.0)

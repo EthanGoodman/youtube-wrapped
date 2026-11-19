@@ -10,21 +10,38 @@ daily_budget_units = 9500   # stop before Google's default 10,000/day quota
 batch_size = 50             # max IDs per videos.list / channels.list call
 fetch_ad_videos = true      # also look up ad video IDs (identifies advertisers)
 
+# Watch time is ESTIMATED: Takeout only records when a video started.
+#   estimate = min(duration, gap until next video)      while in a session
+#   estimate = min(duration, max_seconds_per_video)      for the last video of a session
+#   unknown duration (deleted video, live, no API key): min(gap, unknown_duration_fallback_seconds)
+# Rerun `python backend/cli.py build` after changing anything here.
 [watchtime]
 session_gap_minutes = 30        # a gap longer than this ends a session
 max_seconds_per_video = 10800   # 3h cap on any single video's estimate
-last_in_session_cap_seconds = 1800  # cap for the last video of a session when duration is unknown
-unknown_duration_fallback_seconds = 600  # used before enrichment / for unavailable videos
+unknown_duration_fallback_seconds = 600
+max_possible_cap_seconds = 43200  # "max possible" counts at most 12h per watch (archived 24/7 streams report years)
+
+# Long/live videos are sometimes logged ~6h after they actually started (found in this data,
+# Dec 2024 onward). If the nearest earlier ad (with no video between) is offset +/- tolerance
+# before the video, and the video is long, live or of unknown length, the ad's time is used.
+[delayed_log]
+enabled = true
+offset_seconds = 21600
+tolerance_seconds = 120
+min_duration_seconds = 18000
 
 [ads]
 preroll_window_seconds = 60     # an ad this close before a video is treated as its pre-roll
 
+# Shorts (approximate): duration <= max AND a vertical/square player. When the shape is
+# unknown, a title hint or duration <= 60s is used instead.
 [shorts]
 max_duration_seconds = 180
 title_hints = ["#shorts", "#short"]
 
 [background]
-# Videos treated as sleep/background audio (can be excluded from watch time)
+# Sleep/background audio (can be excluded from watch time): at least min_duration long (or live)
+# AND a keyword in the title/tags, OR a listed channel, OR a delayed (6h) log.
 min_duration_seconds = 3600
 keywords = ["sleep", "rain", "thunder", "white noise", "brown noise", "black screen",
             "ambience", "ambient", "relaxing", "lofi", "lo-fi", "asmr", "fan noise", "10 hours"]

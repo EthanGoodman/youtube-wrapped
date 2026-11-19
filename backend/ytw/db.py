@@ -104,6 +104,39 @@ CREATE TABLE IF NOT EXISTS api_calls (
 );
 CREATE INDEX IF NOT EXISTS ix_api_calls_day ON api_calls(quota_day);
 
+-- Derived: one row per real watch (video / unavailable / music). Rebuilt by `build`.
+CREATE TABLE IF NOT EXISTS watches (
+    entry_id      INTEGER PRIMARY KEY REFERENCES entries(id),
+    kind          TEXT NOT NULL,
+    video_id      TEXT,
+    channel_id    TEXT,
+    start_epoch   REAL NOT NULL,     -- corrected start (see delayed_fix)
+    local_iso     TEXT NOT NULL,
+    local_date    TEXT NOT NULL,
+    year          INTEGER NOT NULL,
+    month         TEXT NOT NULL,     -- YYYY-MM
+    local_hour    INTEGER NOT NULL,
+    local_minute  INTEGER NOT NULL,
+    local_dow     INTEGER NOT NULL,
+    duration_s    INTEGER,           -- NULL when unknown (deleted, live, not enriched)
+    est_s         INTEGER NOT NULL,  -- estimated seconds watched
+    max_s         INTEGER,           -- "max possible": full duration, capped (archived 24/7 streams)
+    est_method    TEXT NOT NULL,     -- gap | full | cap | fallback
+    gap_next_s    REAL,
+    session_id    INTEGER NOT NULL,
+    bucket        TEXT NOT NULL,     -- long | short | music
+    short_basis   TEXT,              -- shape | hint | duration (how a Short was detected)
+    is_background INTEGER NOT NULL,
+    is_live       INTEGER NOT NULL,
+    delayed_fix   INTEGER NOT NULL,  -- 1 if start was moved back to its pre-roll ad
+    category_id   TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_watches_date    ON watches(local_date);
+CREATE INDEX IF NOT EXISTS ix_watches_epoch   ON watches(start_epoch);
+CREATE INDEX IF NOT EXISTS ix_watches_channel ON watches(channel_id, local_date);
+CREATE INDEX IF NOT EXISTS ix_watches_video   ON watches(video_id);
+CREATE INDEX IF NOT EXISTS ix_watches_session ON watches(session_id);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT
@@ -122,7 +155,8 @@ def connect(path: Path) -> sqlite3.Connection:
 
 
 # Columns added after a table was first created: (table, column, type)
-_ADDED_COLUMNS = [("videos", "embed_w", "INTEGER"), ("videos", "embed_h", "INTEGER")]
+_ADDED_COLUMNS = [("videos", "embed_w", "INTEGER"), ("videos", "embed_h", "INTEGER"),
+                  ("watches", "max_s", "INTEGER")]
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
