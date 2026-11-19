@@ -14,6 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ytw import db  # noqa: E402
 from ytw.config import force_utf8_stdout, load_config  # noqa: E402
 from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
+from ytw.investigate import report as delay_report  # noqa: E402
+from ytw.preroll import link_prerolls  # noqa: E402
 
 
 def cmd_ingest(args, cfg) -> None:
@@ -32,6 +34,9 @@ def cmd_ingest(args, cfg) -> None:
     print(f"Watch history: parsed {res['parsed']:,}, added {res['added']:,} new "
           f"({time.perf_counter() - t:.1f}s)")
 
+    n = link_prerolls(conn, cfg.section("ads").get("preroll_window_seconds", 60))
+    print(f"Pre-roll ads linked to a video: {n:,}")
+
     search = Path(args.search) if args.search else cfg.data_dir / "search-history.json"
     if search.exists():
         res = ingest_search_history(conn, search, cfg.tz)
@@ -48,6 +53,11 @@ def cmd_ingest(args, cfg) -> None:
     conn.close()
 
 
+def cmd_investigate_delay(args, cfg) -> None:
+    conn = db.connect(cfg.db_path)
+    print(delay_report(conn, cfg.section("background").get("keywords", []), args.min_gap_hours))
+
+
 def main() -> None:
     force_utf8_stdout()
     ap = argparse.ArgumentParser(prog="ytw")
@@ -56,6 +66,10 @@ def main() -> None:
     p.add_argument("--watch", help="path to watch-history.json (default: data/)")
     p.add_argument("--search", help="path to search-history.json (default: data/)")
     p.set_defaults(func=cmd_ingest)
+
+    p = sub.add_parser("investigate-delay", help="Report on videos logged hours after their pre-roll ad")
+    p.add_argument("--min-gap-hours", type=float, default=1.0)
+    p.set_defaults(func=cmd_investigate_delay)
 
     args = ap.parse_args()
     args.func(args, load_config())
