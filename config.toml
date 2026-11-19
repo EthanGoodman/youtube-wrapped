@@ -5,6 +5,11 @@ timezone = "America/New_York"
 data_dir = "data"
 db_file = "data/wrapped.db"
 
+[api]
+daily_budget_units = 9500   # stop before Google's default 10,000/day quota
+batch_size = 50             # max IDs per videos.list / channels.list call
+fetch_ad_videos = true      # also look up ad video IDs (identifies advertisers)
+
 [watchtime]
 session_gap_minutes = 30        # a gap longer than this ends a session
 max_seconds_per_video = 10800   # 3h cap on any single video's estimate

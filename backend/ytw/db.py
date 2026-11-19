@@ -4,7 +4,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
@@ -47,6 +47,60 @@ CREATE TABLE IF NOT EXISTS searches (
     url           TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_searches_epoch ON searches(epoch);
+
+-- YouTube Data API cache. status: 'ok' or 'missing' (API returned nothing: deleted/private)
+CREATE TABLE IF NOT EXISTS videos (
+    video_id       TEXT PRIMARY KEY,
+    status         TEXT NOT NULL,
+    fetched_at     TEXT NOT NULL,
+    title          TEXT,
+    channel_id     TEXT,
+    channel_title  TEXT,
+    published_at   TEXT,
+    duration_raw   TEXT,             -- ISO 8601 as returned (P0D for ongoing live streams)
+    duration_s     INTEGER,          -- NULL when unknown
+    live           TEXT,             -- snippet.liveBroadcastContent: none | live | upcoming
+    was_live       INTEGER,          -- 1 if it has liveStreamingDetails (a past or current stream)
+    category_id    TEXT,
+    tags           TEXT,             -- JSON list
+    topics         TEXT,             -- JSON list of topic names (from topicDetails)
+    thumb_small    TEXT,
+    thumb_large    TEXT,
+    view_count     INTEGER,
+    like_count     INTEGER
+);
+CREATE INDEX IF NOT EXISTS ix_videos_channel ON videos(channel_id);
+
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id        TEXT PRIMARY KEY,
+    status            TEXT NOT NULL,
+    fetched_at        TEXT NOT NULL,
+    title             TEXT,
+    handle            TEXT,
+    avatar_url        TEXT,
+    subscriber_count  INTEGER,       -- NULL if hidden
+    video_count       INTEGER,
+    view_count        INTEGER,
+    country           TEXT,
+    created_at        TEXT,
+    topics            TEXT           -- JSON list
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+    category_id  TEXT PRIMARY KEY,
+    title        TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS api_calls (
+    id          INTEGER PRIMARY KEY,
+    called_at   TEXT NOT NULL,       -- UTC ISO
+    quota_day   TEXT NOT NULL,       -- Pacific date; Google resets quota at midnight PT
+    endpoint    TEXT NOT NULL,
+    units       INTEGER NOT NULL,
+    n_ids       INTEGER,
+    status      TEXT NOT NULL        -- ok | error:<reason>
+);
+CREATE INDEX IF NOT EXISTS ix_api_calls_day ON api_calls(quota_day);
 
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
