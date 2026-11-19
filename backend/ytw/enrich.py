@@ -235,8 +235,8 @@ class Enricher:
         return data
 
     def _run_batches(self, ids: list[str], endpoint: str, part: str, cols: str, row_fn,
-                     table: str, key_col: str, desc: str) -> tuple[int, int]:
-        ok = missing = 0
+                     table: str, key_col: str, desc: str) -> None:
+        """Fetch ids in batches; counts go to self.res.<desc>_ok / <desc>_missing as we go."""
         bar = self.progress(len(ids), desc) if self.progress else None
         try:
             for i in range(0, len(ids), self.batch):
@@ -253,14 +253,13 @@ class Enricher:
                     f"INSERT OR REPLACE INTO {table} ({key_col}, status, fetched_at) VALUES (?, 'missing', ?)",
                     ((g, now) for g in gone))
                 self.conn.commit()
-                ok += len(rows)
-                missing += len(gone)
+                setattr(self.res, f"{desc}_ok", getattr(self.res, f"{desc}_ok") + len(rows))
+                setattr(self.res, f"{desc}_missing", getattr(self.res, f"{desc}_missing") + len(gone))
                 if bar:
                     bar.update(len(chunk))
         finally:
             if bar:
                 bar.close()
-        return ok, missing
 
     def fetch_categories(self) -> None:
         if self.conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]:
@@ -276,11 +275,11 @@ class Enricher:
         try:
             self.fetch_categories()
             vids = pending_video_ids(self.conn, include_ads, retry_missing)
-            r.videos_ok, r.videos_missing = self._run_batches(
+            self._run_batches(
                 vids, "videos", "snippet,contentDetails,statistics,topicDetails,liveStreamingDetails",
                 VIDEO_COLS, video_row, "videos", "video_id", "videos")
             chans = pending_channel_ids(self.conn, retry_missing)
-            r.channels_ok, r.channels_missing = self._run_batches(
+            self._run_batches(
                 chans, "channels", "snippet,statistics,topicDetails",
                 CHANNEL_COLS, channel_row, "channels", "channel_id", "channels")
         except QuotaExceeded as e:

@@ -134,6 +134,7 @@ def test_resume_after_quota(conn):
     api = FakeApi(KNOWN, quota_after=2)
     r = Enricher(conn, "test-key", fetch=api, batch_size=2).run()
     assert r.stopped and r.stopped.startswith("quota")
+    assert r.videos_ok == 2  # counts survive an early stop
     done_first = conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
     assert done_first == 2
     assert r.videos_left == 8
