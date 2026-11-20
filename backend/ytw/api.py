@@ -285,6 +285,8 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             file = static_dir / path
             if path and file.is_file() and static_dir in file.resolve().parents:
                 return FileResponse(file)
-            return FileResponse(static_dir / "index.html")
+            # always recheck the page so a rebuilt frontend shows up on a normal refresh
+            # (the hashed files under /assets it points to can be cached forever)
+            return FileResponse(static_dir / "index.html", headers={"Cache-Control": "no-cache"})
 
     return app

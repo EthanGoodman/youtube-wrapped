@@ -81,6 +81,7 @@ def test_errors(client, path, code):
 
 def test_spa_fallback(client):
     assert client.get("/channel/UCa").text == "<html>app</html>"
+    assert client.get("/channel/UCa").headers["cache-control"] == "no-cache"
     assert client.get("/api/unknown").status_code == 404
 
 
