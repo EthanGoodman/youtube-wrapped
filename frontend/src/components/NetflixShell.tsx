@@ -62,11 +62,13 @@ function isActive(n: NavItem, pathname: string) {
   return n.end ? rest === "/" : rest.startsWith(n.to);
 }
 
-export function NetflixShell({ children, showRange = true }: { children: ReactNode; showRange?: boolean }) {
+export function NetflixShell({ children, showRange: rangeWanted = true }: { children: ReactNode; showRange?: boolean }) {
   const scrolled = useScrolled();
   const meta = useMeta();
   const q = useLinkQuery();
   const { pathname } = useLocation();
+  // a show's page always covers your whole history, so the period picker would do nothing there
+  const showRange = rangeWanted && !/\/channel\//.test(pathname);
   const [sheet, setSheet] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => { setSheet(false); setSearchOpen(false); }, [pathname]);

@@ -17,7 +17,8 @@ from .tops import _VIDEO_INFO, _attach
 UNKNOWN = "show:unknown-show"  # episodes Netflix listed without a show name (see parser.UNKNOWN_SHOW)
 WATCHING_DAYS = 30      # a show watched within this many days of the period's end is "watching", not "dropped"
 MIN_BINGE_EPISODES = 3  # shorter seasons don't count as binges
-REWATCH_GAP_DAYS = 7    # two viewings this far apart are a rewatch (not finishing an episode the next day)
+REWATCH_GAP_DAYS = 7
+BINGE_MAX_DAYS = 30     # a show page's "seasons binged" only counts seasons finished within this many days    # two viewings this far apart are a rewatch (not finishing an episode the next day)
 
 
 def _has_table(conn: sqlite3.Connection, name: str) -> bool:
@@ -276,4 +277,95 @@ def home(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
         "movies": [{**mcards[m["key"]], "count": m["count"], "time_s": m["time_s"], "rank": m["rank"]}
                    for m in movies if m["key"] in mcards],
         "new": [x for d in new if (x := show(d["channel_id"], first_watched=d["first_watched"], count=d["count"]))],
+    }
+
+
+# ------------------------------------------------------------------ one show's page
+
+def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | None = None) -> dict | None:
+    """Everything about one show across your whole history: header details, progress, an episode
+    checklist by season (TMDB's list, marked with what you watched and when), your pace, and your
+    other shows in the same genres."""
+    card = _show_cards(conn, [key]).get(key)
+    if not card:
+        return None
+    asof = data_bounds(conn)[1] if data_bounds(conn) else (today or date.today())
+    everything = Range(date(1900, 1, 1), asof, "All time")
+    prog = next((s for s in progress(conn, everything, f, 1000)["shows"] if s["key"] == key), None)
+
+    # what you watched, per episode: first and last day, how many times
+    watched: dict[str, dict] = {}
+    for item, s, n, label, title, first, last, times, t in conn.execute(
+            f"""SELECT w.video_id, json_extract(i.extra, '$.season_number'), json_extract(i.extra, '$.episode_number'),
+                       json_extract(i.extra, '$.season'), i.title, MIN(w.local_date), MAX(w.local_date), COUNT(*), SUM({time_expr(f)})
+                FROM watches w LEFT JOIN items i ON i.item_id = w.video_id
+                WHERE w.channel_id = ? AND w.kind = 'episode' GROUP BY w.video_id""", (key,)):
+        watched[item] = {"season": s, "number": n, "label": label, "title": title, "first": first, "last": last,
+                         "times": times, "time_s": t or 0}
+    by_num = {(int(v["season"]), int(v["number"])): v for v in watched.values() if v["season"] is not None and v["number"] is not None}
+
+    tmdb_id = conn.execute("SELECT json_extract(extra, '$.tmdb_id') FROM creators WHERE creator_id = ?", (key,)).fetchone()[0]
+    seasons: list[dict] = []
+    matched: set[tuple[int, int]] = set()
+    if tmdb_id and _has_table(conn, "tmdb_episodes"):
+        by_season: dict[int, list[dict]] = defaultdict(list)
+        for s, n, name, runtime, still, air in conn.execute(
+                "SELECT season, number, name, runtime_min, still_path, air_date FROM tmdb_episodes "
+                "WHERE show_id = ? AND season > 0 ORDER BY season, number", (int(tmdb_id),)):
+            w = by_num.get((s, n))
+            if w:
+                matched.add((s, n))
+            aired = not air or air <= asof.isoformat()
+            by_season[s].append({
+                "number": n, "name": name, "runtime_min": runtime, "air_date": air or None, "aired": aired,
+                "still": f"https://image.tmdb.org/t/p/w300{still}" if still else None,
+                "watched": bool(w), "first": w["first"] if w else None, "times": w["times"] if w else 0,
+            })
+        for s, eps in by_season.items():
+            aired = [e for e in eps if e["aired"]]
+            seasons.append({"season": s, "episodes": eps, "aired": len(aired), "watched": sum(e["watched"] for e in aired)})
+    # episodes TMDB's numbering can't place (e.g. One Piece's arcs): listed under Netflix's own season name
+    other = sorted(({"title": v["title"], "season": v["label"], "first": v["first"], "times": v["times"]}
+                    for v in watched.values()
+                    if v["season"] is None or v["number"] is None or (int(v["season"]), int(v["number"])) not in matched),
+                   key=lambda e: e["first"])
+
+    # pace
+    days = [r_[0] for r_ in conn.execute(
+        "SELECT local_date FROM watches WHERE channel_id = ? AND kind = 'episode' GROUP BY local_date ORDER BY 1", (key,))]
+    top_day = conn.execute(
+        "SELECT local_date, COUNT(DISTINCT video_id) n FROM watches WHERE channel_id = ? AND kind = 'episode' "
+        "GROUP BY local_date ORDER BY n DESC, local_date LIMIT 1", (key,)).fetchone()
+    # a season finished over years (started, then picked up again later) isn't a binge
+    fastest = [b for b in binges(conn, everything, f, 500) if b["key"] == key and b["days"] <= BINGE_MAX_DAYS]
+    pace = {
+        "days": len(days), "first": days[0] if days else None, "last": days[-1] if days else None,
+        "per_day": (len(watched) / len(days)) if days else 0,
+        "best_day": {"date": top_day[0], "episodes": top_day[1]} if top_day else None,
+        "fastest_season": min(fastest, key=lambda b: (b["days"], -b["episodes"])) if fastest else None,
+        "seasons_binged": sorted(fastest, key=lambda b: b["season"]),
+    }
+
+    # your other shows sharing its genres (most shared genres first, then most watched)
+    mine = set(card["genres"])
+    similar = []
+    if mine:
+        others = {k: c for k, c in _show_cards(conn, [r_[0] for r_ in conn.execute(
+            "SELECT DISTINCT channel_id FROM watches WHERE channel_id IS NOT NULL AND channel_id NOT IN (?, ?)",
+            (key, UNKNOWN))]).items()}
+        counts = dict(conn.execute("SELECT channel_id, COUNT(*) FROM watches WHERE channel_id IS NOT NULL GROUP BY 1").fetchall())
+        scored = [(len(mine & set(c["genres"])), counts.get(k, 0), c) for k, c in others.items() if mine & set(c["genres"])]
+        scored.sort(key=lambda x: (-x[0], -x[1]))
+        similar = [{**c, "count": n, "shared": shared} for shared, n, c in scored[:10]]
+
+    return {
+        "show": card,
+        "progress": prog,
+        "seasons": seasons,
+        "other_episodes": other,
+        "pace": pace,
+        "similar": similar,
+        "time_s": sum(v["time_s"] for v in watched.values()),
+        "episodes_watched": len(watched),
+        "views": sum(v["times"] for v in watched.values()),
     }

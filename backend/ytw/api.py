@@ -261,6 +261,12 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         except ValueError as e:
             raise HTTPException(400, str(e)) from None
 
+    @app.get("/api/show/{key}")
+    def get_show(key: str, request: Request):
+        require(request, "series")
+        _, f = parse(request)
+        return _or_404(cached(request, lambda: shows.show_detail(conn(request), key, f, today())), "show")
+
     @app.get("/api/shows/{kind}")
     def get_shows(kind: str, request: Request):
         require(request, "series")

@@ -142,3 +142,17 @@ def test_home(tmp_path):
     assert h["new"] == []                                                     # whole history: everything is "new"
     march = shows.home(conn, resolve_range(conn, "custom", "2026-03-01", "2026-03-31"), f)
     assert [i["title"] for i in march["new"]] == ["Peaky Blinders"]
+
+
+def test_show_detail(tmp_path):
+    conn, _, f = _built(tmp_path)
+    d = shows.show_detail(conn, "show:peaky-blinders", f)
+    assert d["show"]["title"] == "Peaky Blinders" and d["episodes_watched"] == 7
+    s1, s2 = d["seasons"]
+    assert (s1["season"], s1["watched"], s1["aired"]) == (1, 6, 6) and (s2["watched"], s2["aired"]) == (1, 6)
+    assert s1["episodes"][0]["watched"] and s1["episodes"][0]["first"] == "2026-03-01"
+    assert not s2["episodes"][1]["watched"]
+    assert d["pace"]["best_day"] == {"date": "2026-03-02", "episodes": 4}
+    assert d["pace"]["fastest_season"]["season"] == 1 and d["pace"]["fastest_season"]["days"] == 2
+    assert [x["title"] for x in d["similar"]] == ["Money Heist"]          # FakeTmdb gives every show Drama + Crime
+    assert shows.show_detail(conn, "show:nope", f) is None
