@@ -79,6 +79,7 @@ export function Home() {
 }
 
 function OverviewTiles({ o }: { o: Overview }) {
+  const { filters } = useFilters();
   const t = bigDuration(o.est_s);
   return (
     <>
@@ -91,7 +92,8 @@ function OverviewTiles({ o }: { o: Overview }) {
         <StatTile label="Days you watched" value={pct(o.pct_days_active)}
                   delta={o.change.active_days} hint={`${num(o.active_days)} of ${num(o.days)} days`} />
       </div>
-      <SplitBar o={o} />
+      {/* the long-form / Shorts split only means something when both are shown */}
+      {filters.buckets.includes("long") && filters.buckets.includes("short") && <SplitBar o={o} />}
     </>
   );
 }
