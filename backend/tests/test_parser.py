@@ -74,7 +74,7 @@ def test_late_night_across_midnight(entries):
 
 def test_zero_width_and_escapes(entries):
     e = by_vid(entries, "videoBBBB01")
-    assert "​" not in e.title
+    assert "\u200b" not in e.title
     assert e.title == "Hello World ｜ It's fine & good"
     assert e.channel_name == "Chan Two"
 
@@ -130,8 +130,8 @@ def test_video_id_from_url():
 
 
 def test_clean_text():
-    assert clean_text("a​b c ") == "ab c"
-    assert clean_text("​") is None
+    assert clean_text("a\u200bb\u202fc ") == "ab c"
+    assert clean_text("\u200b") is None
 
 
 def _mem_db():
@@ -170,3 +170,7 @@ def test_search_history():
     assert [x.kind for x in s] == ["ad", "search"]
     assert s[1].query == "lofi beats"
     assert s[1].local_date == "2020-01-01"  # 03:00Z = 22:00 EST previous day
+
+
+def test_clean_text_object_replacement_char():
+    assert clean_text("reacts!\ufffc #shorts \ufffc") == "reacts! #shorts"

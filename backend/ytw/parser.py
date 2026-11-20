@@ -30,8 +30,9 @@ WATCH_KINDS = (VIDEO, UNAVAILABLE, MUSIC)
 AD_KINDS = (AD, AD_IMPRESSION, AD_CLICK)
 
 ADS_MARKER = "From Google Ads"
-_ZERO_WIDTH = dict.fromkeys(map(ord, "​‌‍⁠﻿"), None)
-_ODD_SPACES = dict.fromkeys(map(ord, "   "), " ")
+# zero-width characters and U+FFFC (object replacement, shows up in some API titles)
+_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff\ufffc"), None)
+_ODD_SPACES = dict.fromkeys(map(ord, "\u00a0\u202f\u2007"), " ")
 _VIDEO_ID_RE = re.compile(r"[?&]v=([^&#]+)")
 _PREFIXES = ("Watched ", "Viewed ", "Visited ")
 # Click trackers / redirectors that say nothing about the advertiser

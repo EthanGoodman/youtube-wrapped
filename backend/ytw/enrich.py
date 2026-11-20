@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from typing import Callable, Iterable
 from zoneinfo import ZoneInfo
 
+from .parser import clean_text
+
 API_BASE = "https://www.googleapis.com/youtube/v3/"
 PACIFIC = ZoneInfo("America/Los_Angeles")
 _VALID_ID = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -132,7 +134,8 @@ def video_row(item: dict, now: str) -> tuple:
     td = item.get("topicDetails", {})
     thumbs = sn.get("thumbnails", {})
     return (
-        item["id"], "ok", now, sn.get("title"), sn.get("channelId"), sn.get("channelTitle"),
+        item["id"], "ok", now, clean_text(sn.get("title")), sn.get("channelId"),
+        clean_text(sn.get("channelTitle")),
         sn.get("publishedAt"), cd.get("duration"), parse_duration(cd.get("duration")),
         sn.get("liveBroadcastContent"), 1 if "liveStreamingDetails" in item else 0,
         sn.get("categoryId"), json.dumps(sn.get("tags", []), ensure_ascii=False),
@@ -150,7 +153,7 @@ def channel_row(item: dict, now: str) -> tuple:
     td = item.get("topicDetails", {})
     subs = None if st.get("hiddenSubscriberCount") else _int(st.get("subscriberCount"))
     return (
-        item["id"], "ok", now, sn.get("title"), sn.get("customUrl"),
+        item["id"], "ok", now, clean_text(sn.get("title")), sn.get("customUrl"),
         _best_thumb(sn.get("thumbnails", {}), ("medium", "high", "default")),
         subs, _int(st.get("videoCount")), _int(st.get("viewCount")), sn.get("country"),
         sn.get("publishedAt"),
