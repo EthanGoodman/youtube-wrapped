@@ -7,7 +7,6 @@ import { useCapability } from "../platform";
 const PRESETS: [string, string][] = [
   ["4w", "4 weeks"],
   ["6m", "6 months"],
-  ["12m", "12 months"],
   ["this_year", "This year"],
   ["all", "Lifetime"],
 ];

@@ -15,7 +15,7 @@ export interface Filters {
 
 export const ALL_BUCKETS: Bucket[] = ["long", "short", "music", "unknown"];
 const ALL = ALL_BUCKETS;
-export const DEFAULTS: Filters = { range: "12m", buckets: ALL, bg: true, metric: "count" };
+export const DEFAULTS: Filters = { range: "this_year", buckets: ALL, bg: true, metric: "count" };
 
 /** Filters live in the URL so every view can be bookmarked or shared. */
 export function useFilters() {

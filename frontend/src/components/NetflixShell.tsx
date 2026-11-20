@@ -193,7 +193,7 @@ function BrowseMenu({ pathname }: { pathname: string }) {
   );
 }
 
-const PRESETS: [string, string][] = [["4w", "Last 4 weeks"], ["6m", "Last 6 months"], ["12m", "Last 12 months"], ["this_year", "This year"], ["all", "Lifetime"]];
+const PRESETS: [string, string][] = [["4w", "Last 4 weeks"], ["6m", "Last 6 months"], ["this_year", "This year"], ["all", "Lifetime"]];
 
 /** The period picker as a Netflix dropdown ("Lifetime ▾"), like its season picker. */
 export function RangeMenu({ pill = false }: { pill?: boolean }) {
