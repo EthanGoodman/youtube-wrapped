@@ -13,7 +13,7 @@ export function Section({ title, subtitle, action, children, className = "" }: {
   className?: string;
 }) {
   return (
-    <section className={`card ${className}`}>
+    <section className={`card min-w-0 ${className}`}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-lg font-bold leading-tight sm:text-xl">{title}</h2>
