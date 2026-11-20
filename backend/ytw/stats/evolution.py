@@ -14,12 +14,8 @@ def _channel_names(conn: sqlite3.Connection, ids: list[str]) -> dict[str, dict]:
     if not ids:
         return {}
     ph = ",".join("?" * len(ids))
-    out = {cid: {"title": name, "avatar_url": None} for cid, name in conn.execute(
-        f"SELECT channel_id, MAX(channel_name) FROM entries WHERE channel_id IN ({ph}) GROUP BY 1", ids)}
-    for cid, title, avatar in conn.execute(
-            f"SELECT channel_id, title, avatar_url FROM channels WHERE status='ok' AND channel_id IN ({ph})", ids):
-        out[cid] = {"title": title or out.get(cid, {}).get("title"), "avatar_url": avatar}
-    return out
+    return {cid: {"title": title, "avatar_url": avatar} for cid, title, avatar in conn.execute(
+        f"SELECT creator_id, title, avatar_url FROM creators WHERE creator_id IN ({ph})", ids)}
 
 
 def _metric(f: Filters) -> str:
@@ -123,8 +119,8 @@ def mix_by_year(conn, f: Filters, kind: str = "category", top: int = 8) -> dict:
         q = (f"SELECT w.year, COALESCE(c.title, 'Unknown'), COUNT(*), SUM({time_expr(f)}) FROM watches w "
              f"LEFT JOIN categories c ON c.category_id = w.category_id WHERE {w_sql} GROUP BY 1, 2")
     elif kind == "genre":
-        q = (f"SELECT w.year, t.topic, COUNT(*), SUM({time_expr(f)}) FROM watches w "
-             f"JOIN video_topics t ON t.video_id = w.video_id WHERE {w_sql} GROUP BY 1, 2")
+        q = (f"SELECT w.year, t.genre, COUNT(*), SUM({time_expr(f)}) FROM watches w "
+             f"JOIN item_genres t ON t.item_id = w.video_id WHERE {w_sql} GROUP BY 1, 2")
     else:
         raise ValueError("kind must be category or genre")
     data = defaultdict(dict)

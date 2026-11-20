@@ -63,18 +63,17 @@ def channel_rank_history(conn, channel_id: str, f: Filters) -> list[dict]:
 
 
 def channel(conn: sqlite3.Connection, channel_id: str, r: Range, f: Filters) -> dict | None:
-    info = conn.execute("SELECT * FROM channels WHERE channel_id = ? AND status = 'ok'", (channel_id,)).fetchone()
-    name = conn.execute("SELECT MAX(channel_name) FROM entries WHERE channel_id = ?", (channel_id,)).fetchone()[0]
-    if not info and not name:
+    info = conn.execute("SELECT * FROM creators WHERE creator_id = ?", (channel_id,)).fetchone()
+    if not info:
         return None
+    extra = json.loads(info["extra"] or "{}")
     cond, params = "w.channel_id = ?", [channel_id]
-    d = dict(info) if info else {"channel_id": channel_id}
-    d["topics"] = json.loads(d.get("topics") or "[]")
-    d.setdefault("title", None)
-    d["title"] = d["title"] or name
     return {
-        "channel": d,
-        "url": f"https://www.youtube.com/channel/{channel_id}",
+        "channel": {"channel_id": channel_id, "title": info["title"], "handle": info["handle"],
+                    "avatar_url": info["avatar_url"], "subscriber_count": info["subscriber_count"],
+                    "video_count": info["item_count"], "country": info["country"],
+                    "created_at": info["created_at"], "topics": extra.get("topics", [])},
+        "url": info["url"],
         "range": r.to_dict(),
         "in_range": _subset_totals(conn, r, f, "", cond, params),
         "all_time": _subset_totals(conn, EVER, f, "", cond, params),
@@ -88,25 +87,25 @@ def channel(conn: sqlite3.Connection, channel_id: str, r: Range, f: Filters) -> 
 def video(conn: sqlite3.Connection, video_id: str) -> dict | None:
     watches = conn.execute("""SELECT w.entry_id, w.local_iso, w.est_s, w.est_method, w.delayed_fix
         FROM watches w WHERE w.video_id = ? ORDER BY w.start_epoch""", (video_id,)).fetchall()
-    v = conn.execute("SELECT * FROM videos WHERE video_id = ?", (video_id,)).fetchone()
-    if not watches and not v:
+    i = conn.execute("""SELECT i.*, cr.title AS creator_title, c.title AS category FROM items i
+        LEFT JOIN creators cr ON cr.creator_id = i.creator_id
+        LEFT JOIN categories c ON c.category_id = i.category_id
+        WHERE i.item_id = ?""", (video_id,)).fetchone()
+    if not i:
         return None
-    e = conn.execute("SELECT title, channel_id, channel_name, kind FROM entries WHERE video_id = ? "
-                     "ORDER BY epoch DESC LIMIT 1", (video_id,)).fetchone()
-    vd = dict(v) if v else {"video_id": video_id, "status": "unknown"}
-    for k in ("tags", "topics"):
-        vd[k] = json.loads(vd.get(k) or "[]")
-    cat = conn.execute("SELECT title FROM categories WHERE category_id = ?",
-                       (vd.get("category_id"),)).fetchone()
-    w0 = conn.execute("SELECT bucket, short_basis, is_background, is_live FROM watches WHERE video_id = ? "
-                      "LIMIT 1", (video_id,)).fetchone()
+    extra = json.loads(i["extra"] or "{}")
+    w0 = conn.execute("SELECT kind, bucket, short_basis, is_background, is_live FROM watches "
+                      "WHERE video_id = ? ORDER BY start_epoch DESC LIMIT 1", (video_id,)).fetchone()
     return {
-        "video": {**vd, "title": vd.get("title") or (e["title"] if e else None),
-                  "channel_id": vd.get("channel_id") or (e["channel_id"] if e else None),
-                  "channel_title": vd.get("channel_title") or (e["channel_name"] if e else None),
-                  "category": cat[0] if cat else None, "kind": e["kind"] if e else None,
+        "video": {"video_id": video_id, "status": i["status"], "title": i["title"],
+                  "channel_id": i["creator_id"], "channel_title": i["creator_title"] or extra.get("channel_title"),
+                  "published_at": i["published_at"], "duration_s": i["duration_s"],
+                  "category_id": i["category_id"], "category": i["category"],
+                  "thumb_large": i["thumb_large"], "view_count": extra.get("view_count"),
+                  "like_count": extra.get("like_count"), "live": extra.get("live"),
+                  "tags": extra.get("tags", []), "topics": extra.get("topics", []),
                   **(dict(w0) if w0 else {})},
-        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "url": i["url"],
         "watch_count": len(watches),
         "total_est_s": sum(w["est_s"] for w in watches),
         "watches": [dict(w) for w in watches],
@@ -130,9 +129,9 @@ def category(conn, category_id: str, r: Range, f: Filters) -> dict | None:
 
 
 def genre(conn, topic: str, r: Range, f: Filters) -> dict | None:
-    if not conn.execute("SELECT 1 FROM video_topics WHERE topic = ? LIMIT 1", (topic,)).fetchone():
+    if not conn.execute("SELECT 1 FROM item_genres WHERE genre = ? LIMIT 1", (topic,)).fetchone():
         return None
-    joins, cond, params = "JOIN video_topics t ON t.video_id = w.video_id", "t.topic = ?", [topic]
+    joins, cond, params = "JOIN item_genres t ON t.item_id = w.video_id", "t.genre = ?", [topic]
     return {
         "genre": {"title": topic,
                   "url": "https://en.wikipedia.org/wiki/" + topic.replace(" ", "_")},

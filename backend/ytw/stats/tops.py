@@ -20,22 +20,20 @@ def _attach(conn: sqlite3.Connection, items: list[dict], sql: str) -> list[dict]
 
 
 _CHANNEL_INFO = """
-SELECT ch.k AS k, COALESCE(c.title, ch.name) AS title, c.avatar_url, c.subscriber_count, c.handle,
+SELECT ch.k AS k, cr.title, cr.avatar_url, cr.subscriber_count, cr.handle,
        ch.first_watched, ch.last_watched
-FROM (SELECT channel_id AS k, MIN(local_date) AS first_watched, MAX(local_date) AS last_watched,
-             (SELECT e.channel_name FROM entries e WHERE e.channel_id = w.channel_id LIMIT 1) AS name
-      FROM watches w WHERE channel_id IN ({ph}) GROUP BY channel_id) ch
-LEFT JOIN channels c ON c.channel_id = ch.k AND c.status = 'ok'
+FROM (SELECT channel_id AS k, MIN(local_date) AS first_watched, MAX(local_date) AS last_watched
+      FROM watches WHERE channel_id IN ({ph}) GROUP BY channel_id) ch
+LEFT JOIN creators cr ON cr.creator_id = ch.k
 """
 
 _VIDEO_INFO = """
-SELECT w.video_id AS k, COALESCE(v.title, MAX(e.title)) AS title, v.thumb_small AS thumb,
-       v.duration_s, w.channel_id, COALESCE(c.title, MAX(e.channel_name)) AS channel,
-       MIN(w.local_date) AS first_watched, MAX(w.local_date) AS last_watched, w.bucket,
-       MAX(w.kind) AS kind
-FROM watches w JOIN entries e ON e.id = w.entry_id
-LEFT JOIN videos v ON v.video_id = w.video_id AND v.status = 'ok'
-LEFT JOIN channels c ON c.channel_id = w.channel_id AND c.status = 'ok'
+SELECT w.video_id AS k, i.title, i.thumb_small AS thumb, i.duration_s, w.channel_id,
+       cr.title AS channel, MIN(w.local_date) AS first_watched, MAX(w.local_date) AS last_watched,
+       w.bucket, MAX(w.kind) AS kind
+FROM watches w
+LEFT JOIN items i ON i.item_id = w.video_id
+LEFT JOIN creators cr ON cr.creator_id = w.channel_id
 WHERE w.video_id IN ({ph}) GROUP BY w.video_id
 """
 
@@ -57,7 +55,7 @@ def top_categories(conn, r: Range, f: Filters, limit: int = 30) -> list[dict]:
 
 
 def top_genres(conn, r: Range, f: Filters, limit: int = 30) -> list[dict]:
-    items = ranked(conn, "t.topic", r, f, limit, joins="JOIN video_topics t ON t.video_id = pv.video_id",
+    items = ranked(conn, "t.genre", r, f, limit, joins="JOIN item_genres t ON t.item_id = pv.video_id",
                    pre_aggregate_by_video=True)
     for i in items:
         i["title"] = i["key"]
@@ -65,7 +63,7 @@ def top_genres(conn, r: Range, f: Filters, limit: int = 30) -> list[dict]:
 
 
 def top_tags(conn, r: Range, f: Filters, limit: int = 50) -> list[dict]:
-    items = ranked(conn, "t.tag", r, f, limit, joins="JOIN video_tags t ON t.video_id = pv.video_id",
+    items = ranked(conn, "t.tag", r, f, limit, joins="JOIN item_tags t ON t.item_id = pv.video_id",
                    pre_aggregate_by_video=True)
     for i in items:
         i["title"] = i["key"]

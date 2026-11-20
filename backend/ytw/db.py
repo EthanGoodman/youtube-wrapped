@@ -140,13 +140,46 @@ CREATE INDEX IF NOT EXISTS ix_watches_channel ON watches(channel_id, local_date)
 CREATE INDEX IF NOT EXISTS ix_watches_video   ON watches(video_id);
 CREATE INDEX IF NOT EXISTS ix_watches_session ON watches(session_id);
 
--- Derived lookups (rebuilt by `build`)
-CREATE TABLE IF NOT EXISTS video_topics (video_id TEXT NOT NULL, topic TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS ix_video_topics ON video_topics(video_id, topic);
-CREATE INDEX IF NOT EXISTS ix_video_topics_topic ON video_topics(topic, video_id);
-CREATE TABLE IF NOT EXISTS video_tags (video_id TEXT NOT NULL, tag TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS ix_video_tags ON video_tags(video_id, tag);
-CREATE INDEX IF NOT EXISTS ix_video_tags_tag ON video_tags(tag, video_id);
+-- Generic display tables, the same on every platform (rebuilt by `build`). The stats engine reads
+-- titles, pictures and links only from these, so each platform just has to fill them.
+-- items: what was watched/played (a YouTube video, a Netflix episode, a Spotify track…)
+CREATE TABLE IF NOT EXISTS items (
+    item_id      TEXT PRIMARY KEY,
+    status       TEXT NOT NULL,     -- ok | missing (deleted/private) | unknown (never looked up)
+    title        TEXT,
+    creator_id   TEXT,
+    thumb_small  TEXT,
+    thumb_large  TEXT,
+    duration_s   INTEGER,
+    published_at TEXT,
+    category_id  TEXT,
+    url          TEXT,
+    extra        TEXT              -- JSON: platform-specific fields (views, tags, …)
+);
+-- creators: who made it (a YouTube channel, a Netflix show, a Spotify artist…)
+CREATE TABLE IF NOT EXISTS creators (
+    creator_id       TEXT PRIMARY KEY,
+    status           TEXT NOT NULL,
+    title            TEXT,
+    handle           TEXT,
+    avatar_url       TEXT,
+    subscriber_count INTEGER,
+    item_count       INTEGER,
+    country          TEXT,
+    created_at       TEXT,
+    url              TEXT,
+    extra            TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_items_creator ON items(creator_id);
+CREATE TABLE IF NOT EXISTS item_genres (item_id TEXT NOT NULL, genre TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_item_genres ON item_genres(item_id, genre);
+CREATE INDEX IF NOT EXISTS ix_item_genres_genre ON item_genres(genre, item_id);
+CREATE TABLE IF NOT EXISTS item_tags (item_id TEXT NOT NULL, tag TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_item_tags ON item_tags(item_id, tag);
+CREATE INDEX IF NOT EXISTS ix_item_tags_tag ON item_tags(tag, item_id);
+-- (replaced by item_genres / item_tags)
+DROP TABLE IF EXISTS video_topics;
+DROP TABLE IF EXISTS video_tags;
 
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,

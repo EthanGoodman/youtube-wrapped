@@ -51,12 +51,11 @@ def _edge_watch(conn: sqlite3.Connection, r: Range, f: Filters, order: str) -> d
 def watch_info(conn: sqlite3.Connection, entry_id: int) -> dict | None:
     """Display info for one watch."""
     row = conn.execute("""
-        SELECT w.entry_id, w.video_id, w.local_iso, COALESCE(v.title, e.title) AS title,
-               COALESCE(c.title, e.channel_name) AS channel, w.channel_id, v.thumb_small AS thumb,
-               w.kind, w.bucket, w.duration_s, w.est_s
-        FROM watches w JOIN entries e ON e.id = w.entry_id
-        LEFT JOIN videos v ON v.video_id = w.video_id AND v.status = 'ok'
-        LEFT JOIN channels c ON c.channel_id = w.channel_id AND c.status = 'ok'
+        SELECT w.entry_id, w.video_id, w.local_iso, i.title, cr.title AS channel, w.channel_id,
+               i.thumb_small AS thumb, w.kind, w.bucket, w.duration_s, w.est_s
+        FROM watches w
+        LEFT JOIN items i ON i.item_id = w.video_id
+        LEFT JOIN creators cr ON cr.creator_id = w.channel_id
         WHERE w.entry_id = ?""", (entry_id,)).fetchone()
     return dict(row) if row else None
 

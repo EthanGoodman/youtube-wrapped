@@ -87,9 +87,8 @@ def longest_session(conn, r: Range, f: Filters) -> dict | None:
     if not row:
         return None
     sid, n, t, start, end, start_iso, _ = row
-    ch = conn.execute(f"""SELECT COALESCE(c.title, MAX(e.channel_name)), COUNT(*) FROM watches w
-        JOIN entries e ON e.id = w.entry_id
-        LEFT JOIN channels c ON c.channel_id = w.channel_id AND c.status = 'ok'
+    ch = conn.execute(f"""SELECT cr.title, COUNT(*) FROM watches w
+        LEFT JOIN creators cr ON cr.creator_id = w.channel_id
         WHERE w.session_id = ? AND {w_sql} GROUP BY w.channel_id ORDER BY 2 DESC LIMIT 1""",
                       [sid, *p]).fetchone()
     return {"session_id": sid, "videos": n, "time_s": t or 0, "span_s": end - start, "start": start_iso,
@@ -115,9 +114,8 @@ def channel_day_record(conn, r: Range, f: Filters) -> dict | None:
         WHERE {w_sql} AND w.channel_id IS NOT NULL GROUP BY 1, 2 ORDER BY n DESC, 1 LIMIT 1""", p).fetchone()
     if not row:
         return None
-    title = conn.execute("SELECT COALESCE((SELECT title FROM channels WHERE channel_id=? AND status='ok'), "
-                         "(SELECT channel_name FROM entries WHERE channel_id=? LIMIT 1))",
-                         (row[1], row[1])).fetchone()[0]
+    found = conn.execute("SELECT title FROM creators WHERE creator_id = ?", (row[1],)).fetchone()
+    title = found[0] if found else None
     return {"date": row[0], "channel_id": row[1], "channel": title, "count": row[2], "time_s": row[3] or 0}
 
 
