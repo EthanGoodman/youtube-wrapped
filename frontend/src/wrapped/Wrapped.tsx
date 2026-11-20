@@ -8,7 +8,26 @@ import { useQuery } from "@tanstack/react-query";
 import { getJson, useMeta } from "../api";
 import { num } from "../format";
 import { CARDS, CARD_H, CARD_W, CardDef, YtMark } from "./cards";
-import { WrappedData, WrappedMode } from "./types";
+import { NETFLIX_CARDS, NMark } from "./netflixCards";
+import { AnyWrapped, WrappedData, WrappedMode } from "./types";
+
+/** Look of the picker and player around the cards, per platform. */
+const BRAND: Record<string, { mark: (size: number) => React.ReactNode; file: string; pickerBg: string; tiles: string[]; backdrop: string; tileFont?: string }> = {
+  youtube: {
+    mark: (size) => <YtMark size={size} />, file: "youtube-wrapped",
+    pickerBg: "radial-gradient(ellipse at top,#4a0012,#0f0f0f 60%)",
+    tiles: ["#ff0033", "#7c3aed", "#f97316", "#0ea5e9", "#db2777", "#10b981"],
+    backdrop: "radial-gradient(circle at 30% 30%, #ff0033, transparent 55%), radial-gradient(circle at 70% 70%, #7c3aed, transparent 55%)",
+  },
+  netflix: {
+    mark: (size) => <NMark size={size} />, file: "netflix-wrapped",
+    pickerBg: "radial-gradient(ellipse at top,#5c0a0f,#0b0b0b 60%)",
+    tiles: ["#e50914", "#b20710", "#831010", "#5c0a0f", "#e50914", "#b20710"],
+    backdrop: "radial-gradient(circle at 30% 30%, #e50914, transparent 55%), radial-gradient(circle at 70% 70%, #5c0a0f, transparent 55%)",
+    tileFont: '"Bebas Neue", Inter, sans-serif',
+  },
+};
+const brandOf = (platform: string | null | undefined) => BRAND[platform ?? "youtube"] ?? BRAND.youtube;
 
 const SECONDS_PER_CARD = 7;
 
@@ -64,11 +83,12 @@ export function WrappedPage() {
 
 function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: WrappedMode) => void }) {
   const meta = useMeta().data;
+  const brand = brandOf(usePlatformId());
   const years = [...(meta?.years ?? [])].reverse();
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center bg-[radial-gradient(ellipse_at_top,#4a0012,#0f0f0f_60%)] px-5 py-10">
+    <div className="flex min-h-[100dvh] flex-col items-center px-5 py-10" style={{ background: brand.pickerBg }}>
       <Link to="/" className="self-start text-sm text-sub hover:text-ink">‹ Back to dashboard</Link>
-      <div className="mt-10 flex items-center gap-2"><YtMark size={40} /><span className="text-3xl font-black">Wrapped</span></div>
+      <div className="mt-10 flex items-center gap-2">{brand.mark(40)}<span className="font-display text-3xl font-black">Wrapped</span></div>
       <p className="mt-2 text-center text-sub">Pick a year for your story</p>
       <div className="mt-4"><ModeSwitch mode={mode} onChange={setMode} /></div>
       <div className="mt-8 grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3">
@@ -76,9 +96,9 @@ function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: Wrapped
           <motion.div key={y} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Link to={`/wrapped?year=${y}&mode=${mode}`}
                   className="flex aspect-[4/5] flex-col justify-between rounded-2xl p-4 transition-transform hover:scale-[1.03]"
-                  style={{ background: `linear-gradient(160deg, ${["#ff0033", "#7c3aed", "#f97316", "#0ea5e9", "#db2777", "#10b981"][i % 6]}, #1a1a1a 130%)` }}>
-              <YtMark size={26} />
-              <span className="text-4xl font-black">{y}</span>
+                  style={{ background: `linear-gradient(160deg, ${brand.tiles[i % brand.tiles.length]}, #1a1a1a 130%)` }}>
+              {brand.mark(26)}
+              <span className={brand.tileFont ? "text-6xl" : "text-4xl font-black"} style={{ fontFamily: brand.tileFont }}>{y}</span>
             </Link>
           </motion.div>
         ))}
@@ -105,7 +125,7 @@ function available(card: CardDef, d: WrappedData): boolean {
 
 function Story({ year, mode, setMode }: { year: number; mode: WrappedMode; setMode: (m: WrappedMode) => void }) {
   const platform = usePlatformId() ?? DEFAULT_PLATFORM;
-  const q = useQuery<WrappedData>({
+  const q = useQuery<AnyWrapped>({
     queryKey: ["wrapped", platform, year, mode],
     queryFn: () => getJson(`/api/wrapped/${year}?mode=${mode}&platform=${platform}`),
   });
@@ -126,8 +146,12 @@ function Fullscreen({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-bg p-6 text-center">{children}</div>;
 }
 
-function Player({ data, setMode }: { data: WrappedData; setMode: (m: WrappedMode) => void }) {
-  const cards = useMemo(() => CARDS.filter((c) => available(c, data)), [data]);
+function Player({ data, setMode }: { data: AnyWrapped; setMode: (m: WrappedMode) => void }) {
+  const brand = brandOf(data.platform);
+  // each card set renders its own platform's data
+  const cards = useMemo<CardDef<AnyWrapped>[]>(() => (data.platform === "netflix"
+    ? (NETFLIX_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
+    : (CARDS as CardDef<AnyWrapped>[]).filter((c) => available(c as CardDef, data as WrappedData))), [data]);
   // ?card=<id> opens the story on that card, paused (handy for linking to one card)
   const [params] = useSearchParams();
   const startAt = Math.max(0, cards.findIndex((c) => c.id === params.get("card")));
@@ -172,7 +196,7 @@ function Player({ data, setMode }: { data: WrappedData; setMode: (m: WrappedMode
       const url = await toPng(cardRef.current, { pixelRatio: 1080 / CARD_W, width: CARD_W, height: CARD_H, cacheBust: true });
       const a = document.createElement("a");
       a.href = url;
-      a.download = `youtube-wrapped-${data.year}-${cards[i].id}.png`;
+      a.download = `${brand.file}-${data.year}-${cards[i].id}.png`;
       a.click();
     } catch (err) {
       alert(`Couldn't create the image: ${(err as Error).message}`);
@@ -185,7 +209,7 @@ function Player({ data, setMode }: { data: WrappedData; setMode: (m: WrappedMode
     <div className="fixed inset-0 flex select-none flex-col items-center justify-center bg-black">
       {/* blurred backdrop on wide screens */}
       <div className="pointer-events-none absolute inset-0 hidden opacity-40 blur-3xl sm:block"
-           style={{ background: "radial-gradient(circle at 30% 30%, #ff0033, transparent 55%), radial-gradient(circle at 70% 70%, #7c3aed, transparent 55%)" }} />
+           style={{ background: brand.backdrop }} />
       <Stage>
         {(scale) => (
           <div className="relative overflow-hidden sm:rounded-[28px] sm:shadow-2xl" style={{ width: CARD_W * scale, height: CARD_H * scale }}>

@@ -6,18 +6,27 @@ import tomllib
 from datetime import date
 from pathlib import Path
 
-from .stats import evolution, overview, patterns, records, tops
+from .stats import evolution, overview, patterns, records, shows, tops
 from .stats.common import Filters, Range, time_expr, where
 
 METRICS = ("night_share", "early_share", "weekend_share", "shorts_share", "music_share", "gaming_share",
            "background_share", "top5_share", "explorer_ratio", "avg_session_min")
+NETFLIX_METRICS = ("binge_day_share", "finish_rate", "drop_rate", "top_show_share", "anime_share", "movie_share",
+                   "weekend_share", "night_share", "shows_count", "episodes_per_day")
+# metrics that need real start times (quick Netflix downloads put every view at midnight)
+TIME_METRICS = frozenset({"night_share", "early_share"})
 
 
-def load_personalities(path: Path) -> dict:
+def personalities_file(root: Path, platform: str) -> Path:
+    """personalities.toml for YouTube, personalities-<platform>.toml for the others."""
+    return root / ("personalities.toml" if platform == "youtube" else f"personalities-{platform}.toml")
+
+
+def load_personalities(path: Path, metrics: tuple[str, ...] = METRICS) -> dict:
     with open(path, "rb") as f:
         cfg = tomllib.load(f)
     for p in cfg.get("personality", []):
-        if p.get("metric") not in METRICS:
+        if p.get("metric") not in metrics:
             raise ValueError(f"personality {p.get('id')}: unknown metric {p.get('metric')!r}")
         if not p.get("threshold"):
             raise ValueError(f"personality {p.get('id')}: threshold must be > 0")
@@ -73,7 +82,7 @@ def pick_personality(metrics: dict[str, float], cfg: dict, skip_metrics: frozens
     if scored and scored[0][0] >= 1:
         score, value, p = scored[0]
         reason = p.get("reason", "").format(
-            pct=f"{value * 100:.0f}%", value=f"{value:.0f}",
+            pct=f"{value * 100:.0f}%", value=f"{value:.0f}", value1=f"{value:.1f}",
             inverse=f"{1 / value:.0f}" if value else "∞")
         return {**_public(p), "reason": reason, "metric": p["metric"], "value": value, "score": round(score, 2),
                 "also": runner_ups}
@@ -127,4 +136,85 @@ def wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict
         "metrics": metrics,
         "personality": pick_personality(metrics, personalities,
                                         frozenset() if mode == "all" else frozenset({"shorts_share"})),
+    }
+
+
+# ------------------------------------------------------------------ Netflix
+
+UNKNOWN_SHOW = shows.UNKNOWN
+
+
+def netflix_metrics(conn: sqlite3.Connection, r: Range, f: Filters, progress: dict) -> dict[str, float]:
+    """Personality metrics for a Netflix year (see personalities-netflix.toml)."""
+    w_sql, p = where(r, f)
+    n, episodes, movies, weekend, night, days = (x or 0 for x in conn.execute(
+        f"SELECT COUNT(*), SUM(w.kind = 'episode'), SUM(w.kind = 'movie'), SUM(w.local_dow >= 5), "
+        f"SUM(w.local_hour < 5), COUNT(DISTINCT w.local_date) FROM watches w WHERE {w_sql}", p).fetchone())
+    if not n:
+        return {m: 0.0 for m in NETFLIX_METRICS}
+    binge_days = conn.execute(f"""SELECT COUNT(DISTINCT d) FROM (SELECT w.local_date d FROM watches w
+        WHERE {w_sql} AND w.kind = 'episode' AND w.channel_id != '{UNKNOWN_SHOW}'
+        GROUP BY w.local_date, w.channel_id HAVING COUNT(*) >= 5)""", p).fetchone()[0]
+    top_show = conn.execute(f"""SELECT COALESCE(MAX(c), 0) FROM (SELECT COUNT(*) c FROM watches w
+        WHERE {w_sql} AND w.kind = 'episode' AND w.channel_id != '{UNKNOWN_SHOW}' GROUP BY w.channel_id)""", p).fetchone()[0]
+    named_eps = conn.execute(f"SELECT COUNT(*) FROM watches w WHERE {w_sql} AND w.kind = 'episode' "
+                             f"AND w.channel_id != '{UNKNOWN_SHOW}'", p).fetchone()[0]
+    anime = conn.execute(f"""SELECT COUNT(*) FROM watches w JOIN creators c ON c.creator_id = w.channel_id
+        WHERE {w_sql} AND c.country = 'JP' AND EXISTS (SELECT 1 FROM item_genres g
+              WHERE g.item_id = w.video_id AND g.genre = 'Animation')""", p).fetchone()[0]
+    summary = progress["summary"]
+    started = sum(summary.values())
+    return {
+        "binge_day_share": binge_days / days if days else 0.0,
+        "finish_rate": summary["finished"] / started if started else 0.0,
+        "drop_rate": summary["dropped"] / started if started else 0.0,
+        "top_show_share": top_show / named_eps if named_eps else 0.0,
+        "anime_share": anime / n,
+        "movie_share": movies / n,
+        "weekend_share": weekend / n,
+        "night_share": night / n,
+        "shows_count": float(started),
+        "episodes_per_day": episodes / days if days else 0.0,
+    }
+
+
+def netflix_wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict,
+                    today: date | None = None, has_times: bool = False) -> dict:
+    """The Netflix Wrapped story: shows instead of channels, posters instead of avatars."""
+    r = Range(date(year, 1, 1), date(year, 12, 31), str(year))
+    base = Filters(exclude_bg_time=f.exclude_bg_time, metric=f.metric)
+    ov = overview.overview(conn, r, base)
+    if not ov["videos"]:
+        return {"platform": "netflix", "year": year, "mode": "all", "empty": True}
+    by_time = Filters(exclude_bg_time=f.exclude_bg_time, metric="time")
+    rec = records.records(conn, r, base, today)
+    prog = shows.progress(conn, r, base, 500)
+    finished = [s for s in prog["shows"] if s["status"] == "finished"]
+    top_time = tops.top_channels(conn, r, by_time, 1)
+    discoveries = [d for d in evolution.new_discoveries(conn, r, base, 4) if d["channel_id"] != UNKNOWN_SHOW]
+    clock = patterns.clock(conn, r, base) if has_times else []
+    metrics = netflix_metrics(conn, r, base, prog)
+    return {
+        "platform": "netflix",
+        "year": year,
+        "mode": "all",
+        "empty": False,
+        "has_times": has_times,
+        "overview": {k: ov[k] for k in ("videos", "unique_videos", "unique_channels", "est_s", "max_s",
+                                        "active_days", "days", "pct_days_active", "split", "change")},
+        "top_channels": tops.top_channels(conn, r, base, 5),
+        "top_channel_by_time": top_time[0] if top_time else None,
+        "top_movies": shows.top_movies(conn, r, base, 5),
+        "top_genres": tops.top_genres(conn, r, base, 5),
+        "kind_split": shows.split(conn, r, base),
+        "progress": {"summary": prog["summary"], "finished": finished[:8], "shows": len(prog["shows"])},
+        "binge": (shows.binges(conn, r, base, 1) or [None])[0],
+        "episode_day": (shows.episode_days(conn, r, base, 1) or [None])[0],
+        "biggest_day": rec["biggest_day"]["by_count"],
+        "streak": rec["streaks"]["longest"],
+        "discovery": discoveries[0] if discoveries else None,
+        "clock": clock,
+        "peak_hour": max(clock, key=lambda h: h["count"])["hour"] if clock else None,
+        "metrics": metrics,
+        "personality": pick_personality(metrics, personalities, frozenset() if has_times else TIME_METRICS),
     }

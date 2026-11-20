@@ -8,10 +8,12 @@ import { WrappedData, img, thumbOf } from "./types";
 export const CARD_W = 360;
 export const CARD_H = 640;
 
-export interface CardDef {
+export interface CardDef<T = WrappedData> {
   id: string;
   label: string;
-  render: (d: WrappedData) => ReactNode;
+  render: (d: T) => ReactNode;
+  /** shown only when this returns true (default: always) */
+  when?: (d: T) => boolean;
 }
 
 // ------------------------------------------------------------------ building blocks
@@ -51,12 +53,12 @@ export function YtMark({ size = 20 }: { size?: number }) {
   );
 }
 
-const rise = (delay = 0) => ({
+export const rise = (delay = 0) => ({
   initial: { opacity: 0, y: 28 },
   animate: { opacity: 1, y: 0 },
   transition: { delay, duration: 0.6, ease: [0.2, 0.8, 0.2, 1] },
 });
-const pop = (delay = 0) => ({
+export const pop = (delay = 0) => ({
   initial: { opacity: 0, scale: 0.6 },
   animate: { opacity: 1, scale: 1 },
   transition: { delay, type: "spring", stiffness: 160, damping: 14 },
@@ -74,7 +76,7 @@ function Big({ children, delay = 0.2, size = 64 }: { children: ReactNode; delay?
   );
 }
 
-function CountUp({ to, duration = 1.6, format = num }: { to: number; duration?: number; format?: (n: number) => string }) {
+export function CountUp({ to, duration = 1.6, format = num }: { to: number; duration?: number; format?: (n: number) => string }) {
   const [v, setV] = useState(MotionGlobalConfig.skipAnimations ? to : 0);
   useEffect(() => {
     if (MotionGlobalConfig.skipAnimations) return setV(to);
@@ -479,7 +481,7 @@ function Stat({ label, value, sub, small = false }: { label: string; value: stri
 }
 
 /** Hand-drawn radial clock (plain SVG, so it exports cleanly). Midnight at the top. */
-function RadialClock({ data, peak }: { data: number[]; peak: number }) {
+export function RadialClock({ data, peak }: { data: number[]; peak: number }) {
   const max = Math.max(1, ...data);
   const size = 280, c = size / 2, inner = 46, outer = 128;
   return (

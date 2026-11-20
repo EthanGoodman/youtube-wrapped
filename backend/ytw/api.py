@@ -27,7 +27,8 @@ from . import db, images, platforms
 from .config import Config
 from .stats import ads, details, evolution, overview, patterns, records, search, shows, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, data_bounds, resolve_range
-from .wrapped import MODES as WRAPPED_MODES, load_personalities, wrapped as wrapped_data
+from .wrapped import (MODES as WRAPPED_MODES, METRICS as YT_METRICS, NETFLIX_METRICS, load_personalities,
+                      netflix_wrapped, personalities_file, wrapped as wrapped_data)
 
 TOP_KINDS: dict[str, Callable] = {
     "channels": tops.top_channels, "videos": tops.top_videos, "categories": tops.top_categories,
@@ -314,23 +315,26 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
 
     # ------------------------------------------------------------------ wrapped
 
-    personalities_path = cfg.root / "personalities.toml"
-
     @app.get("/api/wrapped/{year}")
     def get_wrapped(year: int, request: Request):
         _, f = parse(request)
+        p = platform_of(request)
+        personalities_path = personalities_file(cfg.root, p.id)
         try:
             mtime = personalities_path.stat().st_mtime
-            pcfg = load_personalities(personalities_path)
+            pcfg = load_personalities(personalities_path, NETFLIX_METRICS if p.id == "netflix" else YT_METRICS)
         except FileNotFoundError:
             mtime, pcfg = 0, {}
         except (ValueError, tomllib.TOMLDecodeError) as e:
-            raise HTTPException(500, f"personalities.toml: {e}") from None
+            raise HTTPException(500, f"{personalities_path.name}: {e}") from None
         stamp = db.get_meta(conn(request), "built_at")
         key = (request.url.path, tuple(sorted(request.query_params.multi_items())), mtime)
         mode = request.query_params.get("mode", "all")
         if mode not in WRAPPED_MODES:
             raise HTTPException(400, f"mode must be one of {', '.join(WRAPPED_MODES)}")
+        if p.id == "netflix":
+            return cache_for(request).get_or_compute(stamp, key, lambda: netflix_wrapped(
+                conn(request), year, f, pcfg, today(), p.has("time_of_day")))
         return cache_for(request).get_or_compute(stamp, key, lambda: wrapped_data(conn(request), year, f, pcfg, today(), mode))
 
     @app.get("/api/img")

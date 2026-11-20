@@ -1,0 +1,106 @@
+# Viewer personalities for the Netflix Wrapped story. Edit freely; reload the Wrapped page to see changes.
+#
+# Same rules as personalities.toml: each personality looks at one metric for the year, its score is
+# value / threshold, and the highest score wins if it reaches 1. Otherwise the fallback is used.
+#
+# Metrics (all for the chosen year; shares are 0..1):
+#   binge_day_share    share of your Netflix days with 5+ episodes of one show
+#   finish_rate        shows finished / shows watched (finished = up to the latest episode)
+#   drop_rate          shows dropped / shows watched (not finished, nothing for 30+ days)
+#   top_show_share     episodes from your #1 show / all episodes
+#   anime_share        views of Japanese animation
+#   movie_share        views that were movies
+#   weekend_share      views on Saturday or Sunday (an even spread is ~0.29)
+#   night_share        views started between midnight and 5am (full data export only)
+#   shows_count        how many different shows you watched
+#   episodes_per_day   episodes per day you watched anything
+#
+# In `reason`, {pct} is the value as a percentage, {value} the number rounded, {value1} with one decimal.
+
+[[personality]]
+id = "binger"
+name = "The Binger"
+emoji = "🍿"
+color = "#e50914"
+metric = "binge_day_share"
+threshold = 0.3
+tagline = "Next episode in 5… 4… 3…"
+reason = "On {pct} of your Netflix days you watched 5+ episodes of one show."
+
+[[personality]]
+id = "finisher"
+name = "The Finisher"
+emoji = "🏁"
+color = "#46d369"
+metric = "finish_rate"
+threshold = 0.4
+tagline = "No cliffhanger left behind."
+reason = "You saw {pct} of the shows you started through to the end."
+
+[[personality]]
+id = "sampler"
+name = "The Sampler"
+emoji = "🧪"
+color = "#ff9f1c"
+metric = "drop_rate"
+threshold = 0.85
+tagline = "Two episodes in, on to the next."
+reason = "You dropped {pct} of the shows you started."
+
+[[personality]]
+id = "comfort_watcher"
+name = "The Comfort Watcher"
+emoji = "🛋️"
+color = "#b81d24"
+metric = "top_show_share"
+threshold = 0.4
+tagline = "Why try something new when you have this?"
+reason = "{pct} of your episodes came from one show."
+
+[[personality]]
+id = "anime_fan"
+name = "The Anime Fan"
+emoji = "🍥"
+color = "#7c5cff"
+metric = "anime_share"
+threshold = 0.3
+tagline = "Just one more arc."
+reason = "{pct} of what you watched was anime."
+
+[[personality]]
+id = "movie_buff"
+name = "The Movie Buff"
+emoji = "🎬"
+color = "#ffb703"
+metric = "movie_share"
+threshold = 0.25
+tagline = "Two hours, one story, done."
+reason = "{pct} of what you watched was movies."
+
+[[personality]]
+id = "night_owl"
+name = "The Night Owl"
+emoji = "🦉"
+color = "#3b1c8c"
+metric = "night_share"
+threshold = 0.2
+tagline = "Are you still watching? Yes."
+reason = "{pct} of your viewing started between midnight and 5am."
+
+[[personality]]
+id = "weekend_warrior"
+name = "The Weekend Warrior"
+emoji = "📺"
+color = "#ef476f"
+metric = "weekend_share"
+threshold = 0.45
+tagline = "Saturdays are for the queue."
+reason = "{pct} of your viewing was on weekends."
+
+[fallback]
+id = "casual"
+name = "The Casual Viewer"
+emoji = "🍫"
+color = "#e50914"
+tagline = "A little something, now and then."
+reason = "No single habit took over your year."

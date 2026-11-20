@@ -47,6 +47,37 @@ export interface WrappedData {
   personality: Personality;
 }
 
+/** Netflix's story data (GET /api/wrapped/<year>?platform=netflix): shows instead of channels. */
+export interface NetflixWrappedData {
+  platform: "netflix";
+  year: number;
+  mode: "all";
+  empty: boolean;
+  has_times: boolean;
+  overview: WrappedData["overview"];
+  top_channels: RankedItem[];          // top shows
+  top_channel_by_time: RankedItem | null;
+  top_movies: RankedItem[];
+  top_genres: RankedItem[];
+  kind_split: { episode: { count: number; est_s: number; titles: number }; movie: { count: number; est_s: number; titles: number } };
+  progress: {
+    summary: { finished: number; watching: number; dropped: number };
+    finished: { key: string; title: string; avatar_url: string | null }[];
+    shows: number;
+  };
+  binge: { key: string; title: string; avatar_url: string | null; season: number; episodes: number; days: number; start: string; end: string; per_day: number } | null;
+  episode_day: { date: string; key: string; title: string; episodes: number } | null;
+  biggest_day: { date: string; count: number; time_s: number } | null;
+  streak: { days: number; start: string; end: string } | null;
+  discovery: { channel_id: string; title?: string; avatar_url?: string | null; count: number; first_watched: string } | null;
+  clock: HourPoint[];
+  peak_hour: number | null;
+  metrics: Record<string, number>;
+  personality: Personality;
+}
+
+export type AnyWrapped = (WrappedData & { platform?: undefined }) | NetflixWrappedData;
+
 /** Route every YouTube image through the local relay so cards can be exported as PNG. */
 export const img = (url: string | null | undefined) => (url ? `/api/img?u=${encodeURIComponent(url)}` : undefined);
 export const thumbOf = (videoId: string, stored?: string | null) =>

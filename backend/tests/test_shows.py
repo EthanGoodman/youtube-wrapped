@@ -105,3 +105,28 @@ def test_api(tmp_path):
     assert client.get("/api/shows/nope?platform=netflix").status_code == 404
     top = client.get("/api/top/movies?platform=netflix&range=all").json()["items"]
     assert top[0]["title"] == "Don't Look Up"
+
+
+def test_netflix_wrapped(tmp_path):
+    from pathlib import Path
+    from ytw.wrapped import NETFLIX_METRICS, load_personalities, netflix_wrapped
+    conn, _, f = _built(tmp_path)
+    cfg = load_personalities(Path(__file__).parents[2] / "personalities-netflix.toml", NETFLIX_METRICS)
+    d = netflix_wrapped(conn, 2026, f, cfg)
+    assert not d["empty"] and d["top_channels"][0]["title"] == "Peaky Blinders"
+    assert d["binge"]["season"] == 1 and d["kind_split"]["movie"]["count"] == 1
+    assert d["progress"]["summary"] == {"finished": 0, "watching": 1, "dropped": 1}
+    # dates-only data: every view sits at midnight, so time-of-day personalities must not win
+    assert d["metrics"]["night_share"] == 1.0 and d["personality"]["metric"] != "night_share"
+    assert d["clock"] == [] and d["peak_hour"] is None
+    assert netflix_wrapped(conn, 2019, f, cfg)["empty"]
+
+
+def test_netflix_wrapped_api(tmp_path):
+    conn, _, _ = _built(tmp_path)
+    db.init_db(conn)
+    conn.close()
+    client = TestClient(create_app(load_config(), db_paths={"netflix": tmp_path / "netflix.db"},
+                                   static_dir=tmp_path / "nodist"))
+    d = client.get("/api/wrapped/2026?platform=netflix").json()
+    assert d["platform"] == "netflix" and d["personality"]["name"]
