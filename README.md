@@ -1,6 +1,20 @@
 # YouTube Wrapped
 
-A local, private stats dashboard for your YouTube watch history (think stats.fm, but for YouTube), built from a Google Takeout export. Everything runs on your machine. The only thing that leaves it is video/channel ID lookups to the YouTube Data API.
+A local, private stats dashboard and year-in-review ("Wrapped") for the apps you use, built from each app's own data export (think stats.fm, but for everything). Everything runs on your machine. The only things that leave it are metadata lookups (e.g. video/channel IDs to the YouTube Data API).
+
+## Platforms
+
+| Platform | Status |
+|---|---|
+| YouTube | ✅ Supported |
+| Netflix | Planned ([#2](https://github.com/EthanGoodman/youtube-wrapped/issues/2)) |
+| Spotify | Planned ([#3](https://github.com/EthanGoodman/youtube-wrapped/issues/3)) |
+| Prime Video | Planned ([#4](https://github.com/EthanGoodman/youtube-wrapped/issues/4)) |
+| TikTok | Planned ([#5](https://github.com/EthanGoodman/youtube-wrapped/issues/5)) |
+| Instagram | Planned ([#6](https://github.com/EthanGoodman/youtube-wrapped/issues/6)) |
+| Crunchyroll | Planned ([#7](https://github.com/EthanGoodman/youtube-wrapped/issues/7)) |
+
+Each platform keeps the same layout (stats.fm-style top lists, clock, records, evolution and a Wrapped story) but is styled like the service itself. The steps below cover YouTube.
 
 
 ## Setup
@@ -62,7 +76,7 @@ python backend/cli.py enrich   # fetch video/channel details from the API
 python run.py
 ```
 
-That's the one command: it builds the frontend the first time (needs Node.js), then serves everything at **http://localhost:8000** and opens your browser. It only listens on your own machine (`127.0.0.1`), never on your network. Options: `--port 9000`, `--no-browser`, `--rebuild`.
+That's the one command: it builds the frontend the first time (needs Node.js), then serves everything at **http://localhost:8000** and opens your browser on the **hub**: one tile per platform, with links to its stats and its Wrapped. YouTube lives at **http://localhost:8000/youtube** (older links without `/youtube` still work). It only listens on your own machine (`127.0.0.1`), never on your network. Options: `--port 9000`, `--no-browser`, `--rebuild`.
 
 What's in it (every page follows the time-range chips at the top: 4 weeks, 6 months, this year, any year, lifetime, or a custom range, and compares against the previous equal period):
 
@@ -92,6 +106,13 @@ Click **Wrapped** in the top bar, pick a year, and get a Spotify-Wrapped-style s
 To export cards with thumbnails, the server relays YouTube images through `/api/img` (browsers block exporting images from other sites). It only fetches from YouTube's image hosts.
 
 **Developing the frontend:** run `python run.py --no-browser` in one terminal and `npm run dev` in `frontend/` in another, then open http://localhost:5173 (hot reload; API calls are forwarded to port 8000).
+
+## How platforms are organized
+
+- `backend/ytw/platforms.py` describes every platform: its wording ("channel/video" vs "show/episode" vs "artist/track"), which features it has (Shorts, ads, search history, estimated vs exact time), its theme and how to export its data.
+- Each platform has its own raw-export folder (`data/<platform>/`) and its own database (`data/<platform>.db`). The stats engine reads the generic `watches`, `items` and `creators` tables, which every platform fills in its own way.
+- The API takes `?platform=<id>` (default `youtube`); the CLI takes `--platform <id>`.
+- Themes are CSS variables in `frontend/src/index.css` (`[data-theme="youtube"]`, …).
 
 ## Configuration
 
