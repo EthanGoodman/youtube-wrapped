@@ -4,7 +4,7 @@ import urllib.parse
 
 import pytest
 
-from ytw.crunchyroll.fetch import API, HISTORY_FILE, CookieExpired, CrunchyrollError, fetch_history
+from ytw.crunchyroll.fetch import API, HISTORY_FILE, CookieExpired, CrunchyrollError, WrongProfile, fetch_history
 
 COOKIE = "good-cookie"
 
@@ -18,7 +18,8 @@ def item(n: int) -> dict:
 class FakeCrunchyroll:
     """Answers like Crunchyroll: token from the cookie, /me, and a 3-page cursor-paged history."""
 
-    def __init__(self, expire_after: int | None = None, flaky: int = 0):
+    def __init__(self, expire_after: int | None = None, flaky: int = 0, selected: str = "Ethan"):
+        self.selected = selected
         self.calls: list[tuple[str, str]] = []
         self.tokens = 0
         self.expire_after = expire_after  # first token stops working after this many history calls
@@ -39,6 +40,9 @@ class FakeCrunchyroll:
             self.tokens += 1
             return 200, {"access_token": f"tok{self.tokens}", "refresh_token": "never-saved", "expires_in": 300}
         token = headers.get("Authorization", "")
+        if path == "/accounts/v1/me/multiprofile":
+            return 200, {"profiles": [{"profile_name": "Caleb", "is_selected": False},
+                                      {"profile_name": self.selected, "is_selected": True}]}
         if path == "/accounts/v1/me":
             return 200, {"account_id": "acc-123"}
         if path == "/content/v2/acc-123/watch-history":
@@ -55,8 +59,8 @@ class FakeCrunchyroll:
         return 404, None
 
 
-def run(tmp_path, fake, cookie=COOKIE):
-    return fetch_history(tmp_path / "crunchyroll", cookie, transport=fake, pause_s=0, sleep=lambda s: None)
+def run(tmp_path, fake, cookie=COOKIE, profile="Ethan"):
+    return fetch_history(tmp_path / "crunchyroll", cookie, transport=fake, pause_s=0, sleep=lambda s: None, profile=profile)
 
 
 def test_fetches_every_page(tmp_path):
@@ -99,3 +103,13 @@ def test_failed_fetch_keeps_previous_file(tmp_path):
     with pytest.raises(CrunchyrollError):
         run(tmp_path, broken)
     assert (tmp_path / "crunchyroll" / HISTORY_FILE).read_text(encoding="utf-8") == before
+
+
+def test_only_the_chosen_profile(tmp_path):
+    assert run(tmp_path, FakeCrunchyroll())["profile"] == "Ethan"
+    saved = json.loads((tmp_path / "crunchyroll" / HISTORY_FILE).read_text(encoding="utf-8"))
+    assert saved["profile"] == "Ethan"
+    # the browser session is on someone else's profile: download nothing
+    with pytest.raises(WrongProfile, match="pick the Ethan profile"):
+        run(tmp_path / "other", FakeCrunchyroll(selected="Caleb"))
+    assert not (tmp_path / "other" / "crunchyroll" / HISTORY_FILE).exists()

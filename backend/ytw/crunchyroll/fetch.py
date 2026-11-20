@@ -45,6 +45,10 @@ class CookieExpired(CrunchyrollError):
     pass
 
 
+class WrongProfile(CrunchyrollError):
+    pass
+
+
 def http_transport(method: str, url: str, headers: dict, form: dict | None) -> tuple[int, dict | None]:
     data = urllib.parse.urlencode(form).encode() if form is not None else None
     req = urllib.request.Request(url, data=data, method=method,
@@ -113,6 +117,17 @@ class Client:
             return body
         raise CrunchyrollError("Couldn't stay signed in")
 
+    def selected_profile(self) -> tuple[str | None, list[str]]:
+        """(name of the profile this session is on, every profile name on the account).
+
+        A Crunchyroll account can have several profiles (one per person); the history endpoint
+        returns the history of the profile the browser session is on."""
+        body = self.get(f"{API}/accounts/v1/me/multiprofile")
+        profiles = body.get("profiles") or []
+        names = [p.get("profile_name") or p.get("username") or "?" for p in profiles]
+        current = next((p.get("profile_name") or p.get("username") for p in profiles if p.get("is_selected")), None)
+        return current, names
+
     def account_id(self) -> str:
         me = self.get(f"{API}/accounts/v1/me")
         if not me.get("account_id"):
@@ -140,17 +155,23 @@ class Client:
 
 def fetch_history(folder: Path, etp_rt: str, transport: Transport = http_transport, client_id: str = WEB_CLIENT_ID,
                   locale: str = "en-US", pause_s: float = PAUSE_S, sleep: Callable[[float], None] = time.sleep,
-                  progress: Callable[[int], None] = lambda n: None) -> dict:
-    """Download the whole history into folder/watch-history.json (replacing the last download)."""
+                  progress: Callable[[int], None] = lambda n: None, profile: str | None = None) -> dict:
+    """Download the whole history into folder/watch-history.json (replacing the last download).
+    With `profile`, refuses to download unless the session is on that profile (only your own history)."""
     client = Client(etp_rt, transport, client_id, pause_s, sleep)
+    current, names = client.selected_profile()
+    if profile and (current or "").casefold() != profile.casefold():
+        raise WrongProfile(
+            f"This Crunchyroll session is on the profile {current or '(none)'!r}, not {profile!r}. On crunchyroll.com pick "
+            f"the {profile} profile, then copy etp_rt again into CRUNCHYROLL_ETP_RT. (Profiles on the account: {', '.join(names)})")
     account = client.account_id()
     items = client.history(account, locale, progress)
     folder.mkdir(parents=True, exist_ok=True)
     out = {"source": "crunchyroll watch-history (unofficial web API)", "fetched_at": datetime.now(timezone.utc).isoformat(),
-           "locale": locale, "count": len(items), "items": items}
+           "profile": current, "locale": locale, "count": len(items), "items": items}
     tmp = folder / (HISTORY_FILE + ".tmp")
     tmp.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     tmp.replace(folder / HISTORY_FILE)  # only replace the old file once the new one is complete
     dates = sorted(i.get("date_played") for i in items if i.get("date_played"))
-    return {"items": len(items), "requests": client.requests, "first": dates[0] if dates else None,
+    return {"items": len(items), "requests": client.requests, "profile": current, "first": dates[0] if dates else None,
             "last": dates[-1] if dates else None, "file": str(folder / HISTORY_FILE)}

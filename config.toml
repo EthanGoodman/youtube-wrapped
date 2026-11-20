@@ -61,5 +61,6 @@ channels = []  # channel IDs or exact names to always treat as background
 [crunchyroll]
 # History is fetched with your browser's etp_rt cookie (CRUNCHYROLL_ETP_RT in .env):
 #   python backend/cli.py fetch --platform crunchyroll
+profile = "Ethan"                 # only fetch this profile's history (the account has several)
 locale = "en-US"                  # language of titles in the history
 # client_id = "..."               # only if Crunchyroll changes its web app's public client id

@@ -201,12 +201,12 @@ def cmd_fetch(args, cfg) -> None:
                  "  CRUNCHYROLL_ETP_RT=...\nto .env. Treat it like a password.")
     try:
         res = fetch_history(cfg.platform_dir("crunchyroll"), cookie, client_id=sec.get("client_id", WEB_CLIENT_ID),
-                            locale=sec.get("locale", "en-US"),
+                            locale=sec.get("locale", "en-US"), profile=sec.get("profile") or None,
                             progress=lambda n: print(f"  {n:,} history entries...", end="\r", flush=True))
     except CrunchyrollError as e:
         sys.exit(f"\n{e}")
     span = f" ({res['first'][:10]} -> {res['last'][:10]})" if res["first"] else ""
-    print(f"\nCrunchyroll: saved {res['items']:,} history entries{span} to {res['file']} ({res['requests']} requests)")
+    print(f"\nCrunchyroll: saved {res['items']:,} history entries for profile {res['profile']}{span} to {res['file']} ({res['requests']} requests)")
 
 
 def main() -> None:
