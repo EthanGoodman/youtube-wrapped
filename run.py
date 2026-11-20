@@ -56,11 +56,13 @@ def main() -> None:
     args = ap.parse_args()
 
     sys.path.insert(0, str(ROOT / "backend"))
-    from ytw.config import force_utf8_stdout, load_config
+    from ytw.config import force_utf8_stdout, load_config, migrate_legacy_layout
     force_utf8_stdout()
     cfg = load_config()
+    for m in migrate_legacy_layout(cfg):
+        print(f"Moved {m}")
     if not cfg.db_path.exists():
-        sys.exit("No database yet. Put your Takeout files in data/ and run:\n"
+        sys.exit("No database yet. Put your Takeout files in data/youtube/ and run:\n"
                  "  python backend/cli.py ingest\n  python backend/cli.py enrich   (optional, needs an API key)")
     build_frontend(args.rebuild)
 

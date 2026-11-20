@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ytw import db  # noqa: E402
-from ytw.config import force_utf8_stdout, load_config  # noqa: E402
+from ytw.config import force_utf8_stdout, load_config, migrate_legacy_layout  # noqa: E402
 from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
 from ytw import enrich  # noqa: E402
 from ytw.investigate import report as delay_report  # noqa: E402
@@ -135,8 +135,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(prog="ytw")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("ingest", help="Load Takeout JSON into the database")
-    p.add_argument("--watch", help="path to watch-history.json (default: data/)")
-    p.add_argument("--search", help="path to search-history.json (default: data/)")
+    p.add_argument("--watch", help="path to watch-history.json (default: data/youtube/)")
+    p.add_argument("--search", help="path to search-history.json (default: data/youtube/)")
     p.set_defaults(func=cmd_ingest)
 
     p = sub.add_parser("enrich", help="Fetch video/channel details from the YouTube Data API")
@@ -153,7 +153,10 @@ def main() -> None:
     p.set_defaults(func=cmd_investigate_delay)
 
     args = ap.parse_args()
-    args.func(args, load_config())
+    cfg = load_config()
+    for m in migrate_legacy_layout(cfg):
+        print(f"Moved {m}")
+    args.func(args, cfg)
 
 
 if __name__ == "__main__":

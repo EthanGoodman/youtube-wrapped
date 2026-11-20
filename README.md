@@ -23,11 +23,11 @@ pip install -r requirements.txt
 2. Click **All YouTube data included**, deselect everything except **history**.
 3. Click **Multiple formats** and set **History** to **JSON**.
 4. Export, download, unzip.
-5. Copy these from `Takeout/YouTube and YouTube Music/history/` into this repo's `data/` folder:
+5. Copy these from `Takeout/YouTube and YouTube Music/history/` into this repo's `data/youtube/` folder:
    - `watch-history.json` (required)
    - `search-history.json` (optional, enables search stats)
 
-`data/` is gitignored, so your history is never committed.
+`data/` is gitignored, so your history is never committed. Each platform has its own folder (`data/youtube/`, …) and its own processed database (`data/youtube.db`), which can always be rebuilt from the exports. If you used an older version that kept files directly in `data/`, they're moved automatically on the next run.
 
 ## 2. Get a YouTube Data API key (free, optional)
 
@@ -48,7 +48,7 @@ Without a key the app still works, but with no durations, categories, genres or 
 ## 3. Load and enrich
 
 ```bash
-python backend/cli.py ingest   # parse Takeout into data/wrapped.db (~5s for 90k entries)
+python backend/cli.py ingest   # parse Takeout into data/youtube.db (~5s for 90k entries)
 python backend/cli.py enrich   # fetch video/channel details from the API
 ```
 

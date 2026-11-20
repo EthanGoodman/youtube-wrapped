@@ -10,8 +10,12 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parents[1]
-raw = json.loads((ROOT / "data" / "watch-history.json").read_text(encoding="utf-8"))
-conn = sqlite3.connect(ROOT / "data" / "wrapped.db")
+sys.path.insert(0, str(ROOT / "backend"))
+from ytw.config import load_config  # noqa: E402
+
+_cfg = load_config()
+raw = json.loads((_cfg.platform_dir("youtube") / "watch-history.json").read_text(encoding="utf-8"))
+conn = sqlite3.connect(_cfg.platform_db("youtube"))
 q = lambda sql, *a: conn.execute(sql, a).fetchone()[0]  # noqa: E731
 
 ok = True

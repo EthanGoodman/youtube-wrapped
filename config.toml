@@ -2,8 +2,7 @@
 
 [general]
 timezone = "America/New_York"
-data_dir = "data"
-db_file = "data/wrapped.db"
+data_dir = "data"   # raw exports go in data/<platform>/, processed databases are data/<platform>.db
 
 [api]
 daily_budget_units = 9500   # stop before Google's default 10,000/day quota
