@@ -25,13 +25,21 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, images, platforms
 from .config import Config
-from .stats import ads, details, evolution, overview, patterns, records, search, tops
+from .stats import ads, details, evolution, overview, patterns, records, search, shows, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, data_bounds, resolve_range
 from .wrapped import MODES as WRAPPED_MODES, load_personalities, wrapped as wrapped_data
 
 TOP_KINDS: dict[str, Callable] = {
     "channels": tops.top_channels, "videos": tops.top_videos, "categories": tops.top_categories,
     "genres": tops.top_genres, "tags": tops.top_tags, "artists": tops.top_artists, "songs": tops.top_songs,
+    "movies": shows.top_movies,
+}
+SHOW_KINDS: dict[str, Callable] = {
+    "progress": lambda c, r, f, n: shows.progress(c, r, f, n),
+    "binges": lambda c, r, f, n: shows.binges(c, r, f, min(n, 50)),
+    "days": lambda c, r, f, n: shows.episode_days(c, r, f, min(n, 20)),
+    "rewatches": lambda c, r, f, n: shows.rewatches(c, r, f, n),
+    "split": lambda c, r, f, n: shows.split(c, r, f),
 }
 PATTERN_KINDS: dict[str, Callable] = {
     "clock": patterns.clock, "heatmap": patterns.heatmap, "calendar": patterns.calendar,
@@ -249,6 +257,15 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             return cached(request, fns[kind])
         except ValueError as e:
             raise HTTPException(400, str(e)) from None
+
+    @app.get("/api/shows/{kind}")
+    def get_shows(kind: str, request: Request):
+        require(request, "series")
+        if kind not in SHOW_KINDS:
+            raise HTTPException(404, f"unknown show stat: {kind}")
+        r, f = parse(request)
+        n = limit(request, 10 if kind in ("binges", "days") else 50)
+        return cached(request, lambda: {"range": r.to_dict(), "data": SHOW_KINDS[kind](conn(request), r, f, n)})
 
     @app.get("/api/ads")
     def get_ads(request: Request):

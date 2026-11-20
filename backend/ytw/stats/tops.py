@@ -39,8 +39,14 @@ WHERE w.video_id IN ({ph}) GROUP BY w.video_id
 
 
 def top_channels(conn, r: Range, f: Filters, limit: int = 50) -> list[dict]:
-    items = ranked(conn, "w.channel_id", r, f, limit)
-    return _attach(conn, items, _CHANNEL_INFO)
+    # Netflix's nameless episodes ("Unknown show") count in totals but aren't a show to rank
+    items = ranked(conn, "w.channel_id", r, f, limit + 1)
+    if any(i["key"] == "show:unknown-show" for i in items):
+        items = [i for i in items if i["key"] != "show:unknown-show"]
+        for n, i in enumerate(items, 1):
+            i["rank"] = n
+            i["rank_change"] = (i["prev_rank"] - n) if i["prev_rank"] else None
+    return _attach(conn, items[:limit], _CHANNEL_INFO)
 
 
 def top_videos(conn, r: Range, f: Filters, limit: int = 50) -> list[dict]:

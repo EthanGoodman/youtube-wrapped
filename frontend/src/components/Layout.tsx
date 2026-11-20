@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { HubLink, Link, NavLink, usePlatform } from "../platform";
-import { BarChart3, Clock, Home, LayoutGrid, Megaphone, MoreHorizontal, Search, Sparkles, TrendingUp, Trophy } from "lucide-react";
+import { BarChart3, Film, Clock, Home, LayoutGrid, Megaphone, MoreHorizontal, Search, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import { useLinkQuery } from "../filters";
 import { useMeta } from "../api";
 import { RangeBar } from "./RangeBar";
@@ -10,6 +10,7 @@ interface NavItem { to: string; label: string; icon: typeof Home; end?: boolean;
 const ALL_NAV: NavItem[] = [
   { to: "/", label: "Home", icon: Home, end: true },
   { to: "/top/channels", label: "Top", icon: BarChart3, match: "/top/" },
+  { to: "/shows", label: "Shows", icon: Film, cap: "series" },
   { to: "/patterns", label: "Patterns", icon: Clock },
   { to: "/records", label: "Records", icon: Trophy },
   { to: "/evolution", label: "Evolution", icon: TrendingUp },

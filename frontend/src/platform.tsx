@@ -95,3 +95,10 @@ export function tr(text: string): string {
     return m[0] === m[0].toUpperCase() ? out.charAt(0).toUpperCase() + out.slice(1) : out;
   });
 }
+
+/** True only once the platform is known to have episodic shows (no optimistic default:
+ *  these sections call Netflix-only endpoints). */
+export function useHasSeries(): boolean {
+  const p = usePlatform();
+  return !!p && p.capabilities.includes("series");
+}

@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { PageTitle } from "./components/ui";
 import { Home } from "./pages/Home";
 import { Hub } from "./pages/Hub";
+import { Shows } from "./pages/Shows";
 import { Top } from "./pages/Top";
 import { Patterns } from "./pages/Patterns";
 import { Records } from "./pages/Records";
@@ -73,6 +74,7 @@ function PlatformApp() {
     <Routes>
       <Route index element={<Layout><Home /></Layout>} />
       <Route path="top/:kind" element={<Layout><Top /></Layout>} />
+      <Route path="shows" element={<Gate capability="series"><Layout><Shows /></Layout></Gate>} />
       <Route path="patterns" element={<Layout><Patterns /></Layout>} />
       <Route path="records" element={<Layout><Records /></Layout>} />
       <Route path="evolution" element={<Layout><Evolution /></Layout>} />

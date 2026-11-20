@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useVocab, tr, useCapability } from "../platform";
+import { Link, useVocab, tr, useCapability, useHasSeries } from "../platform";
+import { KindSplit, KindSplitBar, ShowProgress, ShowProgressRows, useShows } from "../components/shows";
 import { HourPoint, Overview, TopResponse, WatchInfo, useMeta, useStats } from "../api";
 import { BarList, ChannelCarousel, RankedRows, WatchRows } from "../components/lists";
 import { MeasureToggle, WatchClock, useMeasure } from "../components/charts";
@@ -13,7 +14,8 @@ export function Home() {
   const meta = useMeta().data;
   const ov = useStats<Overview>("overview");
   const channels = useStats<TopResponse>("top/channels", { limit: 15 });
-  const videos = useStats<TopResponse>("top/videos", { limit: 5 });
+  const hasSeries = useHasSeries();
+  const videos = useStats<TopResponse>("top/videos", { limit: 5 }, { enabled: !hasSeries });
   const genres = useStats<TopResponse>("top/genres", { limit: 8 });
   const clock = useStats<{ data: HourPoint[] }>("patterns/clock");
   const [measure, setMeasure] = useMeasure();
@@ -55,11 +57,13 @@ export function Home() {
       </Section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Section title={`Top ${v.items}`} subtitle={`Your most rewatched ${v.items} from ${period}`} action={<SeeAll to="/top/videos" />}>
-          <QueryState q={videos} minHeight={300} empty={(d) => !d.items.length}>
-            {(d) => <RankedRows items={d.items} kind="video" />}
-          </QueryState>
-        </Section>
+        {hasSeries ? <ShowsCard /> : (
+          <Section title={`Top ${v.items}`} subtitle={`Your most rewatched ${v.items} from ${period}`} action={<SeeAll to="/top/videos" />}>
+            <QueryState q={videos} minHeight={300} empty={(d) => !d.items.length}>
+              {(d) => <RankedRows items={d.items} kind="video" />}
+            </QueryState>
+          </Section>
+        )}
         <Section title="Top genres" subtitle={`Your top genres from ${period}`} action={<SeeAll to="/top/genres" />}>
           <QueryState q={genres} minHeight={300} empty={(d) => !d.items.length}>
             {(d) => <BarList items={d.items} metric={filters.metric} linkTo={(g) => `/genre/${encodeURIComponent(g.key)}`} />}
@@ -84,6 +88,7 @@ export function Home() {
 function OverviewTiles({ o }: { o: Overview }) {
   const hasShorts = useCapability("shorts");
   const hasTimes = useCapability("time_of_day");
+  const hasSeries = useHasSeries();
   const { filters } = useFilters();
   const t = bigDuration(o.est_s);
   return (
@@ -99,6 +104,7 @@ function OverviewTiles({ o }: { o: Overview }) {
       </div>
       {/* the long-form / Shorts split only means something when both are shown */}
       {hasShorts && filters.buckets.includes("long") && filters.buckets.includes("short") && <SplitBar o={o} />}
+      {hasSeries && <EpisodeMovieSplit />}
     </>
   );
 }
@@ -156,6 +162,24 @@ function RecentWatches() {
             )}
           </>
         )}
+      </QueryState>
+    </Section>
+  );
+}
+
+function EpisodeMovieSplit() {
+  const split = useShows<KindSplit>("split");
+  return split.data ? <KindSplitBar split={split.data.data} /> : null;
+}
+
+/** Netflix home: the shows you watched and how far you got. */
+function ShowsCard() {
+  const { filters } = useFilters();
+  const progress = useShows<{ shows: ShowProgress[] }>("progress", { limit: 5 });
+  return (
+    <Section title="Your shows" subtitle={`How far you got, from ${rangeLabel(filters)}`} action={<SeeAll to="/shows" />}>
+      <QueryState q={progress} minHeight={300} empty={(d) => !d.data.shows.length}>
+        {(d) => <ShowProgressRows shows={d.data.shows} />}
       </QueryState>
     </Section>
   );

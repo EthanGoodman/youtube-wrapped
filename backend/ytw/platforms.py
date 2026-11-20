@@ -19,6 +19,7 @@ CAPABILITIES = {
     "categories",      # platform categories (YouTube's Gaming, Music, …)
     "genres",
     "tags",
+    "series",          # episodic shows with seasons (show progress, binges, episodes vs movies)
 }
 
 
@@ -66,7 +67,7 @@ PLATFORMS: dict[str, Platform] = {p.id: p for p in (
         "minutes to hours"),
     Platform(
         "netflix", "Netflix", True, "netflix", _vocab("show", "shows", "title", "titles"),
-        frozenset({"genres"}),
+        frozenset({"genres", "series"}),
         ("Quick: netflix.com/viewingactivity → Download all → NetflixViewingHistory.csv (dates only)",
          "Full (adds times and durations): netflix.com/account → Download your personal information "
          "→ CONTENT_INTERACTION/ViewingActivity.csv",

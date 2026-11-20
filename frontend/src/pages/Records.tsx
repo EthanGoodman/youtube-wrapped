@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Link, tr, useCapability } from "../platform";
+import { Link, tr, useCapability, useHasSeries, usePlatform } from "../platform";
+import { Binge, useShows } from "../components/shows";
 import { CalendarDays, Clock3, Flame, Hourglass, Moon, Rocket, Sunrise, Tv, Zap } from "lucide-react";
 import { WatchInfo, useStats } from "../api";
 import { PageTitle, QueryState, Section, Thumb, WatchTimeInfo } from "../components/ui";
@@ -23,6 +24,10 @@ type Milestone = WatchInfo & { n: number };
 
 export function Records() {
   const hasTimes = useCapability("time_of_day");
+  const isYouTube = (usePlatform()?.id ?? "youtube") === "youtube";
+  const hasSeries = useHasSeries();
+  const binge = useShows<Binge[]>("binges", { limit: 1 }, !hasSeries);
+
   const { filters } = useFilters();
   const rec = useStats<RecordsResponse>("records");
   const ms = useStats<Milestone[]>("milestones");
@@ -42,21 +47,24 @@ export function Records() {
             <RecordCard icon={<Tv />} label="Longest binge" info
                         value={r.longest_session ? duration(r.longest_session.time_s) : "–"}
                         detail={r.longest_session && tr(`${num(r.longest_session.videos)} videos without a 30-min break · ${date(r.longest_session.start)}`) + (r.longest_session.top_channel ? ` · mostly ${r.longest_session.top_channel}` : "")} />
-            <RecordCard icon={<Flame />} label="Longest streak" value={r.streaks.longest ? `${num(r.streaks.longest.days)} days` : "–"}
+            <RecordCard icon={<Flame />} label="Longest streak" value={r.streaks.longest ? days(r.streaks.longest.days) : "–"}
                         detail={r.streaks.longest && `${date(r.streaks.longest.start)} – ${date(r.streaks.longest.end)}`} />
-            <RecordCard icon={<Zap />} label="Current streak" value={`${num(r.streaks.current.days)} days`}
+            <RecordCard icon={<Zap />} label="Current streak" value={days(r.streaks.current.days)}
                         detail={r.streaks.current.days ? `since ${date(r.streaks.current.start)}` : "No streak going right now"} />
-            <RecordCard icon={<Hourglass />} label="Longest break" value={r.streaks.longest_break ? `${num(r.streaks.longest_break.days)} days` : "None"}
+            <RecordCard icon={<Hourglass />} label="Longest break" value={r.streaks.longest_break ? days(r.streaks.longest_break.days) : "None"}
                         detail={r.streaks.longest_break && `${date(r.streaks.longest_break.start)} – ${date(r.streaks.longest_break.end)}`} />
             {r.channel_day && (
               <RecordCard icon={<Rocket />} label={tr("One channel, one day")} value={tr(`${num(r.channel_day.count)} videos`)}
                           detail={<><Link className="text-ink hover:underline" to={`/channel/${r.channel_day.channel_id}${q}`}>{r.channel_day.channel}</Link> on {date(r.channel_day.date)}</>} />
             )}
-            <RecordCard icon={<Zap />} label="Early bird" value={tr(`${num(r.early_bird_count)} videos`)}
-                        detail={r.fastest ? `watched within an hour of upload · fastest: ${duration(r.fastest.seconds_after_upload)} after` : "watched within an hour of upload"} />
-            <RecordCard icon={<Tv />} label={tr("Removed & private videos")}
-                        value={tr(`${num(r.counts.unavailable)} videos`)}
-                        detail={`still counted as watches · ${num(r.counts.ads)} ads and ${num(r.counts.surveys)} surveys are left out of everything`} />
+            {hasSeries && <BingeCard binge={binge.data?.data[0]} />}
+            {isYouTube && <>
+              <RecordCard icon={<Zap />} label="Early bird" value={tr(`${num(r.early_bird_count)} videos`)}
+                          detail={r.fastest ? `watched within an hour of upload · fastest: ${duration(r.fastest.seconds_after_upload)} after` : "watched within an hour of upload"} />
+              <RecordCard icon={<Tv />} label={tr("Removed & private videos")}
+                          value={tr(`${num(r.counts.unavailable)} videos`)}
+                          detail={`still counted as watches · ${num(r.counts.ads)} ads and ${num(r.counts.surveys)} surveys are left out of everything`} />
+            </>}
           </div>
         )}
       </QueryState>
@@ -66,8 +74,8 @@ export function Records() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {hasTimes && <WatchCard icon={<Moon size={18} />} title="Latest night" subtitle="Closest to 5am" w={r.latest_night} />}
             {hasTimes && <WatchCard icon={<Sunrise size={18} />} title="Earliest morning" subtitle="Earliest after 5am" w={r.earliest_morning} />}
-            <WatchCard icon={<CalendarDays size={18} />} title={tr("Oldest video you watched")}
-                       subtitle={r.oldest ? `Uploaded ${date(r.oldest.published_at)}` : ""} w={r.oldest} />
+            {isYouTube && <WatchCard icon={<CalendarDays size={18} />} title="Oldest video you watched"
+                                     subtitle={r.oldest ? `Uploaded ${date(r.oldest.published_at)}` : ""} w={r.oldest} />}
           </div>
         )}
       </QueryState>
@@ -99,6 +107,18 @@ export function Records() {
     </div>
   );
 }
+
+/** Netflix: the season you finished fastest. */
+function BingeCard({ binge }: { binge?: Binge }) {
+  const q = useLinkQuery();
+  return (
+    <RecordCard icon={<Rocket />} label="Fastest season" value={binge ? days(binge.days) : "–"}
+                detail={binge && <><Link className="text-ink hover:underline" to={`/channel/${binge.key}${q}`}>{binge.title}</Link>
+                  {` season ${binge.season} · ${num(binge.episodes)} episodes`}</>} />
+  );
+}
+
+const days = (n: number) => (n === 1 ? "1 day" : `${num(n)} days`);
 
 function RecordCard({ icon, label, value, detail, info }: {
   icon: ReactNode; label: string; value: ReactNode; detail?: ReactNode; info?: boolean;

@@ -12,6 +12,7 @@ const TABS: { kind: string; label: string; music?: boolean; cap?: string }[] = [
   { kind: "channels", label: "Channels" },
   { kind: "videos", label: "Videos" },
   { kind: "categories", label: "Categories", cap: "categories" },
+  { kind: "movies", label: "Movies", cap: "series" },
   { kind: "genres", label: "Genres" },
   { kind: "tags", label: "Tags", cap: "tags" },
   { kind: "artists", label: "Artists", music: true },
@@ -22,6 +23,7 @@ const SUBTITLE: Record<string, string> = {
   channels: "channels",
   videos: "most rewatched videos",
   categories: "YouTube categories",
+  movies: "movies",
   genres: "genres (YouTube topic tags)",
   tags: "video tags",
   artists: "YouTube Music artists",
@@ -71,7 +73,7 @@ export function Top() {
             <>
               {kind === "channels" && grid ? <ChannelGrid items={d.items} /> :
                kind === "channels" || kind === "artists" ? <RankedRows items={d.items} kind="channel" showShare /> :
-               kind === "videos" || kind === "songs" ? <RankedRows items={d.items} kind="video" showShare /> :
+               kind === "videos" || kind === "songs" || kind === "movies" ? <RankedRows items={d.items} kind="video" showShare /> :
                <BarList items={d.items} metric={filters.metric}
                         linkTo={kind === "categories" ? (c) => `/category/${c.key}` :
                                 kind === "genres" ? (g) => `/genre/${encodeURIComponent(g.key)}` : undefined} />}
