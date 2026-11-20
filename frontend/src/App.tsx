@@ -7,6 +7,7 @@ import { Top } from "./pages/Top";
 import { Patterns } from "./pages/Patterns";
 import { Records } from "./pages/Records";
 import { Ads } from "./pages/Ads";
+import { Evolution } from "./pages/Evolution";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -27,7 +28,7 @@ export function App() {
         <Route path="/top/:kind" element={<Layout><Top /></Layout>} />
         <Route path="/patterns" element={<Layout><Patterns /></Layout>} />
         <Route path="/records" element={<Layout><Records /></Layout>} />
-        <Route path="/evolution" element={<Layout><Placeholder title="Evolution" /></Layout>} />
+        <Route path="/evolution" element={<Layout><Evolution /></Layout>} />
         <Route path="/ads" element={<Layout><Ads /></Layout>} />
         <Route path="/search" element={<Layout><Placeholder title="Search" /></Layout>} />
         <Route path="/channel/:id" element={<Layout><Placeholder title="Channel" /></Layout>} />
