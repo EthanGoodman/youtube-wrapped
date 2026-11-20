@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CalendarRange, Check, ChevronDown, Settings2 } from "lucide-react";
 import { useMeta } from "../api";
-import { Bucket, useFilters } from "../filters";
+import { ALL_BUCKETS, Bucket, useFilters } from "../filters";
 
 const PRESETS: [string, string][] = [
   ["4w", "4 weeks"],
@@ -52,11 +52,35 @@ export function RangeBar() {
       >
         {(close) => <CustomRange onDone={close} min={meta?.first_date} max={meta?.today} />}
       </Popover>
-      <div className="ml-auto pl-2">
+      <div className="ml-auto flex items-center gap-2 pl-2">
+        <ContentSwitch />
         <Popover align="right" label={<span className="chip" aria-label="Filters"><Settings2 size={16} /></span>}>
           {() => <SettingsPanel />}
         </Popover>
       </div>
+    </div>
+  );
+}
+
+/** One-tap content switch. "Videos" = long-form + music; removed/private videos only count under "All"
+ *  (we can't tell what they were). Finer control lives in the settings panel. */
+const CONTENT: [string, string, Bucket[]][] = [
+  ["all", "All", ALL_BUCKETS],
+  ["videos", "Videos", ["long", "music"]],
+  ["shorts", "Shorts", ["short"]],
+];
+
+function ContentSwitch() {
+  const { filters, update } = useFilters();
+  const same = (a: Bucket[], b: Bucket[]) => a.length === b.length && a.every((x) => b.includes(x));
+  return (
+    <div className="seg shrink-0 !text-sm" role="group" aria-label="Show">
+      {CONTENT.map(([key, label, buckets]) => (
+        <button key={key} aria-pressed={same(filters.buckets, buckets)} onClick={() => update({ buckets })}
+                className="!px-3.5 !py-1.5">
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
