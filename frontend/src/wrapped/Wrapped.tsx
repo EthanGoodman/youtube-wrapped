@@ -26,6 +26,13 @@ const BRAND: Record<string, { name: string; mark: (size: number) => React.ReactN
     backdrop: "radial-gradient(circle at 30% 30%, #e50914, transparent 55%), radial-gradient(circle at 70% 70%, #5c0a0f, transparent 55%)",
     tileFont: "Inter, sans-serif",
   },
+  crunchyroll: {
+    name: "Crunchyroll", mark: (size) => <NMark size={size} />, file: "crunchyroll-wrapped",
+    pickerBg: "radial-gradient(ellipse at top,#5a2a0b,#000 60%)",
+    tiles: ["#f47521", "#c85a12", "#8a3d0c", "#5a2a0b", "#f47521", "#c85a12"],
+    backdrop: "radial-gradient(circle at 30% 30%, #f47521, transparent 55%), radial-gradient(circle at 70% 70%, #5a2a0b, transparent 55%)",
+    tileFont: "Inter, sans-serif",
+  },
 };
 const brandOf = (platform: string | null | undefined) => BRAND[platform ?? "youtube"] ?? BRAND.youtube;
 
@@ -149,7 +156,7 @@ function Fullscreen({ children }: { children: React.ReactNode }) {
 function Player({ data, setMode }: { data: AnyWrapped; setMode: (m: WrappedMode) => void }) {
   const brand = brandOf(data.platform);
   // each card set renders its own platform's data
-  const cards = useMemo<CardDef<AnyWrapped>[]>(() => (data.platform === "netflix"
+  const cards = useMemo<CardDef<AnyWrapped>[]>(() => ("kind_split" in data
     ? (NETFLIX_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
     : (CARDS as CardDef<AnyWrapped>[]).filter((c) => available(c as CardDef, data as WrappedData))), [data]);
   // ?card=<id> opens the story on that card, paused (handy for linking to one card)

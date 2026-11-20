@@ -43,6 +43,7 @@ SHOW_KINDS: dict[str, Callable] = {
     "rewatches": lambda c, r, f, n: shows.rewatches(c, r, f, n),
     "split": lambda c, r, f, n: shows.split(c, r, f),
     "home": lambda c, r, f, n: shows.home(c, r, f),
+    "anime": lambda c, r, f, n: shows.anime(c, r, f),
 }
 PATTERN_KINDS: dict[str, Callable] = {
     "clock": patterns.clock, "heatmap": patterns.heatmap, "calendar": patterns.calendar,
@@ -330,7 +331,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         personalities_path = personalities_file(cfg.root, p.id)
         try:
             mtime = personalities_path.stat().st_mtime
-            pcfg = load_personalities(personalities_path, NETFLIX_METRICS if p.id == "netflix" else YT_METRICS)
+            pcfg = load_personalities(personalities_path, NETFLIX_METRICS if p.has("series") else YT_METRICS)
         except FileNotFoundError:
             mtime, pcfg = 0, {}
         except (ValueError, tomllib.TOMLDecodeError) as e:
@@ -340,9 +341,9 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         mode = request.query_params.get("mode", "all")
         if mode not in WRAPPED_MODES:
             raise HTTPException(400, f"mode must be one of {', '.join(WRAPPED_MODES)}")
-        if p.id == "netflix":
-            return cache_for(request).get_or_compute(stamp, key, lambda: netflix_wrapped(
-                conn(request), year, f, pcfg, today(), p.has("time_of_day")))
+        if p.has("series"):
+            return cache_for(request).get_or_compute(stamp, key, lambda: {**netflix_wrapped(
+                conn(request), year, f, pcfg, today(), p.has("time_of_day")), "platform": p.id})
         return cache_for(request).get_or_compute(stamp, key, lambda: wrapped_data(conn(request), year, f, pcfg, today(), mode))
 
     @app.get("/api/img")

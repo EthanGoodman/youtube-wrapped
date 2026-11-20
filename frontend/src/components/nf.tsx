@@ -4,7 +4,7 @@ import { Film } from "lucide-react";
 import { duration, num } from "../format";
 import type { ShowStatus } from "./shows";
 
-export const RED = "#e50914";
+export const RED = "rgb(var(--c-accent))";  // the platform accent (Netflix red, Crunchyroll orange)
 export const GREEN = "#46d369";
 export const STATUS: Record<ShowStatus, { label: string; color: string }> = {
   finished: { label: "Finished", color: GREEN },

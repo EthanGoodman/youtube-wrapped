@@ -20,6 +20,10 @@ const CHART_THEMES: Record<string, ChartTheme> = {
     accent: "#e50914", accentHi: "#ff858b", surface: "#1c1c1c", empty: "#262626",
     ramp: ["#3b1416", "#5f1519", "#8a141c", "#b5111d", "#e50914", "#f6404a", "#ff858b"],
   },
+  crunchyroll: {
+    accent: "#f47521", accentHi: "#ffb27a", surface: "#141519", empty: "#23252b",
+    ramp: ["#3a1f0e", "#5c2f12", "#874114", "#b45515", "#e06a17", "#f78b3d", "#ffb27a"],
+  },
 };
 
 /** Single measure (one series): the platform's accent. These are live bindings: setChartTheme() swaps them. */

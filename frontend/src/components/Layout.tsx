@@ -45,7 +45,7 @@ export function Logo() {
 
 export function Layout({ children, showRange = true }: { children: ReactNode; showRange?: boolean }) {
   // Netflix gets its own frame (top bar, menus, phone tabs) so it feels like Netflix, not a recolored YouTube
-  if (usePlatform()?.theme === "netflix") return <NetflixShell showRange={showRange}>{children}</NetflixShell>;
+  if (["netflix", "crunchyroll"].includes(usePlatform()?.theme ?? "")) return <NetflixShell showRange={showRange}>{children}</NetflixShell>;
   return <DefaultLayout showRange={showRange}>{children}</DefaultLayout>;
 }
 

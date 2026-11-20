@@ -4,7 +4,7 @@ import { Fragment, ReactNode, useCallback, useEffect, useLayoutEffect, useRef, u
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { MonthPoint, Overview, TopResponse, useStats } from "../api";
-import { Link } from "../platform";
+import { Link, usePlatform } from "../platform";
 import { QueryState, Section, SeeAll } from "../components/ui";
 import { BarList } from "../components/lists";
 import { MeasureToggle, MonthlyBars, useMeasure } from "../components/charts";
@@ -34,7 +34,7 @@ export interface HomeItem {
 }
 interface HomeData { billboard: HomeItem | null; top10: HomeItem[]; finished: HomeItem[]; movies: HomeItem[]; new: HomeItem[] }
 
-const RED = "#e50914";
+const RED = "rgb(var(--c-accent))";
 const STATUS: Record<ShowStatus, string> = { finished: "Finished", watching: "Watching", dropped: "Dropped" };
 const hours = (s: number) => (s >= 3600 ? `${num(Math.round(s / 3600))}h` : duration(s));
 const big = (s: string) => s.replace("/w185/", "/w342/");
@@ -105,8 +105,9 @@ function Hero({ billboard }: { billboard: HomeItem | null }) {
   const ov = useStats<Overview>("overview");
   const split = useShows<KindSplit>("split");
   const o = ov.data;
-  const kicker = /^\d{4}$/.test(filters.range) ? `Your ${filters.range} on Netflix`
-    : filters.range === "all" ? "Your Netflix, all time" : `Your Netflix · ${rangeLabel(filters).replace(/^the /, "")}`;
+  const name = usePlatform()?.name ?? "Netflix";
+  const kicker = /^\d{4}$/.test(filters.range) ? `Your ${filters.range} on ${name}`
+    : filters.range === "all" ? `Your ${name}, all time` : `Your ${name} · ${rangeLabel(filters).replace(/^the /, "")}`;
   const s = split.data?.data;
   const total = s ? s.episode.est_s + s.movie.est_s : 0;
   return (

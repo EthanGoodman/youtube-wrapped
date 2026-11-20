@@ -58,6 +58,25 @@
   --radius-card: 4px;
 }
 
+:root[data-theme="crunchyroll"] {
+  /* interim Crunchyroll palette: black and Crunchyroll orange (its full look comes later) */
+  --font-sans: Inter;
+  --font-display: Inter;
+  --c-bg: 0 0 0;             /* #000 */
+  --c-card: 20 21 25;        /* #141519 */
+  --c-raised: 35 37 43;      /* #23252b */
+  --c-line: 59 62 69;        /* #3b3e45 */
+  --c-ink: 255 255 255;
+  --c-sub: 160 160 160;
+  --c-muted: 113 113 113;
+  --c-accent: 244 117 33;    /* #f47521 Crunchyroll orange */
+  --c-accent-dark: 210 92 18;
+  --c-accent-soft: 255 140 64;
+  --c-up: 46 204 113;
+  --c-down: 255 99 71;
+  --radius-card: 4px;
+}
+
 html,
 body {
   background: rgb(var(--c-bg));
@@ -118,25 +137,25 @@ body {
 }
 
 /* rows sit straight on the page, like Netflix's rows (no boxed cards) */
-:root[data-theme="netflix"] .card {
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .card {
   background: transparent;
   padding: 0;
   border-radius: 0;
 }
-:root[data-theme="netflix"] .section-title {
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .section-title {
   font-size: clamp(18px, 1.4vw, 22px);
   font-weight: 700;
   color: #e5e5e5;
 }
-:root[data-theme="netflix"] .section-sub { color: #808080; }
-:root[data-theme="netflix"] main > div { row-gap: 2.6rem; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .section-sub { color: #808080; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) main > div { row-gap: 2.6rem; }
 /* the pages that still use the shared layout (episode, genre, year) stack boxless sections:
    give them the same breathing room as the Netflix pages */
-:root[data-theme="netflix"] main .flex-col.gap-4 { row-gap: 2.6rem; }
-:root[data-theme="netflix"] main .grid.gap-4 { gap: 2.6rem; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) main .flex-col.gap-4 { row-gap: 2.6rem; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) main .grid.gap-4 { gap: 2.6rem; }
 
 /* filter pills: outlined, white when on (Netflix app) */
-:root[data-theme="netflix"] .chip,
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .chip,
 .nf-pill {
   display: inline-flex;
   flex-shrink: 0;
@@ -152,27 +171,27 @@ body {
   color: #fff;
   transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
 }
-:root[data-theme="netflix"] .chip:hover,
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .chip:hover,
 .nf-pill:hover { background: rgba(255, 255, 255, 0.1); }
-:root[data-theme="netflix"] .chip-active,
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .chip-active,
 .nf-pill-on,
 .nf-pill-on:hover { background: #fff !important; color: #000; border-color: #fff; }
 
 /* two-way toggles become small Netflix tabs */
-:root[data-theme="netflix"] .seg { background: transparent; padding: 0; gap: 0.25rem; }
-:root[data-theme="netflix"] .seg > button {
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .seg { background: transparent; padding: 0; gap: 0.25rem; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .seg > button {
   border-radius: 2px;
   padding: 0.2rem 0.6rem;
   color: #b3b3b3;
   font-size: 13px;
 }
-:root[data-theme="netflix"] .seg > button[aria-pressed="true"] { background: #fff; color: #000; font-weight: 700; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .seg > button[aria-pressed="true"] { background: #fff; color: #000; font-weight: 700; }
 
-:root[data-theme="netflix"] .link-row { border-radius: 4px; }
-:root[data-theme="netflix"] .link-row:hover { background: #2f2f2f; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .link-row { border-radius: 4px; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .link-row:hover { background: #2f2f2f; }
 
 /* Netflix icons are heavier than Lucide's default */
-:root[data-theme="netflix"] .lucide { stroke-width: 2.25; }
+:root:is([data-theme="netflix"], [data-theme="crunchyroll"]) .lucide { stroke-width: 2.25; }
 
 /* buttons: white "Play" and gray translucent "More Info" */
 .btn-primary,

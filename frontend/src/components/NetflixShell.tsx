@@ -12,7 +12,7 @@ import { CustomRange } from "./RangeBar";
 /** Our own mark (not Netflix's N): a red tile with a W for "Wrapped". */
 export function WrappedMark({ size = 24 }: { size?: number }) {
   return (
-    <span aria-hidden className="inline-flex shrink-0 items-center justify-center rounded-[3px] bg-[#e50914] font-black leading-none text-white"
+    <span aria-hidden className="inline-flex shrink-0 items-center justify-center rounded-[3px] bg-yt font-black leading-none text-white"
           style={{ width: size, height: size, fontSize: size * 0.68, fontFamily: "Inter, system-ui, sans-serif", letterSpacing: "-0.04em" }}>
       W
     </span>
@@ -69,6 +69,8 @@ export function NetflixShell({ children, showRange: rangeWanted = true }: { chil
   const { pathname } = useLocation();
   // a show's page always covers your whole history, so the period picker would do nothing there
   const showRange = rangeWanted && !/\/channel\//.test(pathname);
+  const platformName = meta.data?.platform.name ?? "Netflix";
+  const isNetflix = (meta.data?.platform.id ?? "netflix") === "netflix";
   const [sheet, setSheet] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => { setSheet(false); setSearchOpen(false); }, [pathname]);
@@ -82,9 +84,9 @@ export function NetflixShell({ children, showRange: rangeWanted = true }: { chil
                    className="-ml-1.5 rounded-[4px] p-1.5 text-[#b3b3b3] transition-colors hover:bg-white/10 hover:text-white">
             <LayoutGrid size={21} />
           </HubLink>
-          <Link to={"/" + q} aria-label="Netflix Wrapped home" className="flex shrink-0 items-center gap-2">
+          <Link to={"/" + q} aria-label={`${platformName} Wrapped home`} className="flex shrink-0 items-center gap-2">
             <WrappedMark size={26} />
-            <span className="text-[19px] font-extrabold tracking-tight">Netflix Wrapped</span>
+            <span className="text-[19px] font-extrabold tracking-tight">{platformName} Wrapped</span>
           </Link>
           {/* full links on wide screens, a "Browse" menu between phone and desktop */}
           <nav className="hidden items-center gap-5 xl:flex" aria-label="Main">
@@ -124,11 +126,11 @@ export function NetflixShell({ children, showRange: rangeWanted = true }: { chil
         <div className="flex flex-wrap gap-x-8 gap-y-2">
           <HubLink to="/" className="hover:underline">All platforms</HubLink>
           <Link to={"/wrapped" + q} className="hover:underline">Play your Wrapped</Link>
-          <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer noopener" className="hover:underline">Posters and details from TMDB</a>
+          {isNetflix && <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer noopener" className="hover:underline">Posters and details from TMDB</a>}
         </div>
         <p className="mt-5 text-[11px]">
-          Wrapped is a private, personal project made from your own viewing history. It is not affiliated with or endorsed by Netflix.
-          This product uses the TMDB API but is not endorsed or certified by TMDB.
+          Wrapped is a private, personal project made from your own viewing history. It is not affiliated with or endorsed by {platformName}.
+          {isNetflix && " This product uses the TMDB API but is not endorsed or certified by TMDB."}
         </p>
       </footer>
 
@@ -262,7 +264,7 @@ function ProfileMenu() {
           <Link to={"/wrapped" + q} className="flex items-center gap-3 px-4 py-2 hover:underline"><Sparkles size={18} /> Play your Wrapped</Link>
           <HubLink to="/" className="flex items-center gap-3 px-4 py-2 hover:underline"><LayoutGrid size={18} /> All platforms</HubLink>
           <div className="my-2 border-t border-white/15" />
-          <p className="px-4 pb-1 text-[11px] text-[#808080]">Not affiliated with Netflix</p>
+          <p className="px-4 pb-1 text-[11px] text-[#808080]">Not affiliated with {useMeta().data?.platform.name ?? "Netflix"}</p>
         </div>
       )}
     </div>

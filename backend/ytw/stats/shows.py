@@ -21,6 +21,15 @@ REWATCH_GAP_DAYS = 7
 BINGE_MAX_DAYS = 30     # a show page's "seasons binged" only counts seasons finished within this many days    # two viewings this far apart are a rewatch (not finishing an episode the next day)
 
 
+def _as_int(v) -> int | None:
+    """Season / episode numbers as ints; None for missing or non-numeric ones ("", "SP", 12.5)."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return int(f) if f.is_integer() else None
+
+
 def _has_table(conn: sqlite3.Connection, name: str) -> bool:
     return conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone() is not None
 
@@ -58,8 +67,9 @@ def _first_watches(conn: sqlite3.Connection, show_keys: list[str], until: date) 
             f"WHERE w.channel_id IN ({ph}) AND w.kind = 'episode' AND w.local_date <= ? "
             f"GROUP BY w.channel_id, w.video_id", [*show_keys, until.isoformat()]):
         out[key]["distinct"] += 1
-        if s is not None and n is not None:
-            out[key]["eps"][(int(s), int(n))] = first
+        sn = _as_int(s), _as_int(n)
+        if None not in sn:
+            out[key]["eps"][sn] = first
     return out
 
 
@@ -306,7 +316,8 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
                 WHERE w.channel_id = ? AND w.kind = 'episode' GROUP BY w.video_id""", (key,)):
         watched[item] = {"season": s, "number": n, "label": label, "title": title, "first": first, "last": last,
                          "times": times, "time_s": t or 0}
-    by_num = {(int(v["season"]), int(v["number"])): v for v in watched.values() if v["season"] is not None and v["number"] is not None}
+    by_num = {(_as_int(v["season"]), _as_int(v["number"])): v for v in watched.values()
+              if _as_int(v["season"]) is not None and _as_int(v["number"]) is not None}
 
     tmdb_id = conn.execute("SELECT json_extract(extra, '$.tmdb_id') FROM creators WHERE creator_id = ?", (key,)).fetchone()[0]
     seasons: list[dict] = []
@@ -331,7 +342,7 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
     # episodes TMDB's numbering can't place (e.g. One Piece's arcs): listed under Netflix's own season name
     other = sorted(({"title": v["title"], "season": v["label"], "first": v["first"], "times": v["times"]}
                     for v in watched.values()
-                    if v["season"] is None or v["number"] is None or (int(v["season"]), int(v["number"])) not in matched),
+                    if (_as_int(v["season"]), _as_int(v["number"])) not in matched),
                    key=lambda e: e["first"])
 
     # pace
@@ -372,4 +383,41 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
         "time_s": sum(v["time_s"] for v in watched.values()),
         "episodes_watched": len(watched),
         "views": sum(v["times"] for v in watched.values()),
+    }
+
+
+# ------------------------------------------------------------------ anime (Crunchyroll)
+
+SIMULCAST_DAYS = 7  # watched within a week of the episode airing
+
+
+def anime(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
+    """Sub vs dub (from the audio language you watched in) and simulcast watching (how soon after
+    an episode aired you watched it)."""
+    w_sql, p = where(r, f)
+    rows = conn.execute(
+        f"""SELECT json_extract(i.extra, '$.dubbed'), {time_expr(f)}, w.start_epoch, w.published_epoch, w.channel_id
+            FROM watches w LEFT JOIN items i ON i.item_id = w.video_id WHERE {w_sql}""", p).fetchall()
+    sub = {"count": 0, "time_s": 0}
+    dub = {"count": 0, "time_s": 0}
+    lags, simul_shows = [], defaultdict(int)
+    for dubbed, t, start, aired, show in rows:
+        bucket = dub if dubbed else sub
+        bucket["count"] += 1
+        bucket["time_s"] += t or 0
+        if aired and start and start >= aired:
+            days = (start - aired) / 86400
+            lags.append(days)
+            if days <= SIMULCAST_DAYS and show:
+                simul_shows[show] += 1
+    lags.sort()
+    names = _show_info(conn, list(simul_shows))
+    top = sorted(simul_shows.items(), key=lambda kv: -kv[1])[:5]
+    return {
+        "sub": sub, "dub": dub,
+        "simulcast": sum(1 for d in lags if d <= SIMULCAST_DAYS),
+        "dated": len(lags),
+        "median_days_after_air": lags[len(lags) // 2] if lags else None,
+        "simulcast_shows": [{"key": k, "title": names[k]["title"] if k in names else k,
+                             "avatar_url": names[k]["avatar_url"] if k in names else None, "episodes": n} for k, n in top],
     }

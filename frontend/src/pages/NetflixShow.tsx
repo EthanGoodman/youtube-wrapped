@@ -30,7 +30,7 @@ interface ShowDetail {
   views: number;
 }
 
-const RED = "#e50914";
+const RED = "rgb(var(--c-accent))";
 const GREEN = "#46d369";
 const STATUS: Record<ShowStatus, [string, string]> = { finished: ["Finished", GREEN], watching: ["Watching", RED], dropped: ["Dropped", "#b3b3b3"] };
 const hours = (s: number) => (s >= 3600 ? `${num(Math.round(s / 3600))}h` : duration(s));
@@ -202,7 +202,7 @@ function EpisodeChecklist({ d }: { d: ShowDetail }) {
         </ol>
       ) : (
         <>
-          <p className="mb-3 text-[13px] text-[#808080]">Episodes we couldn't match to TMDB's episode list (Netflix names some seasons differently).</p>
+          <p className="mb-3 text-[13px] text-[#808080]">Episodes not matched to a full episode list (some seasons go by a different name).</p>
           <ol className="flex flex-col">
             {d.other_episodes.map((e, i) => (
               <li key={i} className="flex items-center gap-4 border-b border-white/[0.08] py-3">

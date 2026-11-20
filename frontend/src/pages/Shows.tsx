@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { TopResponse } from "../api";
-import { Link } from "../platform";
+import { Link, useCapability } from "../platform";
 import { QueryState, Section } from "../components/ui";
 import { Binge, ShowProgress, ShowStatus, useShows } from "../components/shows";
 import { FigureStrip, GREEN, PageHead, Poster, Progress, RED, STATUS, plural } from "../components/nf";
@@ -22,6 +22,7 @@ export function Shows() {
   const rewatches = useShows<Rewatches>("rewatches");
   const [status, setStatus] = useState<ShowStatus | "all">("all");
   const [sort, setSort] = useState<Sort>("watched");
+  const anime = useCapability("anime");
 
   return (
     <div className="flex flex-col gap-10">
@@ -67,8 +68,8 @@ export function Shows() {
           <QueryState q={rewatches} minHeight={120}>
             {({ data }) => !data.detectable ? (
               <p className="text-[14px] text-[#b3b3b3]">
-                Netflix's quick download lists each title once per account, so rewatches only show up across accounts
-                or with the full data export (ViewingActivity.csv).
+                {anime ? "Crunchyroll only keeps the latest play of each episode, so rewatches can't be seen."
+                       : "Netflix's quick download lists each title once per account, so rewatches only show up across accounts or with the full data export (ViewingActivity.csv)."}
               </p>
             ) : data.items.length ? <RewatchList items={data.items} /> : <p className="text-[14px] text-[#b3b3b3]">Nothing rewatched in this period.</p>}
           </QueryState>

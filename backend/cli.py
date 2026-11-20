@@ -73,9 +73,22 @@ def netflix_enrich(args, cfg) -> None:
     netflix_build(conn, cfg)
 
 
+def crunchyroll_build(cfg) -> None:
+    from ytw.crunchyroll import ingest as cr
+    conn = db.connect(cfg.platform_db("crunchyroll"))
+    try:
+        r = cr.build(conn, cfg.platform_dir("crunchyroll"), cfg.tz)
+    except FileNotFoundError as e:
+        sys.exit(str(e))
+    print(f"Built {r['plays']:,} episodes of {r['series']:,} series, {r['hours']:,.0f} h watched "
+          f"({r['first']} -> {r['last']}); {r['skipped']} removed or few-second plays skipped")
+
+
 def cmd_ingest(args, cfg) -> None:
     if args.platform == "netflix":
         return netflix_ingest(args, cfg)
+    if args.platform == "crunchyroll":
+        return crunchyroll_build(cfg)
     conn = db.connect(cfg.db_path)
     db.init_db(conn)
     if cfg.tz.key != (db.get_meta(conn, "timezone") or cfg.tz.key):
@@ -174,6 +187,8 @@ def rebuild(conn, cfg) -> None:
 
 
 def cmd_build(args, cfg) -> None:
+    if args.platform == "crunchyroll":
+        return crunchyroll_build(cfg)
     if args.platform == "netflix":
         conn = db.connect(cfg.platform_db("netflix"))
         return netflix_build(conn, cfg)
@@ -207,6 +222,7 @@ def cmd_fetch(args, cfg) -> None:
         sys.exit(f"\n{e}")
     span = f" ({res['first'][:10]} -> {res['last'][:10]})" if res["first"] else ""
     print(f"\nCrunchyroll: saved {res['items']:,} history entries for profile {res['profile']}{span} to {res['file']} ({res['requests']} requests)")
+    crunchyroll_build(cfg)  # import it straight away
 
 
 def main() -> None:

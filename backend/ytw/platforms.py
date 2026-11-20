@@ -20,6 +20,7 @@ CAPABILITIES = {
     "genres",
     "tags",
     "series",          # episodic shows with seasons (show progress, binges, episodes vs movies)
+    "anime",           # sub vs dub and simulcast stats (Crunchyroll)
 }
 
 
@@ -99,8 +100,8 @@ PLATFORMS: dict[str, Platform] = {p.id: p for p in (
          "Put the export folder in data/instagram/"),
         "up to ~14 days", issue=6),
     Platform(
-        "crunchyroll", "Crunchyroll", False, "crunchyroll", _vocab("series", "series", "episode", "episodes"),
-        frozenset({"genres"}),
+        "crunchyroll", "Crunchyroll", True, "crunchyroll", _vocab("series", "series", "episode", "episodes"),
+        frozenset({"genres", "series", "anime"}),
         ("No official export. Log in at crunchyroll.com, open DevTools (F12) > Application > Cookies and copy etp_rt",
          "Add it to .env as CRUNCHYROLL_ETP_RT=... (treat it like a password)",
          "Run: python backend/cli.py fetch --platform crunchyroll (unofficial: reads your own history from Crunchyroll's site)"),

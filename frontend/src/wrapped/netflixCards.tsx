@@ -6,7 +6,7 @@ import { compact, date, hourLabel, num } from "../format";
 import { CardDef, CountUp, RadialClock, pop, rise } from "./cards";
 import { NetflixWrappedData, img } from "./types";
 
-const RED = "#e50914";
+const RED = "rgb(var(--c-accent))";  // the platform accent (Netflix red, Crunchyroll orange)
 // Inter Black, like the dashboard (Netflix's own type is a heavy sans, not a condensed display face)
 const DISPLAY = "Inter, system-ui, sans-serif";
 /** Inter is much wider than the condensed face these sizes were set for: scale headlines to fit. */
@@ -18,6 +18,10 @@ const days = (n: number) => (n === 1 ? "1 day" : `${num(n)} days`);
 const poster = (url: string | null | undefined, big = false) => img(big && url ? url.replace("/w185/", "/w500/") : url);
 
 // ------------------------------------------------------------------ building blocks
+
+/** Which platform's story this is (from the page's theme), for the name on the cards. */
+const platformName = () =>
+  ({ netflix: "Netflix", crunchyroll: "Crunchyroll" } as Record<string, string>)[document.documentElement.dataset.theme ?? ""] ?? "Netflix";
 
 /** Our own mark (not Netflix's N), shared with the dashboard's top bar. */
 import { WrappedMark as NMark } from "../components/NetflixShell";
@@ -32,13 +36,13 @@ function Card({ children, footer = true, year, glow = "top" }: {
          style={{ background: "#0b0b0b", fontFamily: "Inter, system-ui, sans-serif" }}>
       {glow !== "none" && (
         <div className="pointer-events-none absolute inset-0"
-             style={{ background: `radial-gradient(ellipse 120% 70% at ${glowAt}, rgba(229,9,20,0.55), rgba(229,9,20,0.08) 55%, transparent 75%)` }} />
+             style={{ background: `radial-gradient(ellipse 120% 70% at ${glowAt}, rgb(var(--c-accent) / 0.55), rgb(var(--c-accent) / 0.08) 55%, transparent 75%)` }} />
       )}
       <div className="relative z-10 flex flex-1 flex-col px-7 pb-6 pt-16">{children}</div>
       {footer && (
         <div className="relative z-10 flex items-center justify-between px-7 pb-6">
           <span className="flex items-center gap-2"><NMark size={18} />
-            <span className="text-[15px] font-extrabold tracking-tight">Netflix Wrapped</span>
+            <span className="text-[15px] font-extrabold tracking-tight">{platformName()} Wrapped</span>
           </span>
           {year && <span className="text-[15px] font-extrabold text-white/70">{year}</span>}
         </div>
@@ -103,7 +107,7 @@ export const NETFLIX_CARDS: NCard[] = [
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           <motion.div {...pop(0.1)}><NMark size={96} /></motion.div>
           <Display size={150} delay={0.4} className="mt-4">{d.year}</Display>
-          <motion.p {...rise(0.7)} className="mt-1 text-[21px] font-bold">Your year on Netflix</motion.p>
+          <motion.p {...rise(0.7)} className="mt-1 text-[21px] font-bold">Your year on {platformName()}</motion.p>
           <motion.p {...rise(1.1)} className="mt-10 text-sm text-white/60">Tap to start ▸</motion.p>
         </div>
       </Card>
@@ -117,7 +121,7 @@ export const NETFLIX_CARDS: NCard[] = [
         <Card year={d.year}>
           <Kicker>In {d.year} you watched about</Kicker>
           <Display size={140} delay={0.3} color={RED}><CountUp to={hrs(o.est_s)} /></Display>
-          <Display size={44} delay={0.4}>hours of Netflix</Display>
+          <Display size={44} delay={0.4}>hours of {platformName()}</Display>
           <motion.div {...rise(1.1)} className="mt-8 space-y-3 text-[17px]">
             <p>That's <b>{(o.est_s / 86400).toFixed(1)} full days</b>.</p>
             <p><b>{num(d.kind_split.episode.count)} episodes</b> of <b>{num(d.progress.shows)} shows</b>
@@ -144,7 +148,7 @@ export const NETFLIX_CARDS: NCard[] = [
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <motion.div initial={{ opacity: 0, rotateY: 90, scale: 0.8 }} animate={{ opacity: 1, rotateY: 0, scale: 1 }}
                         transition={{ delay: 0.8, duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
-                        style={{ boxShadow: "0 20px 60px rgba(229,9,20,0.45)" }} className="rounded-md">
+                        style={{ boxShadow: "0 20px 60px rgb(var(--c-accent) / 0.45)" }} className="rounded-md">
               <Poster src={s.avatar_url} name={s.title} w={196} big />
             </motion.div>
             <Display size={44} delay={1.5} className="mt-6">{s.title}</Display>
@@ -380,7 +384,7 @@ function NetflixSummary({ d }: { d: NetflixWrappedData }) {
     <Card footer={false}>
       <div className="-mt-4 flex items-center justify-between">
         <span className="flex items-center gap-2"><NMark size={26} />
-          <span className="text-[20px] font-extrabold tracking-tight">Netflix Wrapped</span>
+          <span className="text-[20px] font-extrabold tracking-tight">{platformName()} Wrapped</span>
         </span>
         <span style={heavy} className="text-[32px] leading-none">{d.year}</span>
       </div>
