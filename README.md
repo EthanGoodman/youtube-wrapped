@@ -2,7 +2,6 @@
 
 A local, private stats dashboard for your YouTube watch history (think stats.fm, but for YouTube), built from a Google Takeout export. Everything runs on your machine. The only thing that leaves it is video/channel ID lookups to the YouTube Data API.
 
-> Status: data pipeline, stats engine and dashboard are done. The Wrapped story mode is in progress.
 
 ## Setup
 
@@ -77,7 +76,19 @@ What's in it (every page follows the time-range chips at the top: 4 weeks, 6 mon
 
 The ⚙ button sets which videos count (long-form, Shorts, Music) and whether sleep/background audio adds to watch time. Filters live in the URL, so any view can be bookmarked.
 
-Thumbnails and channel avatars load straight from YouTube's image servers, so your browser requests those images from Google.
+Thumbnails and channel avatars load straight from YouTube's image servers, so your browser requests those images from Google. Fonts are bundled, so nothing else is loaded from the internet.
+
+## 5. Wrapped
+
+Click **Wrapped** in the top bar, pick a year, and get a Spotify-Wrapped-style story: about 14 full-screen cards (total time, your #1 channel, top 5, top video, top category and genres, Shorts vs long-form, watch clock, biggest day, streak, latest night, discovery of the year, your viewer personality, and a summary).
+
+- Tap/click the right side or press → to go forward, left side or ← to go back, hold or press Space to pause.
+- The ⬇ button saves the current card as a **1080×1920 PNG** (phone story size). On the last card, **Save share image** saves the summary.
+- Add `&still` to the URL to skip the animations.
+
+**Viewer personality.** `personalities.toml` defines the personalities (Night Owl, Binger, Loyalist, Explorer, Shorts Scroller, Gamer, Sleep Streamer, ...). Each one looks at one metric for the year (for example `night_share`, the share of videos started between midnight and 5am) and has a threshold. The one that beats its threshold by the most wins, and the card says why. Edit the thresholds, wording or emoji and reload the page; the file lists every available metric.
+
+To export cards with thumbnails, the server relays YouTube images through `/api/img` (browsers block exporting images from other sites). It only fetches from YouTube's image hosts.
 
 **Developing the frontend:** run `python run.py --no-browser` in one terminal and `npm run dev` in `frontend/` in another, then open http://localhost:5173 (hot reload; API calls are forwarded to port 8000).
 
