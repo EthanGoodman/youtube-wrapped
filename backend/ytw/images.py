@@ -13,7 +13,8 @@ from typing import Callable
 from urllib.parse import urlparse
 
 ALLOWED_HOSTS = ("i.ytimg.com", "i1.ytimg.com", "i2.ytimg.com", "i3.ytimg.com", "i4.ytimg.com",
-                 "i9.ytimg.com", "yt3.ggpht.com", "yt3.googleusercontent.com")
+                 "i9.ytimg.com", "yt3.ggpht.com", "yt3.googleusercontent.com",
+                 "image.tmdb.org")  # TMDB posters (Netflix)
 MAX_BYTES = 5 * 1024 * 1024
 _CACHE_SIZE = 300
 

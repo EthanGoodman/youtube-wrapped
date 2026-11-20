@@ -7,7 +7,7 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 | Platform | Status |
 |---|---|
 | YouTube | ✅ Supported |
-| Netflix | Planned ([#2](https://github.com/EthanGoodman/youtube-wrapped/issues/2)) |
+| Netflix | In progress ([#2](https://github.com/EthanGoodman/youtube-wrapped/issues/2)) - import + TMDB enrichment work |
 | Spotify | Planned ([#3](https://github.com/EthanGoodman/youtube-wrapped/issues/3)) |
 | Prime Video | Planned ([#4](https://github.com/EthanGoodman/youtube-wrapped/issues/4)) |
 | TikTok | Planned ([#5](https://github.com/EthanGoodman/youtube-wrapped/issues/5)) |
@@ -106,6 +106,32 @@ Click **Wrapped** in the top bar, pick a year, and get a Spotify-Wrapped-style s
 To export cards with thumbnails, the server relays YouTube images through `/api/img` (browsers block exporting images from other sites). It only fetches from YouTube's image hosts.
 
 **Developing the frontend:** run `python run.py --no-browser` in one terminal and `npm run dev` in `frontend/` in another, then open http://localhost:5173 (hot reload; API calls are forwarded to port 8000).
+
+## Netflix
+
+1. Get your history, either or both:
+   - **Quick (instant):** netflix.com/viewingactivity → *Download all* → `NetflixViewingHistory.csv`. Titles and dates only, so watch time is estimated and there are no times of day.
+   - **Full (takes a few days):** netflix.com/account → *Download your personal information* → `CONTENT_INTERACTION/ViewingActivity.csv`. Adds exact start times and durations. If it has several profiles, set `[netflix] profile = "Your Name"` in `config.toml` (or pass `--profile`).
+2. Put the file in `data/netflix/` (the full export wins if both are there).
+3. Get a free TMDB token for posters, genres and runtimes: sign up at [themoviedb.org](https://www.themoviedb.org) → Settings → API → create a *Developer* key, then add the **API Read Access Token** to `.env`:
+   ```
+   TMDB_TOKEN=eyJ...
+   ```
+4. Run:
+   ```bash
+   python backend/cli.py ingest --platform netflix
+   python backend/cli.py enrich --platform netflix
+   ```
+
+TMDB matches are cached; if one is wrong, fix it in `data/netflix/overrides.toml` and rerun `enrich`:
+```toml
+[shows]
+"Money Heist" = 71446      # TMDB TV id (from the show's themoviedb.org URL)
+[movies]
+"Some Title" = 0           # 0 = don't match
+```
+
+*This product uses the TMDB API but is not endorsed or certified by TMDB.*
 
 ## How platforms are organized
 

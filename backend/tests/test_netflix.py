@@ -164,3 +164,108 @@ def test_api_on_netflix(tmp_path):
     assert top[0]["title"] == "Stranger Things" and top[0]["count"] == 3
     assert client.get("/api/ads?platform=netflix").status_code == 404
     assert client.get("/api/wrapped/2026?platform=netflix").status_code == 200
+
+
+# ------------------------------------------------------------------ TMDB enrichment (fake TMDB)
+
+from ytw.netflix import tmdb  # noqa: E402
+
+TV = {"Cyberpunk: Edgerunners": 105248, "Peaky Blinders": 60574, "Money Heist": 71446, "Broadchurch": 1427,
+      "HIS & HERS": 9001, "My Little Pony: Friendship Is Magic": 33765, "Stranger Things": 66732}
+MOVIES = {"Don't Look Up": 646380, "Spider-Man: Into the Spider-Verse": 324857}
+
+
+class FakeTmdb:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, path, params):
+        self.calls.append(path)
+        if path.startswith("search/"):
+            media, q = path.split("/")[1], params["query"]
+            names = TV if media == "tv" else MOVIES
+            field = "name" if media == "tv" else "title"
+            hits = [{"id": i, field: n} for n, i in names.items() if tmdb.norm(q) in tmdb.norm(n)]
+            # a decoy that is NOT an exact match comes first, to check exact matches are preferred
+            return {"results": [{"id": 1, field: q + " (Decoy)"}] + hits}
+        if "/season/" in path:  # tv/<id>/season/<n>: Peaky Blinders has real per-episode runtimes
+            tid, n = int(path.split("/")[1]), int(path.split("/")[3])
+            if tid != 60574:
+                return {"episodes": []}
+            return {"episodes": [{"episode_number": e, "name": "Episode %d" % e, "runtime": 58 + e + n * 10,
+                                  "still_path": "/s%d%d.jpg" % (n, e)} for e in range(1, 7)]}
+        media, tid = path.split("/")
+        tid = int(tid)
+        if media == "tv":
+            name = next(n for n, i in TV.items() if i == tid) if tid in TV.values() else "Decoy"
+            return {"id": tid, "name": name, "first_air_date": "2020-01-01", "episode_run_time": [50, 60],
+                    "genres": [{"name": "Drama"}, {"name": "Crime"}], "poster_path": "/p.jpg",
+                    "number_of_seasons": 2, "number_of_episodes": 16, "origin_country": ["GB"]}
+        name = next(n for n, i in MOVIES.items() if i == tid) if tid in MOVIES.values() else "Decoy"
+        return {"id": tid, "title": name, "release_date": "2021-12-24", "runtime": 138,
+                "genres": [{"name": "Comedy"}], "poster_path": "/m.jpg"}
+
+
+def _quick_db(tmp_path):
+    conn, folder = _db(tmp_path, QUICK, "NetflixViewingHistory.csv")
+    nf.ingest(conn, folder, NY)
+    return conn
+
+
+def test_enrich_matches_and_settles_one_offs(tmp_path):
+    conn = _quick_db(tmp_path)
+    fake = FakeTmdb()
+    r = tmdb.enrich(conn, fake)
+    assert r["one_offs"] == 1 and r["shows_found"] == r["shows"] and r["movies_found"] == 2
+    # the exact match wins over the decoy listed first
+    assert conn.execute("SELECT tmdb_id FROM tmdb_titles WHERE query = 'tv|money heist'").fetchone()[0] == 71446
+    # "Spider-Man: Into the Spider-Verse" is an exact movie title -> movie
+    assert conn.execute("SELECT kind FROM title_resolution WHERE title LIKE 'Spider-Man%'").fetchone()[0] == "movie"
+    nf.build(conn, NY, {})
+    w = dict(conn.execute("SELECT video_id, est_s FROM watches").fetchall())
+    assert w["mv:don-t-look-up"] == 138 * 60                        # real runtime replaces the 110-min guess
+    assert w["ep:cyberpunk-edgerunners||stronger"] == 55 * 60         # no episode data: show's typical length (50, 60)
+    assert conn.execute("SELECT est_method FROM watches WHERE video_id = 'mv:don-t-look-up'").fetchone()[0] == "runtime"
+    show = conn.execute("SELECT avatar_url, item_count, country FROM creators WHERE title = 'Peaky Blinders'").fetchone()
+    assert show[0] == "https://image.tmdb.org/t/p/w185/p.jpg" and show[1] == 16 and show[2] == "GB"
+    assert {g for (g,) in conn.execute("SELECT DISTINCT genre FROM item_genres")} == {"Drama", "Crime", "Comedy"}
+    # everything cached: a second run makes no requests
+    fake2 = FakeTmdb()
+    assert tmdb.enrich(conn, fake2)["requests"] == 0 and fake2.calls == []
+
+
+def test_one_off_becomes_episode(tmp_path):
+    conn, folder = _db(tmp_path, 'Title,Date\n"Peaky Blinders: Sick Puppy","1/2/26"\n', "NetflixViewingHistory.csv")
+    nf.ingest(conn, folder, NY)
+    tmdb.enrich(conn, FakeTmdb())
+    nf.build(conn, NY, {})
+    row = conn.execute("SELECT w.kind, c.title FROM watches w JOIN creators c ON c.creator_id = w.channel_id").fetchone()
+    assert tuple(row) == ("episode", "Peaky Blinders")
+
+
+def test_overrides(tmp_path):
+    conn = _quick_db(tmp_path)
+    tmdb.enrich(conn, FakeTmdb(), {"shows": {"Money Heist": 60574}, "movies": {"Don't Look Up": 0}})
+    assert conn.execute("SELECT tmdb_id FROM tmdb_titles WHERE query = 'tv|money heist'").fetchone()[0] == 60574
+    assert conn.execute("SELECT media_type FROM tmdb_titles WHERE query = 'movie|don t look up'").fetchone()[0] == "none"
+
+
+def test_load_overrides(tmp_path):
+    f = tmp_path / "overrides.toml"
+    f.write_text('[shows]\n"Money Heist" = 71446\n[movies]\n"Bugonia" = 0\n')
+    assert tmdb.load_overrides(f) == {"shows": {"Money Heist": 71446}, "movies": {"Bugonia": 0}}
+    assert tmdb.load_overrides(tmp_path / "missing.toml") == {"shows": {}, "movies": {}}
+
+
+def test_episode_runtimes_and_stills(tmp_path):
+    conn = _quick_db(tmp_path)
+    tmdb.enrich(conn, FakeTmdb())
+    nf.build(conn, NY, {})
+    # Peaky Blinders S1E6 -> 58 + 6 + 10 = 74 min, S2E1 -> 58 + 1 + 20 = 79 min (matched by season + number)
+    w = dict(conn.execute("SELECT video_id, est_s FROM watches WHERE video_id LIKE 'ep:peaky%'").fetchall())
+    assert w == {"ep:peaky-blinders|season-1|episode-6": 74 * 60, "ep:peaky-blinders|season-2|episode-1": 79 * 60}
+    thumb = conn.execute("SELECT thumb_small FROM items WHERE item_id = 'ep:peaky-blinders|season-1|episode-6'").fetchone()[0]
+    assert thumb == "https://image.tmdb.org/t/p/w300/s16.jpg"
+    # the show's typical length becomes the real average of its episodes
+    avg = conn.execute("SELECT runtime_min FROM tmdb_titles WHERE query = 'tv|peaky blinders'").fetchone()[0]
+    assert avg == round(sum(58 + e + n * 10 for n in (1, 2) for e in range(1, 7)) / 12)

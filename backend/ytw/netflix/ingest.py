@@ -10,6 +10,7 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from .. import db
+from . import tmdb
 from .parser import FULL, SIMPLE, find_files, parse_history, profiles_in
 
 VIEWS_SCHEMA = """
@@ -85,13 +86,31 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
     rows = conn.execute("SELECT * FROM views WHERE supplemental IS NULL "
                         "ORDER BY COALESCE(start_epoch, 0), local_date, file_order").fetchall()
     has_times = any(r["start_epoch"] is not None for r in rows)
+    # TMDB data, if `enrich` has run (else everything falls back to estimates)
+    conn.executescript(tmdb.SCHEMA)
+    meta = {r["query"]: r for r in conn.execute("SELECT * FROM tmdb_titles WHERE media_type != 'none'")}
+    resolved = {r["title"]: r for r in conn.execute("SELECT * FROM title_resolution")}
+
+    find_episode = tmdb.episode_lookup(conn)
+
+    def info(media: str, name: str | None):
+        return meta.get(f"{media}|{tmdb.norm(name)}") if name else None
 
     watches, items, creators = [], {}, {}
     session, prev_end, prev_date = 0, None, None
+    genres: dict[str, list[str]] = {}
     for r in rows:
-        kind = "episode" if r["kind"] == "episode" else "movie"  # unknown counts as a movie until TMDB
-        show = r["show"] if kind == "episode" else None
-        item_id = ("ep:" + slug(show, r["season"], r["episode"])) if show else ("mv:" + slug(r["title"]))
+        kind, show, episode = r["kind"], r["show"], r["episode"]
+        if kind == "unknown":  # one-off with a colon: TMDB settled it, else it counts as a movie
+            res = resolved.get(r["title"])
+            kind, show, episode = (res["kind"], res["show"], res["episode"]) if res else ("movie", None, None)
+        if kind != "episode":
+            show = episode = None
+        t = info("tv", show) if show else info("movie", r["title"])
+        ep = find_episode(t["tmdb_id"], r["season"], episode) if t and show else None
+        runtime_min = (ep["runtime_min"] if ep and ep["runtime_min"] else None) or (t["runtime_min"] if t else None)
+        runtime_s = runtime_min * 60 if runtime_min else None
+        item_id = ("ep:" + slug(show, r["season"], episode)) if show else ("mv:" + slug(r["title"]))
         creator_id = ("show:" + slug(show)) if show else None
         if r["start_epoch"] is not None:
             start = datetime.fromtimestamp(r["start_epoch"], timezone.utc)
@@ -104,7 +123,7 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
             d = datetime.fromisoformat(r["local_date"])
             start = datetime.combine(d.date(), time(0), tz) + timedelta(seconds=r["file_order"])
             start = start.astimezone(timezone.utc)
-            est, method = fallback[kind], "fallback"
+            est, method = (runtime_s, "runtime") if runtime_s else (fallback[kind], "fallback")
             if r["local_date"] != prev_date:
                 session += 1
             prev_date = r["local_date"]
@@ -113,16 +132,34 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
         watches.append((
             r["id"], kind, item_id, creator_id, start.timestamp(), local.isoformat(), local_date,
             int(local_date[:4]), local_date[:7], local.hour, local.hour * 60 + local.minute,
-            datetime.fromisoformat(local_date).weekday(), r["duration_s"], est, r["duration_s"] or None,
+            datetime.fromisoformat(local_date).weekday(), r["duration_s"], est, runtime_s or r["duration_s"] or None,
             method, None, session, "long", None, 0, 0, 0, None, None))
         if item_id not in items:
-            items[item_id] = (item_id, "unknown", r["episode"] if show else r["title"], creator_id, None, None,
-                              None, None, None, "https://www.netflix.com/search?q=" + quote(show or r["title"]),
-                              json.dumps({"show": show, "season": r["season"], "episode": r["episode"],
-                                          "kind": kind, "netflix_title": r["title"]}))
+            items[item_id] = (
+                item_id, "ok" if t else "unknown", episode if show else (t["name"] if t else r["title"]), creator_id,
+                tmdb.img(ep["still_path"], "w300") if ep and ep["still_path"] else (tmdb.img(t["poster_path"], "w185") if t else None),
+                tmdb.img((ep["still_path"] if ep else None) or t["backdrop_path"] or t["poster_path"], "w780") if t else None,
+                runtime_s, t["first_air_date"] if t else None, None,
+                "https://www.netflix.com/search?q=" + quote(show or r["title"]),
+                json.dumps({"show": show, "season": r["season"], "episode": episode, "kind": kind,
+                            "netflix_title": r["title"], "year": t["year"] if t else None,
+                            "overview": t["overview"] if t and not show else None,
+                            "poster": tmdb.img(t["poster_path"], "w500") if t else None,
+                            "tmdb_id": t["tmdb_id"] if t else None, "tmdb_type": "tv" if show else "movie",
+                            "season_number": ep["season"] if ep else None, "episode_number": ep["number"] if ep else None,
+                            "air_date": ep["air_date"] if ep else None}))
+            if t:
+                genres[item_id] = json.loads(t["genres"] or "[]")
         if creator_id and creator_id not in creators:
-            creators[creator_id] = (creator_id, "unknown", show, None, None, None, None, None, None,
-                                    "https://www.netflix.com/search?q=" + quote(show), None)
+            creators[creator_id] = (
+                creator_id, "ok" if t else "unknown", t["name"] if t else show, None,
+                tmdb.img(t["poster_path"], "w185") if t else None, None, t["episodes"] if t else None,
+                t["country"] if t else None, t["first_air_date"] if t else None,
+                "https://www.netflix.com/search?q=" + quote(show),
+                json.dumps({"topics": json.loads(t["genres"] or "[]"), "seasons": t["seasons"], "year": t["year"],
+                            "overview": t["overview"], "poster": tmdb.img(t["poster_path"], "w500"),
+                            "backdrop": tmdb.img(t["backdrop_path"], "w1280"), "tmdb_id": t["tmdb_id"]})
+                if t else None)
 
     conn.execute("PRAGMA foreign_keys=OFF")  # Netflix has no YouTube-style raw `entries` table
     cols = ("entry_id, kind, video_id, channel_id, start_epoch, local_iso, local_date, year, month, local_hour, "
@@ -134,6 +171,8 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
     conn.executemany(f"INSERT INTO watches ({cols}) VALUES ({','.join('?' * 25)})", watches)
     conn.executemany("INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(items.values()))
     conn.executemany("INSERT INTO creators VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(creators.values()))
+    conn.execute("DELETE FROM item_genres")
+    conn.executemany("INSERT INTO item_genres VALUES (?, ?)", [(i, g) for i, gs in genres.items() for g in gs])
     # what this data can show: real times of day only come with the full export
     db.set_meta(conn, "extra_capabilities", "time_of_day" if has_times else "estimated_time")
     db.set_meta(conn, "built_at", datetime.now(timezone.utc).isoformat())

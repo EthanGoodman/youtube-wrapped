@@ -47,6 +47,29 @@ def netflix_build(conn, cfg) -> None:
           f"{r[3]:,.0f} h ({r[4]} -> {r[5]})")
 
 
+def netflix_enrich(args, cfg) -> None:
+    import os
+    from ytw.netflix import tmdb
+    token = os.environ.get("TMDB_TOKEN")
+    if not token:
+        sys.exit("No TMDB_TOKEN in .env. Get a free API Read Access Token at themoviedb.org "
+                 "(Settings -> API) - see the README.")
+    conn = db.connect(cfg.platform_db("netflix"))
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'views'").fetchone():
+        sys.exit("No Netflix data yet. Run `python backend/cli.py ingest --platform netflix` first.")
+    overrides = tmdb.load_overrides(cfg.platform_dir("netflix") / "overrides.toml")
+    try:
+        r = tmdb.enrich(conn, tmdb.http_fetcher(token), overrides,
+                        progress=lambda s: print(f"  {s[:70]:<70}", end="\r", flush=True))
+    except tmdb.TmdbError as e:
+        sys.exit(str(e))
+    print(" " * 75, end="\r")
+    print(f"TMDB: {r['shows_found']}/{r['shows']} shows and {r['movies_found']}/{r['movies']} movies matched, "
+          f"{r['one_offs']} one-off titles settled ({r['requests']} requests). "
+          "Fix wrong matches in data/netflix/overrides.toml.")
+    netflix_build(conn, cfg)
+
+
 def cmd_ingest(args, cfg) -> None:
     if args.platform == "netflix":
         return netflix_ingest(args, cfg)
@@ -92,7 +115,7 @@ def cmd_investigate_delay(args, cfg) -> None:
 
 def cmd_enrich(args, cfg) -> None:
     if args.platform == "netflix":
-        sys.exit("Netflix enrichment (TMDB posters, genres, runtimes) is coming next.")
+        return netflix_enrich(args, cfg)
     conn = db.connect(cfg.db_path)
     db.init_db(conn)
     if not conn.execute("SELECT 1 FROM entries LIMIT 1").fetchone():
