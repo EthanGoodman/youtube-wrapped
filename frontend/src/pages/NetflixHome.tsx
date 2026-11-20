@@ -132,7 +132,8 @@ function Hero({ billboard }: { billboard: HomeItem | null }) {
                   hours<span className="block text-[12px] font-medium normal-case tracking-normal text-[#b3b3b3]">estimated</span>
                 </span>
               </div>
-              <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
+              {/* room for the big number's comma, which hangs below its tight line box */}
+              <div className="mt-[clamp(36px,3.8vw,58px)] flex flex-wrap gap-x-8 gap-y-3">
                 <Figure value={num(o.videos)} label="titles" />
                 <Figure value={num(o.unique_channels)} label="shows" />
                 <Figure value={num(o.active_days)} label={`of ${num(o.days)} days`} />
