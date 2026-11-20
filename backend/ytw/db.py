@@ -143,8 +143,10 @@ CREATE INDEX IF NOT EXISTS ix_watches_session ON watches(session_id);
 -- Derived lookups (rebuilt by `build`)
 CREATE TABLE IF NOT EXISTS video_topics (video_id TEXT NOT NULL, topic TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_video_topics ON video_topics(video_id, topic);
+CREATE INDEX IF NOT EXISTS ix_video_topics_topic ON video_topics(topic, video_id);
 CREATE TABLE IF NOT EXISTS video_tags (video_id TEXT NOT NULL, tag TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_video_tags ON video_tags(video_id, tag);
+CREATE INDEX IF NOT EXISTS ix_video_tags_tag ON video_tags(tag, video_id);
 
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,

@@ -5,6 +5,11 @@ import json
 import re
 import sqlite3
 
+# (name, table, columns): dropped during the bulk rebuild and recreated after (much faster)
+_INDEXES = [("ix_video_topics", "video_topics", "video_id, topic"),
+            ("ix_video_topics_topic", "video_topics", "topic, video_id"),
+            ("ix_video_tags", "video_tags", "video_id, tag"),
+            ("ix_video_tags_tag", "video_tags", "tag, video_id")]
 _SPACE = re.compile(r"\s+")
 _KEY = re.compile(r"[^0-9a-z]+")
 
@@ -38,11 +43,18 @@ def build_lookups(conn: sqlite3.Connection, stopwords: frozenset[str],
     for vid, tp, tg, chan in rows:
         topics.extend((vid, t) for t in json.loads(tp or "[]"))
         tags.extend((vid, t) for t in clean_tags(json.loads(tg or "[]"), chan, stopwords))
+    for name, _, _ in _INDEXES:
+        conn.execute(f"DROP INDEX IF EXISTS {name}")
     conn.execute("DELETE FROM video_topics")
     conn.execute("DELETE FROM video_tags")
     conn.executemany("INSERT INTO video_topics VALUES (?, ?)", topics)
-    conn.executemany("INSERT INTO video_tags VALUES (?, ?)", tags)
-    conn.execute("DELETE FROM video_tags WHERE tag IN "
-                 "(SELECT tag FROM video_tags GROUP BY tag HAVING COUNT(*) < ?)", (min_videos,))
+    # drop rare tags before inserting rather than deleting them afterwards
+    per_tag: dict[str, int] = {}
+    for _, t in tags:
+        per_tag[t] = per_tag.get(t, 0) + 1
+    conn.executemany("INSERT INTO video_tags VALUES (?, ?)",
+                     ((v, t) for v, t in tags if per_tag[t] >= min_videos))
+    for name, table, cols in _INDEXES:
+        conn.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table}({cols})")
     conn.commit()
     return len(topics), conn.execute("SELECT COUNT(*) FROM video_tags").fetchone()[0]

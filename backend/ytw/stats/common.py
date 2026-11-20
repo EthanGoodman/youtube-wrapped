@@ -123,10 +123,14 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
         q = (f"SELECT {key_sql} AS k, {cnt} AS cnt, {tsum} AS time_s FROM {src} "
              f"WHERE {where_sql} AND {key_sql} IS NOT NULL GROUP BY k ORDER BY {order} DESC, k "
              + (f"LIMIT {int(lim)}" if lim else ""))
-        all_params = (params if not pre_aggregate_by_video else params) + list(extra_params)
-        rows = conn.execute(q, all_params).fetchall()
-        total_q = (f"SELECT COUNT(*), SUM({time_expr(f)}) FROM watches w WHERE {w_sql}")
-        tot = conn.execute(total_q, params).fetchone()
+        rows = conn.execute(q, params + list(extra_params)).fetchall()
+        # share is relative to the same subset (e.g. within one channel on its detail page)
+        if pre_aggregate_by_video or not extra_where:
+            tot = conn.execute(f"SELECT COUNT(*), SUM({time_expr(f)}) FROM watches w WHERE {w_sql}",
+                               params).fetchone()
+        else:
+            tot = conn.execute(f"SELECT COUNT(*), SUM({time_expr(f)}) FROM watches w {joins} "
+                               f"WHERE {w_sql} AND {extra_where}", params + list(extra_params)).fetchone()
         total = (tot[1] if f.metric == "time" else tot[0]) or 0
         return [{"key": k, "count": c, "time_s": t or 0} for k, c, t in rows], total
 
