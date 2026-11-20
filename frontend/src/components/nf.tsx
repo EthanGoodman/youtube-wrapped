@@ -5,7 +5,7 @@ import { duration, num } from "../format";
 import type { ShowStatus } from "./shows";
 
 export const RED = "rgb(var(--c-accent))";  // the platform accent (Netflix red, Crunchyroll orange)
-export const GREEN = "#46d369";
+export const GREEN = "rgb(var(--c-up))";  // "finished": Netflix green, Crunchyroll teal
 export const STATUS: Record<ShowStatus, { label: string; color: string }> = {
   finished: { label: "Finished", color: GREEN },
   watching: { label: "Watching", color: RED },

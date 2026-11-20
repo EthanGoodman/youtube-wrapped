@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { TopResponse } from "../api";
-import { Link, useCapability } from "../platform";
+import { Link, useCapability, usePlatform } from "../platform";
+import { Meta, PosterCard } from "../components/cr";
 import { QueryState, Section } from "../components/ui";
 import { Binge, ShowProgress, ShowStatus, useShows } from "../components/shows";
 import { FigureStrip, GREEN, PageHead, Poster, Progress, RED, STATUS, plural } from "../components/nf";
@@ -102,6 +103,7 @@ function SortMenu({ value, onChange }: { value: Sort; onChange: (s: Sort) => voi
 
 function PosterWall({ shows, status, sort }: { shows: ShowProgress[]; status: ShowStatus | "all"; sort: Sort }) {
   const q = useLinkQuery();
+  const cr = usePlatform()?.theme === "crunchyroll";
   const list = useMemo(() => {
     const picked = shows.filter((s) => status === "all" || s.status === status);
     const by: Record<Sort, (a: ShowProgress, b: ShowProgress) => number> = {
@@ -114,8 +116,11 @@ function PosterWall({ shows, status, sort }: { shows: ShowProgress[]; status: Sh
   }, [shows, status, sort]);
   if (!list.length) return <p className="text-[14px] text-[#b3b3b3]">No {status === "all" ? "" : STATUS[status as ShowStatus].label.toLowerCase()} shows in this period.</p>;
   return (
-    <div className="grid grid-cols-3 gap-x-3 gap-y-7 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+    <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 ${cr ? "gap-x-5 gap-y-8" : "gap-x-3 gap-y-7"}`}>
       {list.map((s) => (
+        cr ? <PosterCard key={s.key} s={{ ...s, poster: s.avatar_url, genres: [] }} className="min-w-0"
+                         line={<Meta items={[s.total != null ? `${num(s.watched)} of ${num(s.total)}` : `${num(s.watched)} eps`,
+                                             s.pct != null ? `${Math.round(s.pct * 100)}%` : null]} />} /> :
         <Link key={s.key} to={`/channel/${s.key}${q}`} className="group min-w-0">
           <div className="transition-transform duration-200 group-hover:scale-[1.04]"><Poster src={s.avatar_url} /></div>
           <Progress pct={s.pct} status={s.status} className="mt-2" />

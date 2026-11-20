@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { RankedItem, TopResponse, useStats } from "../api";
-import { Link, NavLink } from "../platform";
+import { Link, NavLink, usePlatform } from "../platform";
+import { PosterCard } from "../components/cr";
 import { QueryState, RankChange } from "../components/ui";
 import { BarList } from "../components/lists";
 import { ShowProgress, useShows } from "../components/shows";
@@ -51,12 +52,16 @@ function TopShows({ limit }: { limit: number }) {
   const top = useStats<TopResponse>("top/channels", { limit });
   const prog = useShows<{ shows: ShowProgress[] }>("progress", { limit: 500 });
   const byKey = new Map((prog.data?.data.shows ?? []).map((s) => [s.key, s]));
+  const cr = usePlatform()?.theme === "crunchyroll";
   return (
     <QueryState q={top} minHeight={500} empty={(d) => !d.items.length}>
       {(d) => (
         <div className="flex flex-col gap-10">
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
-            {d.items.slice(0, 10).map((s) => <TopTile key={s.key} s={s} p={byKey.get(s.key)} metric={filters.metric} />)}
+            {d.items.slice(0, 10).map((s) => cr
+              ? <PosterCard key={s.key} s={{ key: s.key, title: s.title ?? "", poster: s.avatar_url ?? null, count: s.count, time_s: s.time_s,
+                                             rank: s.rank, genres: [], ...(byKey.get(s.key) ?? {}) }} />
+              : <TopTile key={s.key} s={s} p={byKey.get(s.key)} metric={filters.metric} />)}
           </div>
           {d.items.length > 10 && (
             <ol className="flex flex-col">

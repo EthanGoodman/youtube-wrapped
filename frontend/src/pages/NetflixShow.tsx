@@ -31,7 +31,7 @@ interface ShowDetail {
 }
 
 const RED = "rgb(var(--c-accent))";
-const GREEN = "#46d369";
+const GREEN = "rgb(var(--c-up))";
 const STATUS: Record<ShowStatus, [string, string]> = { finished: ["Finished", GREEN], watching: ["Watching", RED], dropped: ["Dropped", "#b3b3b3"] };
 const hours = (s: number) => (s >= 3600 ? `${num(Math.round(s / 3600))}h` : duration(s));
 const days = (n: number) => (n === 1 ? "1 day" : `${num(n)} days`);

@@ -249,7 +249,7 @@ function StatTip({ it, rect }: { it: HomeItem; rect: DOMRect }) {
     <div className="pointer-events-none fixed z-[60] animate-[nf-pop_.18s_cubic-bezier(0.4,0,0.2,1)] rounded-[4px] border border-white/15 bg-[#181818] p-3 shadow-[0_8px_24px_rgba(0,0,0,.7)]"
          style={{ left, top: Math.max(8, rect.top - 150), width: w }}>
       <p className="truncate text-[14px] font-bold">{it.title}</p>
-      {it.pct != null && <p className="mt-0.5 text-[13px] font-bold text-[#46d369]">{Math.round(it.pct * 100)}% of the show</p>}
+      {it.pct != null && <p className="mt-0.5 text-[13px] font-bold text-up">{Math.round(it.pct * 100)}% of the show</p>}
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
         {rows.map(([k, v]) => (
           <Fragment key={k}><dt className="text-[#808080]">{k}</dt><dd className="text-right">{v}</dd></Fragment>
@@ -280,7 +280,7 @@ function ProgressPanel() {
 
 function ProgressRow({ s }: { s: ShowProgress }) {
   const q = useLinkQuery();
-  const color = s.status === "finished" ? "#46d369" : s.status === "watching" ? RED : "#808080";
+  const color = s.status === "finished" ? "rgb(var(--c-up))" : s.status === "watching" ? RED : "#808080";
   return (
     <li>
       <Link to={`/channel/${s.key}` + q} className="-mx-3 flex items-center gap-4 rounded-[4px] px-3 py-2.5 transition-colors hover:bg-white/[0.06]">
@@ -311,7 +311,7 @@ function FinishedPanel({ finished }: { finished: HomeItem[] }) {
     <Section title="Finished or not" subtitle={`Every show you watched from ${rangeLabel(filters)}`}>
       {s && (
         <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[4px] bg-white/[0.06]">
-          {([["finished", "#46d369"], ["watching", RED], ["dropped", "#b3b3b3"]] as [ShowStatus, string][]).map(([k, c]) => (
+          {([["finished", "rgb(var(--c-up))"], ["watching", RED], ["dropped", "#b3b3b3"]] as [ShowStatus, string][]).map(([k, c]) => (
             <div key={k} className="bg-[#181818] px-4 py-4">
               <div className="text-[44px] font-black leading-none tracking-tight" style={{ color: c }}>{num(s[k])}</div>
               <div className="mt-1.5 text-[13px] text-[#b3b3b3]">{STATUS[k]}</div>
