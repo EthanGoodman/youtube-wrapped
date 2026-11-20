@@ -24,8 +24,12 @@ def load_personalities(path: Path) -> dict:
     return cfg
 
 
+# Wrapped modes -> which content types they cover
+MODES = {"all": ("long", "short", "music", "unknown"), "videos": ("long", "music"), "shorts": ("short",)}
+
+
 def personality_metrics(conn: sqlite3.Connection, r: Range, f: Filters) -> dict[str, float]:
-    w_sql, p = where(r, Filters(exclude_bg_time=f.exclude_bg_time))  # always all buckets
+    w_sql, p = where(r, f)
     row = conn.execute(f"""
         SELECT COUNT(*),
                SUM(w.local_hour < 5), SUM(w.local_hour BETWEEN 5 AND 8), SUM(w.local_dow >= 5),
@@ -54,10 +58,13 @@ def personality_metrics(conn: sqlite3.Connection, r: Range, f: Filters) -> dict[
     }
 
 
-def pick_personality(metrics: dict[str, float], cfg: dict) -> dict:
-    """Highest value/threshold wins if it reaches 1; otherwise the fallback."""
+def pick_personality(metrics: dict[str, float], cfg: dict, skip_metrics: frozenset[str] = frozenset()) -> dict:
+    """Highest value/threshold wins if it reaches 1; otherwise the fallback.
+    Personalities whose metric is in skip_metrics are left out (e.g. shorts_share in Shorts-only mode)."""
     scored = []
     for p in cfg.get("personality", []):
+        if p["metric"] in skip_metrics:
+            continue
         value = metrics.get(p["metric"], 0.0)
         scored.append((value / p["threshold"], value, p))
     scored.sort(key=lambda s: -s[0])
@@ -79,34 +86,37 @@ def _public(p: dict) -> dict:
 
 
 def wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict,
-            today: date | None = None) -> dict:
+            today: date | None = None, mode: str = "all") -> dict:
+    """mode: all | videos (long-form + music) | shorts. Every card uses only that content.
+    In "all", channel/video rankings still use long-form only (a pile of 20-second Shorts
+    shouldn't outrank what you sat down to watch) and Shorts get their own card."""
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {', '.join(MODES)}")
     r = Range(date(year, 1, 1), date(year, 12, 31), str(year))
-    ov = overview.overview(conn, r, f)
+    base = Filters(buckets=MODES[mode], exclude_bg_time=f.exclude_bg_time, metric=f.metric)
+    ov = overview.overview(conn, r, base)
     if not ov["videos"]:
-        return {"year": year, "empty": True}
-    # Channel and video rankings use long-form (+ music) only, so a pile of 20-second Shorts
-    # can't outrank the channels you actually sat down to watch. Shorts get their own list.
-    long_f = Filters(buckets=("long", "music"), exclude_bg_time=f.exclude_bg_time, metric=f.metric)
-    shorts_f = Filters(buckets=("short",), exclude_bg_time=f.exclude_bg_time, metric="count")
-    by_time = Filters(buckets=("long", "music"), exclude_bg_time=f.exclude_bg_time, metric="time")
-    rec = records.records(conn, r, f, today)
-    clock = patterns.clock(conn, r, f)
-    metrics = personality_metrics(conn, r, f)
-    top_channels = tops.top_channels(conn, r, long_f, 5)
-    top_shorts_channels = tops.top_channels(conn, r, shorts_f, 5)
+        return {"year": year, "mode": mode, "empty": True}
+    rank_f = Filters(buckets=MODES["videos"], exclude_bg_time=f.exclude_bg_time, metric=f.metric) if mode == "all" else base
+    by_time = Filters(buckets=rank_f.buckets, exclude_bg_time=f.exclude_bg_time, metric="time")
+    shorts_f = Filters(buckets=MODES["shorts"], exclude_bg_time=f.exclude_bg_time, metric="count")
+    rec = records.records(conn, r, base, today)
+    clock = patterns.clock(conn, r, base)
+    metrics = personality_metrics(conn, r, base)
     top_channels_time = tops.top_channels(conn, r, by_time, 1)
-    discoveries = evolution.new_discoveries(conn, r, f, 3)
+    discoveries = evolution.new_discoveries(conn, r, base, 3)
     return {
         "year": year,
+        "mode": mode,
         "empty": False,
         "overview": {k: ov[k] for k in ("videos", "unique_videos", "unique_channels", "est_s", "max_s",
                                         "active_days", "days", "pct_days_active", "split", "change")},
-        "top_channels": top_channels,
+        "top_channels": tops.top_channels(conn, r, rank_f, 5),
         "top_channel_by_time": top_channels_time[0] if top_channels_time else None,
-        "top_shorts_channels": top_shorts_channels,
-        "top_videos": tops.top_videos(conn, r, long_f, 5),
-        "top_categories": tops.top_categories(conn, r, f, 3),
-        "top_genres": tops.top_genres(conn, r, f, 3),
+        "top_shorts_channels": tops.top_channels(conn, r, shorts_f, 5) if mode == "all" else [],
+        "top_videos": tops.top_videos(conn, r, rank_f, 5),
+        "top_categories": tops.top_categories(conn, r, base, 3),
+        "top_genres": tops.top_genres(conn, r, base, 3),
         "clock": clock,
         "peak_hour": max(clock, key=lambda h: h["count"])["hour"],
         "biggest_day": rec["biggest_day"]["by_count"],
@@ -115,5 +125,6 @@ def wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict
         "latest_night": rec["latest_night"],
         "discovery": discoveries[0] if discoveries else None,
         "metrics": metrics,
-        "personality": pick_personality(metrics, personalities),
+        "personality": pick_personality(metrics, personalities,
+                                        frozenset() if mode == "all" else frozenset({"shorts_share"})),
     }

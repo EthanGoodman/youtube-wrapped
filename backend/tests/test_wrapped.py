@@ -80,7 +80,26 @@ def test_wrapped_payload(conn):
     assert w["discovery"]["channel_id"] == "UCc"
     assert w["streak"]["days"] == 4 and w["latest_night"]["video_id"] == "c2"
     assert w["personality"]["id"] in {"owl", "scroll", "explorer", "all"}
-    assert wrapped(conn, 2019, Filters(), CFG) == {"year": 2019, "empty": True}
+    assert wrapped(conn, 2019, Filters(), CFG) == {"year": 2019, "mode": "all", "empty": True}
+
+
+def test_wrapped_modes(conn):
+    v = wrapped(conn, 2024, Filters(), CFG, today=date(2024, 12, 31), mode="videos")
+    assert v["overview"]["videos"] == 7                    # 9 minus the Short and the removed video
+    assert v["top_shorts_channels"] == []
+    s = wrapped(conn, 2024, Filters(), CFG, today=date(2024, 12, 31), mode="shorts")
+    assert s["overview"]["videos"] == 1
+    assert [c["key"] for c in s["top_channels"]] == ["UCc"]  # Shorts mode ranks Shorts channels
+    assert s["latest_night"]["video_id"] == "c2"
+    assert s["personality"]["id"] != "scroll"              # Shorts Scroller is skipped outside "all"
+    with pytest.raises(ValueError):
+        wrapped(conn, 2024, Filters(), CFG, mode="podcasts")
+
+
+def test_skip_metrics():
+    m = dict.fromkeys(METRICS, 0.0) | {"shorts_share": 1.0, "night_share": 0.3}
+    assert pick_personality(m, CFG)["id"] == "scroll"
+    assert pick_personality(m, CFG, frozenset({"shorts_share"}))["id"] == "owl"
 
 
 # ------------------------------------------------------------------ image relay
@@ -130,3 +149,5 @@ def test_wrapped_endpoint(client):
     w = client.get("/api/wrapped/2024").json()
     assert w["year"] == 2024 and w["overview"]["videos"] == 9 and w["personality"]["name"]
     assert client.get("/api/wrapped/2019").json()["empty"] is True
+    assert client.get("/api/wrapped/2024?mode=shorts").json()["overview"]["videos"] == 1
+    assert client.get("/api/wrapped/2024?mode=nope").status_code == 400

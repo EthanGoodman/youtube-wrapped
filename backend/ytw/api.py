@@ -27,7 +27,7 @@ from . import db, images
 from .config import Config
 from .stats import ads, details, evolution, overview, patterns, records, search, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, data_bounds, resolve_range
-from .wrapped import load_personalities, wrapped as wrapped_data
+from .wrapped import MODES as WRAPPED_MODES, load_personalities, wrapped as wrapped_data
 
 TOP_KINDS: dict[str, Callable] = {
     "channels": tops.top_channels, "videos": tops.top_videos, "categories": tops.top_categories,
@@ -249,7 +249,10 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             raise HTTPException(500, f"personalities.toml: {e}") from None
         stamp = db.get_meta(conn(), "built_at")
         key = (request.url.path, tuple(sorted(request.query_params.multi_items())), mtime)
-        return cache.get_or_compute(stamp, key, lambda: wrapped_data(conn(), year, f, pcfg, today()))
+        mode = request.query_params.get("mode", "all")
+        if mode not in WRAPPED_MODES:
+            raise HTTPException(400, f"mode must be one of {', '.join(WRAPPED_MODES)}")
+        return cache.get_or_compute(stamp, key, lambda: wrapped_data(conn(), year, f, pcfg, today(), mode))
 
     @app.get("/api/img")
     def get_image(u: str):
