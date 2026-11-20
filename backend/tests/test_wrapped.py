@@ -75,6 +75,8 @@ def test_wrapped_payload(conn):
     assert not w["empty"]
     assert w["overview"]["videos"] == 9
     assert w["top_channels"][0]["key"] == "UCa"
+    assert all(c["shorts"] == 0 for c in w["top_channels"])         # long-form only
+    assert [c["key"] for c in w["top_shorts_channels"]] == ["UCc"]  # c2 is the only Short
     assert w["discovery"]["channel_id"] == "UCc"
     assert w["streak"]["days"] == 4 and w["latest_night"]["video_id"] == "c2"
     assert w["personality"]["id"] in {"owl", "scroll", "explorer", "all"}

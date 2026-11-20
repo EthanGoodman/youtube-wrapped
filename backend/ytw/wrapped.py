@@ -84,11 +84,16 @@ def wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict
     ov = overview.overview(conn, r, f)
     if not ov["videos"]:
         return {"year": year, "empty": True}
-    by_time = Filters(buckets=f.buckets, exclude_bg_time=f.exclude_bg_time, metric="time")
+    # Channel and video rankings use long-form (+ music) only, so a pile of 20-second Shorts
+    # can't outrank the channels you actually sat down to watch. Shorts get their own list.
+    long_f = Filters(buckets=("long", "music"), exclude_bg_time=f.exclude_bg_time, metric=f.metric)
+    shorts_f = Filters(buckets=("short",), exclude_bg_time=f.exclude_bg_time, metric="count")
+    by_time = Filters(buckets=("long", "music"), exclude_bg_time=f.exclude_bg_time, metric="time")
     rec = records.records(conn, r, f, today)
     clock = patterns.clock(conn, r, f)
     metrics = personality_metrics(conn, r, f)
-    top_channels = tops.top_channels(conn, r, f, 5)
+    top_channels = tops.top_channels(conn, r, long_f, 5)
+    top_shorts_channels = tops.top_channels(conn, r, shorts_f, 5)
     top_channels_time = tops.top_channels(conn, r, by_time, 1)
     discoveries = evolution.new_discoveries(conn, r, f, 3)
     return {
@@ -98,7 +103,8 @@ def wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict
                                         "active_days", "days", "pct_days_active", "split", "change")},
         "top_channels": top_channels,
         "top_channel_by_time": top_channels_time[0] if top_channels_time else None,
-        "top_videos": tops.top_videos(conn, r, f, 5),
+        "top_shorts_channels": top_shorts_channels,
+        "top_videos": tops.top_videos(conn, r, long_f, 5),
         "top_categories": tops.top_categories(conn, r, f, 3),
         "top_genres": tops.top_genres(conn, r, f, 3),
         "clock": clock,

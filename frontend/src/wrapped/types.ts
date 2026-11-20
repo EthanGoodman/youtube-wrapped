@@ -29,6 +29,7 @@ export interface WrappedData {
   };
   top_channels: RankedItem[];
   top_channel_by_time: RankedItem | null;
+  top_shorts_channels: RankedItem[];
   top_videos: RankedItem[];
   top_categories: RankedItem[];
   top_genres: RankedItem[];

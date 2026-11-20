@@ -55,6 +55,7 @@ function available(card: CardDef, d: WrappedData): boolean {
     case "night": return !!d.latest_night;
     case "discovery": return !!d.discovery;
     case "category": return d.top_categories.length > 0;
+    case "shorts-channels": return d.top_shorts_channels.length > 0;
     default: return true;
   }
 }

@@ -169,6 +169,7 @@ export const CARDS: CardDef[] = [
             </motion.div>
             <motion.div {...rise(1.5)} className="mt-6 text-[36px] font-black leading-tight">{c?.title}</motion.div>
             <motion.div {...rise(1.8)} className="mt-2 text-[17px] text-white/80">{num(c?.count ?? 0)} videos</motion.div>
+            <motion.div {...rise(2.1)} className="mt-1 text-[12px] text-white/50">not counting Shorts</motion.div>
           </div>
         </Card>
       );
@@ -178,7 +179,7 @@ export const CARDS: CardDef[] = [
     id: "top-5", label: "Top 5 channels",
     render: (d) => (
       <Card bg={G.pink} year={d.year}>
-        <Kicker>Your top channels</Kicker>
+        <Kicker>Your top channels <span className="text-white/60">(long-form)</span></Kicker>
         <div className="mt-6 flex flex-col gap-4">
           {d.top_channels.slice(0, 5).map((c, i) => (
             <motion.div key={c.key} {...rise(0.3 + i * 0.18)} className="flex items-center gap-4">
@@ -258,6 +259,35 @@ export const CARDS: CardDef[] = [
             ))}
           </div>
           <motion.p {...rise(1.6)} className="mt-auto text-[11px] text-white/60">Shorts are detected from vertical videos up to 3 minutes, so this is approximate.</motion.p>
+        </Card>
+      );
+    },
+  },
+  {
+    id: "shorts-channels", label: "Top Shorts channels",
+    render: (d) => {
+      const [first, ...rest] = d.top_shorts_channels;
+      if (!first) return null;
+      return (
+        <Card bg={G.night} year={d.year}>
+          <Kicker>Your Shorts rabbit hole</Kicker>
+          <div className="mt-8 flex flex-col items-center text-center">
+            <motion.div {...pop(0.4)} className="rounded-full p-1.5" style={{ background: "linear-gradient(135deg,#ff0033,#7c5cff)" }}>
+              <Avatar src={first.avatar_url} name={first.title} size={130} />
+            </motion.div>
+            <motion.div {...rise(0.9)} className="mt-4 text-[30px] font-black leading-tight">{first.title}</motion.div>
+            <motion.div {...rise(1.1)} className="text-[16px] text-white/80">{num(first.count)} Shorts</motion.div>
+          </div>
+          <div className="mt-8 flex flex-col gap-3">
+            {rest.slice(0, 3).map((c, i) => (
+              <motion.div key={c.key} {...rise(1.4 + i * 0.15)} className="flex items-center gap-3">
+                <span className="w-5 text-[20px] font-black">{i + 2}</span>
+                <Avatar src={c.avatar_url} name={c.title} size={40} />
+                <span className="min-w-0 flex-1 truncate text-[16px] font-bold">{c.title}</span>
+                <span className="text-sm text-white/70">{num(c.count)}</span>
+              </motion.div>
+            ))}
+          </div>
         </Card>
       );
     },
@@ -376,6 +406,7 @@ export function SummaryCard({ d }: { d: WrappedData }) {
       <div className="mt-4 grid grid-cols-2 gap-x-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/70">Top channels</p>
+          <p className="text-[9px] text-white/50">not counting Shorts</p>
           <ol className="mt-2 space-y-1.5">
             {d.top_channels.slice(0, 5).map((c, i) => (
               <li key={c.key} className="flex items-center gap-2">
@@ -411,7 +442,7 @@ export function SummaryCard({ d }: { d: WrappedData }) {
         <Stat label="Hours watched" value={num(hrs(d.overview.est_s))} sub="estimated" />
         <Stat label="Videos" value={compact(d.overview.videos)} sub={`${num(d.overview.unique_channels)} channels`} />
         <Stat label="Longest streak" value={d.streak ? `${d.streak.days} days` : "–"} />
-        <Stat label="Peak hour" value={hourLabel(d.peak_hour)} />
+        <Stat label="Top Shorts" value={d.top_shorts_channels[0]?.title ?? "–"} small />
       </div>
       <div className="mt-auto flex items-center gap-3 rounded-2xl bg-white px-4 py-2.5 text-[#0f0f0f]">
         <span className="text-[38px] leading-none">{p.emoji}</span>
@@ -424,11 +455,11 @@ export function SummaryCard({ d }: { d: WrappedData }) {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Stat({ label, value, sub, small = false }: { label: string; value: string; sub?: string; small?: boolean }) {
   return (
-    <div className="rounded-2xl bg-black/20 px-3 py-2">
+    <div className="min-w-0 rounded-2xl bg-black/20 px-3 py-2">
       <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/70">{label}</p>
-      <p className="text-[24px] font-black leading-tight">{value}</p>
+      <p className={`truncate font-black leading-tight ${small ? "pt-1 text-[16px]" : "text-[24px]"}`}>{value}</p>
       {sub && <p className="text-[10px] text-white/60">{sub}</p>}
     </div>
   );

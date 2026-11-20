@@ -74,13 +74,13 @@ What's in it (every page follows the time-range chips at the top: 4 weeks, 6 mon
 - **Ads** and **Search history**
 - Click any channel, video, category, genre or year for its own page
 
-The ⚙ button sets which videos count (long-form, Shorts, Music) and whether sleep/background audio adds to watch time. Filters live in the URL, so any view can be bookmarked.
+The **All · Videos · Shorts** switch (next to the time range) flips every page between everything, long-form videos only, and Shorts only. Channels show how many of their videos were Shorts. The ⚙ button has finer control (including YouTube Music and removed/private videos, whose type is unknown) and whether sleep/background audio adds to watch time. Filters live in the URL, so any view can be bookmarked.
 
 Thumbnails and channel avatars load straight from YouTube's image servers, so your browser requests those images from Google. Fonts are bundled, so nothing else is loaded from the internet.
 
 ## 5. Wrapped
 
-Click **Wrapped** in the top bar, pick a year, and get a Spotify-Wrapped-style story: about 14 full-screen cards (total time, your #1 channel, top 5, top video, top category and genres, Shorts vs long-form, watch clock, biggest day, streak, latest night, discovery of the year, your viewer personality, and a summary).
+Click **Wrapped** in the top bar, pick a year, and get a Spotify-Wrapped-style story: about 15 full-screen cards (total time, your #1 channel and top 5 counting long-form videos only, your top Shorts channels, top video, top category and genres, Shorts vs long-form, watch clock, biggest day, streak, latest night, discovery of the year, your viewer personality, and a summary).
 
 - Tap/click the right side or press → to go forward, left side or ← to go back, hold or press Space to pause.
 - The ⬇ button saves the current card as a **1080×1920 PNG** (phone story size). On the last card, **Save share image** saves the summary.
