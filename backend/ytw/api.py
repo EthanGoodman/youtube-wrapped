@@ -44,6 +44,7 @@ SHOW_KINDS: dict[str, Callable] = {
     "split": lambda c, r, f, n: shows.split(c, r, f),
     "home": lambda c, r, f, n: shows.home(c, r, f),
     "anime": lambda c, r, f, n: shows.anime(c, r, f),
+    "anime_page": lambda c, r, f, n: shows.anime_page(c, r, f),
 }
 PATTERN_KINDS: dict[str, Callable] = {
     "clock": patterns.clock, "heatmap": patterns.heatmap, "calendar": patterns.calendar,

@@ -5,6 +5,7 @@ import { Layout } from "./components/Layout";
 import { PageTitle } from "./components/ui";
 import { Home } from "./pages/Home";
 import { Hub } from "./pages/Hub";
+import { Anime } from "./pages/Anime";
 import { Shows } from "./pages/Shows";
 import { Top } from "./pages/Top";
 import { Patterns } from "./pages/Patterns";
@@ -77,6 +78,7 @@ function PlatformApp() {
       <Route index element={<Layout><Home /></Layout>} />
       <Route path="top/:kind" element={<Layout><Top /></Layout>} />
       <Route path="shows" element={<Gate capability="series"><Layout><Shows /></Layout></Gate>} />
+      <Route path="anime" element={<Gate capability="anime"><Layout><Anime /></Layout></Gate>} />
       <Route path="patterns" element={<Layout><Patterns /></Layout>} />
       <Route path="records" element={<Layout><Records /></Layout>} />
       <Route path="evolution" element={<Layout><Evolution /></Layout>} />

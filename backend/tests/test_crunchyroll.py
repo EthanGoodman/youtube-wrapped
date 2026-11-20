@@ -311,3 +311,17 @@ def test_home_cards_carry_anime_details(tmp_path):
     assert frieren["dub_share"] == 0.0
     dandadan = next(i for i in h["top10"] if i["key"] == "series:S2")
     assert dandadan["dub_share"] == 1.0                  # its one counted episode was the English dub
+
+
+def test_anime_page(tmp_path):
+    conn, _ = _cr_db(tmp_path)
+    client = Client(COOKIE, transport=FakeCatalog(), pause_s=0, sleep=lambda s: None)
+    catalog.fetch_catalog(conn, client, ["S1"])
+    anilist.enrich(conn, [("S1", "Frieren")], post=fake_anilist, pause_s=0, sleep=lambda s: None)
+    cr.build(conn, tmp_path / "crunchyroll", NY)
+    a = shows.anime_page(conn, resolve_range(conn, "all"), Filters())
+    assert (a["sub_dub"]["sub"], a["sub_dub"]["dub"]) == (2, 1) and a["series_count"] == 2
+    assert a["simulcast"]["episodes"] == 1 and a["simulcast"]["series"][0]["title"] == "Frieren"
+    assert a["studios"][0]["name"] == "Madhouse" and a["studios"][0]["count"] == 2
+    assert a["seasons"][0]["season"] == "Fall 2023" and a["decades"] == [{"decade": "2020s", "count": 2}]
+    assert a["scores"]["average"] == 90 and a["tags"][0]["tag"] == "Elf"

@@ -11,6 +11,8 @@ import { useLinkQuery } from "../filters";
 import { KindSplit, useShows } from "./shows";
 import { LINKS, NavItem, ProfileMenu, RangeMenu, TitleSearch, WrappedMark, isActive } from "./NetflixShell";
 
+const ANIME: NavItem = { to: "/anime", label: "Anime" };
+
 export function CrunchyrollShell({ children, showRange: rangeWanted = true }: { children: ReactNode; showRange?: boolean }) {
   const meta = useMeta();
   const q = useLinkQuery();
@@ -25,6 +27,7 @@ export function CrunchyrollShell({ children, showRange: rangeWanted = true }: { 
   const split = useShows<KindSplit>("split", { range: "all" });
   const hasMovies = (split.data?.data.movie.count ?? 0) > 0;
   const links = LINKS.filter((n) => n.to !== "/top/movies" || hasMovies);
+  links.splice(2, 0, ANIME);
 
   return (
     <div className="nf cr flex min-h-screen flex-col">
@@ -55,6 +58,7 @@ export function CrunchyrollShell({ children, showRange: rangeWanted = true }: { 
         {/* phone: quick filters under the bar (the Top page has its own tabs) */}
         <div className={`no-scrollbar flex gap-2 overflow-x-auto bg-[#000] px-[4%] py-2 md:hidden ${onTop ? "hidden" : ""}`}>
           <Link to={"/shows" + q} className={`nf-pill ${isActive(LINKS[1], pathname) ? "nf-pill-on" : ""}`}>Shows</Link>
+          <Link to={"/anime" + q} className={`nf-pill ${isActive(ANIME, pathname) ? "nf-pill-on" : ""}`}>Anime</Link>
           <Link to={"/top/channels" + q} className={`nf-pill ${isActive(LINKS[3], pathname) ? "nf-pill-on" : ""}`}>Top 10</Link>
           <Link to={"/top/genres" + q} className={`nf-pill ${pathname.endsWith("/top/genres") ? "nf-pill-on" : ""}`}>Genres</Link>
           {showRange && <RangeMenu pill />}
@@ -97,7 +101,7 @@ export function CrunchyrollShell({ children, showRange: rangeWanted = true }: { 
         </div>
         {sheet && (
           <div className="absolute inset-x-0 bottom-full bg-[#272727] px-[4%] py-1">
-            {[LINKS[2], LINKS[4], LINKS[5], LINKS[6]].filter((n) => links.includes(n)).map((n) => (
+            {[ANIME, LINKS[2], LINKS[4], LINKS[5], LINKS[6]].filter((n) => links.includes(n)).map((n) => (
               <Link key={n.to} to={n.to + q} className={`block py-3 text-[15px] ${isActive(n, pathname) ? "font-bold text-[#ff640a]" : "text-white"}`}>{n.label}</Link>
             ))}
             <HubLink to="/" className="block border-t border-black/40 py-3 text-[15px] text-[#bbb]">All platforms</HubLink>

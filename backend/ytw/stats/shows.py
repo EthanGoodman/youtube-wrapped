@@ -432,3 +432,94 @@ def anime(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
         "simulcast_shows": [{"key": k, "title": names[k]["title"] if k in names else k,
                              "avatar_url": names[k]["avatar_url"] if k in names else None, "episodes": n} for k, n in top],
     }
+
+
+def anime_page(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
+    """The Anime tab: sub vs dub (overall, per series, per month), simulcast watching, studios, the
+    seasons your series aired in, formats, and AniList scores and tags. Series details come from AniList."""
+    w_sql, p = where(r, f)
+    rows = conn.execute(
+        f"""SELECT w.channel_id, w.month, json_extract(i.extra, '$.dubbed'), {time_expr(f)}, w.start_epoch, w.published_epoch
+            FROM watches w LEFT JOIN items i ON i.item_id = w.video_id
+            WHERE {w_sql} AND w.channel_id IS NOT NULL""", p).fetchall()
+    per: dict[str, dict] = defaultdict(lambda: {"count": 0, "time_s": 0, "dub": 0, "simulcast": 0, "lags": []})
+    months: dict[str, dict] = defaultdict(lambda: {"sub": 0, "dub": 0})
+    lag_buckets = {"same week": 0, "within a month": 0, "within a year": 0, "1-5 years": 0, "5+ years": 0}
+    for key, month, dubbed, t, start, aired in rows:
+        s = per[key]
+        s["count"] += 1
+        s["time_s"] += t or 0
+        s["dub"] += 1 if dubbed else 0
+        months[month]["dub" if dubbed else "sub"] += 1
+        if aired and start and start >= aired:
+            days = (start - aired) / 86400
+            s["lags"].append(days)
+            s["simulcast"] += days <= SIMULCAST_DAYS
+            lag_buckets["same week" if days <= 7 else "within a month" if days <= 31 else "within a year" if days <= 365
+                        else "1-5 years" if days <= 5 * 365 else "5+ years"] += 1
+    cards = _show_cards(conn, list(per))
+
+    def card(k: str) -> dict:
+        c, s = cards.get(k, {"key": k, "title": k, "poster": None, "studios": [], "genres": []}), per[k]
+        return {"key": k, "title": c["title"], "poster": c.get("poster"), "count": s["count"], "time_s": s["time_s"],
+                "dub_share": s["dub"] / s["count"] if s["count"] else None, "simulcast": s["simulcast"],
+                "studios": c.get("studios") or [], "anime_season": c.get("anime_season"), "score": c.get("score"),
+                "format": c.get("format"), "year": c.get("year")}
+    series = sorted((card(k) for k in per), key=lambda c: -(c["time_s"] if f.metric == "time" else c["count"]))
+    brief = ("key", "title", "poster", "count")
+
+    studios: dict[str, dict] = {}
+    for s in series:
+        for name in s["studios"][:1]:  # the main studio
+            st = studios.setdefault(name, {"name": name, "count": 0, "time_s": 0, "series": []})
+            st["count"] += s["count"]
+            st["time_s"] += s["time_s"]
+            st["series"].append({k: s[k] for k in brief})
+    seasons: dict[str, dict] = {}
+    for s in series:
+        if s["anime_season"]:
+            z = seasons.setdefault(s["anime_season"], {"season": s["anime_season"], "count": 0, "series": []})
+            z["count"] += s["count"]
+            z["series"].append({k: s[k] for k in brief})
+    order = {"Winter": 0, "Spring": 1, "Summer": 2, "Fall": 3}
+
+    def season_key(name: str) -> tuple:
+        part, _, year = name.rpartition(" ")
+        return (int(year) if year.isdigit() else 0, order.get(part, 0))
+    decades: dict[str, int] = defaultdict(int)
+    formats: dict[str, int] = defaultdict(int)
+    for s in series:
+        yr = season_key(s["anime_season"])[0] if s["anime_season"] else (int(s["year"]) if (s["year"] or "").isdigit() else 0)
+        if yr:
+            decades[f"{yr // 10 * 10}s"] += s["count"]
+        if s["format"]:
+            formats[s["format"].replace("_", " ")] += s["count"]
+    scored = [s for s in series if s["score"]]
+    eps_scored = sum(s["count"] for s in scored)
+    tags: dict[str, int] = defaultdict(int)
+    for k in per:
+        extra = conn.execute("SELECT extra FROM creators WHERE creator_id = ?", (k,)).fetchone()
+        for t in (json.loads(extra[0] or "{}").get("tags", []) if extra else []):
+            tags[t] += per[k]["count"]
+
+    sub_n = sum(s["count"] - s["dub"] for s in per.values())
+    dub_n = sum(s["dub"] for s in per.values())
+    all_lags = sorted(d for s in per.values() for d in s["lags"])
+    return {
+        "series_count": len(series),
+        "sub_dub": {"sub": sub_n, "dub": dub_n,
+                    "sub_time_s": sum(s["time_s"] * (1 - s["dub"] / s["count"]) for s in per.values() if s["count"]),
+                    "dub_time_s": sum(s["time_s"] * (s["dub"] / s["count"]) for s in per.values() if s["count"])},
+        "sub_dub_months": [{"month": m, **v} for m, v in sorted(months.items())],
+        "series": series,
+        "simulcast": {"episodes": sum(s["simulcast"] for s in per.values()), "dated": len(all_lags),
+                      "median_days": all_lags[len(all_lags) // 2] if all_lags else None, "buckets": lag_buckets,
+                      "series": [s for s in sorted(series, key=lambda s: -s["simulcast"]) if s["simulcast"]][:8]},
+        "studios": sorted(studios.values(), key=lambda s: -(s["time_s"] if f.metric == "time" else s["count"]))[:12],
+        "seasons": sorted(seasons.values(), key=lambda z: season_key(z["season"]), reverse=True),
+        "decades": sorted(({"decade": d, "count": n} for d, n in decades.items()), key=lambda d: d["decade"]),
+        "formats": sorted(({"format": k, "count": n} for k, n in formats.items()), key=lambda x: -x["count"]),
+        "scores": {"average": round(sum(s["score"] * s["count"] for s in scored) / eps_scored) if eps_scored else None,
+                   "best": sorted(scored, key=lambda s: -s["score"])[:5], "worst": sorted(scored, key=lambda s: s["score"])[:3]},
+        "tags": sorted(({"tag": t, "count": n} for t, n in tags.items()), key=lambda x: -x["count"])[:15],
+    }
