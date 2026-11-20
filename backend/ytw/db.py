@@ -175,6 +175,18 @@ CREATE TABLE IF NOT EXISTS item_genres (item_id TEXT NOT NULL, genre TEXT NOT NU
 CREATE INDEX IF NOT EXISTS ix_item_genres ON item_genres(item_id, genre);
 CREATE INDEX IF NOT EXISTS ix_item_genres_genre ON item_genres(genre, item_id);
 CREATE TABLE IF NOT EXISTS item_tags (item_id TEXT NOT NULL, tag TEXT NOT NULL);
+-- every episode out, per show (from TMDB for Netflix, Crunchyroll's catalog for Crunchyroll):
+-- what show progress, binges and the episode checklist compare your watching against
+CREATE TABLE IF NOT EXISTS catalog_episodes (
+    creator_id  TEXT NOT NULL,
+    season      INTEGER NOT NULL,
+    number      INTEGER NOT NULL,
+    name        TEXT,
+    runtime_min INTEGER,
+    still       TEXT,          -- full image URL
+    air_date    TEXT,
+    PRIMARY KEY (creator_id, season, number)
+);
 CREATE INDEX IF NOT EXISTS ix_item_tags ON item_tags(item_id, tag);
 CREATE INDEX IF NOT EXISTS ix_item_tags_tag ON item_tags(tag, item_id);
 -- (replaced by item_genres / item_tags)

@@ -79,6 +79,31 @@ def parse(entries: list[dict], tz: ZoneInfo) -> list[dict]:
     return plays
 
 
+def _has_table(conn: sqlite3.Connection, name: str) -> bool:
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone() is not None
+
+
+def _series_details(conn: sqlite3.Connection, series_ids: list[str]) -> dict[str, dict]:
+    """Poster, banner, counts and AniList data per series, from `enrich` (empty if it hasn't run)."""
+    out: dict[str, dict] = {sid: {} for sid in series_ids}
+    if _has_table(conn, "cr_series"):
+        for r in conn.execute("SELECT series_id, description, poster, banner, season_count, launch_year, is_simulcast FROM cr_series"):
+            if r[0] in out:
+                out[r[0]].update(description=r[1], poster=r[2], banner=r[3], season_count=r[4], launch_year=r[5], is_simulcast=r[6])
+    if _has_table(conn, "cr_episodes"):
+        today = datetime.now(timezone.utc).date().isoformat()
+        for sid, n, first in conn.execute(
+                "SELECT series_id, SUM(number IS NOT NULL AND season_seq > 0 AND (air_date IS NULL OR substr(air_date, 1, 10) <= ?)), "
+                "MIN(substr(air_date, 1, 10)) FROM cr_episodes GROUP BY series_id", (today,)):
+            if sid in out:
+                out[sid].update(aired_episodes=n or None, first_air=first)
+    if _has_table(conn, "anilist"):
+        for sid, data in conn.execute("SELECT series_id, data FROM anilist WHERE data IS NOT NULL"):
+            if sid in out:
+                out[sid]["anilist"] = json.loads(data)
+    return out
+
+
 def build(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo) -> dict:
     """Rebuild the tables from the fetched history file."""
     path = folder / HISTORY_FILE
@@ -130,11 +155,33 @@ def build(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo) -> dict:
     conn.execute("DELETE FROM item_genres")
     conn.executemany(f"INSERT INTO watches ({cols}) VALUES ({','.join('?' * 25)})", watches)
     conn.executemany("INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(items.values()))
-    conn.executemany("INSERT INTO creators VALUES (?,?,?,?,?,?,?,?,?,?,?)", [
-        (cid, "ok", c["title"], None, None, None, None, "JP", None,
-         f"https://www.crunchyroll.com/series/{cid.split(':', 1)[1]}/{c['slug'] or ''}".rstrip("/"),
-         json.dumps({"topics": sorted(c["genres"]), "seasons_seen": len(c["seasons"])}))
-        for cid, c in creators.items()])
+    details = _series_details(conn, [cid.split(":", 1)[1] for cid in creators])
+    rows = []
+    for cid, c in creators.items():
+        d = details.get(cid.split(":", 1)[1], {})
+        al = d.get("anilist") or {}
+        rows.append((
+            cid, "ok", c["title"], None, d.get("poster"), None, d.get("aired_episodes"), "JP", d.get("first_air"),
+            f"https://www.crunchyroll.com/series/{cid.split(':', 1)[1]}/{c['slug'] or ''}".rstrip("/"),
+            json.dumps({
+                "topics": sorted(c["genres"] | set(al.get("genres") or [])), "seasons_seen": len(c["seasons"]),
+                "seasons": d.get("season_count"), "year": str(d["launch_year"]) if d.get("launch_year") else None,
+                "overview": d.get("description"), "poster": d.get("poster"), "backdrop": d.get("banner"),
+                "simulcast": bool(d.get("is_simulcast")),
+                # AniList extras
+                "anilist_id": al.get("id"), "studios": [n["name"] for n in ((al.get("studios") or {}).get("nodes") or [])],
+                "anime_season": f"{(al.get('season') or '').title()} {al.get('seasonYear')}".strip() if al.get("seasonYear") else None,
+                "format": al.get("format"), "score": al.get("averageScore"),
+                "tags": [t["name"] for t in (al.get("tags") or []) if not t.get("isMediaSpoiler") and (t.get("rank") or 0) >= 60][:8],
+                "cover_color": (al.get("coverImage") or {}).get("color"),
+            })))
+    conn.executemany("INSERT INTO creators VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows)
+    # every episode out, per series, from Crunchyroll's catalog (for progress, binges, the checklist)
+    conn.execute("DELETE FROM catalog_episodes")
+    if _has_table(conn, "cr_episodes"):
+        conn.execute("""INSERT OR REPLACE INTO catalog_episodes
+            SELECT 'series:' || series_id, season_seq, number, title, CAST(ROUND(duration_ms / 60000.0) AS INTEGER), still, air_date
+            FROM cr_episodes WHERE number IS NOT NULL AND season_seq > 0""")
     conn.executemany("INSERT INTO item_genres VALUES (?, ?)", [(i, g) for i, gs in genres.items() for g in gs])
     # real start times and real watch time (playhead / length): no estimating
     db.set_meta(conn, "extra_capabilities", "time_of_day")

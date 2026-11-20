@@ -84,6 +84,39 @@ def crunchyroll_build(cfg) -> None:
           f"({r['first']} -> {r['last']}); {r['skipped']} removed or few-second plays skipped")
 
 
+def crunchyroll_enrich(args, cfg) -> None:
+    """Posters + episode lists from Crunchyroll's catalog, then studios / season / tags from AniList."""
+    from ytw.crunchyroll import anilist, catalog
+    from ytw.crunchyroll.fetch import WEB_CLIENT_ID, Client, CrunchyrollError
+    from ytw.crunchyroll import ingest as cr
+    conn = db.connect(cfg.platform_db("crunchyroll"))
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'watches'").fetchone() or \
+            not conn.execute("SELECT 1 FROM watches LIMIT 1").fetchone():
+        sys.exit("No Crunchyroll data yet. Run `python backend/cli.py fetch --platform crunchyroll` first.")
+    series = [(cid.split(":", 1)[1], title) for cid, title in conn.execute(
+        "SELECT creator_id, title FROM creators WHERE creator_id LIKE 'series:%' ORDER BY title")]
+    sec = cfg.section("crunchyroll")
+    cookie = os.environ.get("CRUNCHYROLL_ETP_RT", "")
+    refresh = getattr(args, "retry_missing", False)
+    try:
+        client = Client(cookie, client_id=sec.get("client_id", WEB_CLIENT_ID))
+        r = catalog.fetch_catalog(conn, client, [sid for sid, _ in series], refresh=refresh, locale=sec.get("locale", "en-US"),
+                                  progress=lambda m: print(f"  Crunchyroll catalog: {m:<30}", end="\r", flush=True))
+    except CrunchyrollError as e:
+        sys.exit(f"\n{e}")
+    print(f"\nCrunchyroll catalog: {r['fetched']} of {r['series']} series fetched ({r['episodes']:,} episodes, "
+          f"{r['requests']} requests); the rest were cached")
+    try:
+        a = anilist.enrich(conn, series, overrides=anilist.load_overrides(cfg.platform_dir("crunchyroll") / "overrides.toml"),
+                           refresh=refresh, progress=lambda m: print(f"  AniList {m[:60]:<60}", end="\r", flush=True))
+    except anilist.AniListError as e:
+        sys.exit(f"\n{e}")
+    print(" " * 75, end="\r")
+    print(f"AniList: {a['matched']} of {a['series']} series matched ({a['requests']} requests). "
+          "Fix wrong matches in data/crunchyroll/overrides.toml ([anilist] \"Title\" = id).")
+    crunchyroll_build(cfg)
+
+
 def cmd_ingest(args, cfg) -> None:
     if args.platform == "netflix":
         return netflix_ingest(args, cfg)
@@ -130,6 +163,8 @@ def cmd_investigate_delay(args, cfg) -> None:
 
 
 def cmd_enrich(args, cfg) -> None:
+    if args.platform == "crunchyroll":
+        return crunchyroll_enrich(args, cfg)
     if args.platform == "netflix":
         return netflix_enrich(args, cfg)
     conn = db.connect(cfg.db_path)

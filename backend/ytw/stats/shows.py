@@ -1,6 +1,7 @@
 """Stats for platforms with episodic shows (Netflix): show progress, binges, rewatches, episodes vs movies.
 
-Episodes are matched to TMDB's episode list (`tmdb_episodes`, filled by `enrich`) through the
+Episodes are matched to each show's full episode list (`catalog_episodes`: TMDB for Netflix,
+Crunchyroll's catalog for Crunchyroll, filled at build time after `enrich`) through the
 season/episode numbers kept in items.extra. Without TMDB data, progress falls back to the
 show's episode count and season binges can't be worked out.
 """
@@ -39,17 +40,17 @@ def _asof(conn: sqlite3.Connection, r: Range) -> date:
     return min(r.end, bounds[1]) if bounds else r.end
 
 
-def _aired(conn: sqlite3.Connection, show_ids: list[int], asof: date) -> dict[int, list[tuple[int, int]]]:
-    """TMDB episodes per show that had aired by `asof` (specials / season 0 left out)."""
-    if not show_ids or not _has_table(conn, "tmdb_episodes"):
+def _aired(conn: sqlite3.Connection, keys: list[str], asof: date) -> dict[str, list[tuple[int, int]]]:
+    """Episodes per show that had aired by `asof` (specials / season 0 left out), from the catalog."""
+    if not keys or not _has_table(conn, "catalog_episodes"):
         return {}
-    out: dict[int, list[tuple[int, int]]] = defaultdict(list)
-    ph = ",".join("?" * len(show_ids))
-    for sid, s, n in conn.execute(
-            f"SELECT show_id, season, number FROM tmdb_episodes WHERE show_id IN ({ph}) AND season > 0 "
-            f"AND (air_date IS NULL OR air_date = '' OR air_date <= ?) ORDER BY season, number",
-            [*show_ids, asof.isoformat()]):
-        out[sid].append((s, n))
+    out: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    ph = ",".join("?" * len(keys))
+    for key, s, n in conn.execute(
+            f"SELECT creator_id, season, number FROM catalog_episodes WHERE creator_id IN ({ph}) AND season > 0 "
+            f"AND (air_date IS NULL OR air_date = '' OR substr(air_date, 1, 10) <= ?) ORDER BY season, number",
+            [*keys, asof.isoformat()]):
+        out[key].append((s, n))
     return out
 
 
@@ -78,7 +79,7 @@ def _show_info(conn: sqlite3.Connection, keys: list[str]) -> dict[str, sqlite3.R
         return {}
     ph = ",".join("?" * len(keys))
     return {r["creator_id"]: r for r in conn.execute(
-        f"SELECT creator_id, title, avatar_url, item_count, json_extract(extra, '$.tmdb_id') AS tmdb_id "
+        f"SELECT creator_id, title, avatar_url, item_count "
         f"FROM creators WHERE creator_id IN ({ph})", keys)}
 
 
@@ -93,12 +94,12 @@ def progress(conn: sqlite3.Connection, r: Range, f: Filters, limit: int = 50) ->
     asof = _asof(conn, r)
     keys = [row["k"] for row in rows]
     info = _show_info(conn, keys)
-    aired = _aired(conn, [int(i["tmdb_id"]) for i in info.values() if i["tmdb_id"]], asof)
+    aired = _aired(conn, keys, asof)
     seen = _first_watches(conn, keys, r.end)
     shows, summary = [], {"finished": 0, "watching": 0, "dropped": 0}
     for row in rows:
         k, meta = row["k"], info.get(row["k"])
-        eps = aired.get(int(meta["tmdb_id"])) if meta and meta["tmdb_id"] else None
+        eps = aired.get(k)
         watched_eps = seen[k]["eps"]
         if eps:
             aired_set = set(eps)
@@ -140,13 +141,13 @@ def binges(conn: sqlite3.Connection, r: Range, f: Filters, limit: int = 10) -> l
         f"SELECT DISTINCT w.channel_id FROM watches w WHERE {w_sql} AND w.kind = 'episode' "
         f"AND w.channel_id IS NOT NULL AND w.channel_id != '{UNKNOWN}'", p)]
     info = _show_info(conn, keys)
-    aired = _aired(conn, [int(i["tmdb_id"]) for i in info.values() if i["tmdb_id"]], _asof(conn, r))
+    aired = _aired(conn, keys, _asof(conn, r))
     seen = _first_watches(conn, keys, r.end)
     out = []
     for k in keys:
         meta = info.get(k)
-        eps = aired.get(int(meta["tmdb_id"])) if meta and meta["tmdb_id"] else None
-        if not eps:
+        eps = aired.get(k)
+        if not eps or not meta:
             continue
         seasons: dict[int, list[tuple[int, int]]] = defaultdict(list)
         for s, n in eps:
@@ -319,21 +320,21 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
     by_num = {(_as_int(v["season"]), _as_int(v["number"])): v for v in watched.values()
               if _as_int(v["season"]) is not None and _as_int(v["number"]) is not None}
 
-    tmdb_id = conn.execute("SELECT json_extract(extra, '$.tmdb_id') FROM creators WHERE creator_id = ?", (key,)).fetchone()[0]
     seasons: list[dict] = []
     matched: set[tuple[int, int]] = set()
-    if tmdb_id and _has_table(conn, "tmdb_episodes"):
+    if _has_table(conn, "catalog_episodes"):
         by_season: dict[int, list[dict]] = defaultdict(list)
         for s, n, name, runtime, still, air in conn.execute(
-                "SELECT season, number, name, runtime_min, still_path, air_date FROM tmdb_episodes "
-                "WHERE show_id = ? AND season > 0 ORDER BY season, number", (int(tmdb_id),)):
+                "SELECT season, number, name, runtime_min, still, air_date FROM catalog_episodes "
+                "WHERE creator_id = ? AND season > 0 ORDER BY season, number", (key,)):
             w = by_num.get((s, n))
             if w:
                 matched.add((s, n))
+            air = (air or "")[:10] or None
             aired = not air or air <= asof.isoformat()
             by_season[s].append({
                 "number": n, "name": name, "runtime_min": runtime, "air_date": air or None, "aired": aired,
-                "still": f"https://image.tmdb.org/t/p/w300{still}" if still else None,
+                "still": still,
                 "watched": bool(w), "first": w["first"] if w else None, "times": w["times"] if w else 0,
             })
         for s, eps in by_season.items():

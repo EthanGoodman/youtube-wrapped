@@ -213,3 +213,87 @@ def test_show_stats_with_blank_season_labels(tmp_path):
     assert frieren["title"] == "Frieren" and frieren["watched"] == 3 and frieren["total"] is None
     assert shows.show_detail(conn, "series:S1", f)["episodes_watched"] == 3
     assert shows.home(conn, r, f)["billboard"]["title"] == "Frieren"
+
+
+# ------------------------------------------------------------------ catalog + AniList
+
+from ytw.crunchyroll import anilist, catalog  # noqa: E402
+from ytw.crunchyroll.fetch import Client  # noqa: E402
+
+
+class FakeCatalog(FakeCrunchyroll):
+    """Frieren (S1): 1 season of 4 episodes, listed twice (original + an English dub season)."""
+
+    def __call__(self, method, url, headers, form):
+        path = urllib.parse.urlparse(url).path
+        if path == "/content/v2/cms/series/S1":
+            return 200, {"data": [{"id": "S1", "title": "Frieren", "description": "An elf mage...", "episode_count": 4,
+                                   "season_count": 1, "series_launch_year": 2023, "is_simulcast": True, "keywords": [],
+                                   "images": {"poster_tall": [[{"width": 480, "height": 720, "source": "https://img/p480"}]],
+                                              "poster_wide": [[{"width": 1200, "height": 675, "source": "https://img/w1200"}]]}}]}
+        if path == "/content/v2/cms/series/S1/seasons":
+            return 200, {"data": [{"id": "S1-1", "season_sequence_number": 1, "title": "Frieren", "audio_locale": "ja-JP",
+                                   "number_of_episodes": 4, "versions": [{}]},
+                                  {"id": "S1-dub", "season_sequence_number": 1, "title": "Frieren (English Dub)",
+                                   "audio_locale": "en-US", "number_of_episodes": 4}]}
+        if path == "/content/v2/cms/seasons/S1-1/episodes":
+            return 200, {"data": [{"id": f"e{n}", "episode_number": n, "title": f"Ep {n}", "duration_ms": 1440000,
+                                   "episode_air_date": f"2025-0{n}-01T00:00:00Z"} for n in range(1, 5)]}
+        if path.startswith("/content/v2/cms/"):
+            return 200, {"data": []}
+        return super().__call__(method, url, headers, form)
+
+
+def fake_anilist(query, variables):
+    media = {"id": 154587, "title": {"romaji": "Sousou no Frieren", "english": "Frieren: Beyond Journey's End", "native": None},
+             "synonyms": ["Frieren"], "format": "TV", "season": "FALL", "seasonYear": 2023, "averageScore": 90,
+             "genres": ["Adventure", "Drama"], "tags": [{"name": "Elf", "rank": 95, "isMediaSpoiler": False}],
+             "studios": {"nodes": [{"name": "Madhouse"}]}, "coverImage": {"extraLarge": "https://a/c.jpg", "color": "#e4a15d"},
+             "bannerImage": None, "siteUrl": "https://anilist.co/anime/154587"}
+    decoy = {**media, "id": 1, "title": {"romaji": "Frieren Specials", "english": None, "native": None}, "synonyms": []}
+    return {"data": {"Page": {"media": [decoy, media]}}}
+
+
+def test_catalog_and_anilist(tmp_path):
+    conn, _ = _cr_db(tmp_path)
+    client = Client(COOKIE, transport=FakeCatalog(), pause_s=0, sleep=lambda s: None)
+    r = catalog.fetch_catalog(conn, client, ["S1"])
+    assert r["episodes"] == 4                                   # the dub season isn't counted again
+    assert catalog.fetch_catalog(conn, client, ["S1"])["fetched"] == 0   # cached
+    a = anilist.enrich(conn, [("S1", "Frieren")], post=fake_anilist, pause_s=0, sleep=lambda s: None)
+    assert a["matched"] == 1
+    cr.build(conn, tmp_path / "crunchyroll", NY)
+    show = conn.execute("SELECT avatar_url, item_count, extra FROM creators WHERE creator_id = 'series:S1'").fetchone()
+    extra = json.loads(show[2])
+    assert show[0] == "https://img/p480" and show[1] == 4
+    assert extra["studios"] == ["Madhouse"] and extra["anime_season"] == "Fall 2023" and extra["backdrop"] == "https://img/w1200"
+    assert extra["anilist_id"] == 154587                        # the exact title (a synonym) beat the decoy listed first
+    f = Filters()
+    p = next(s for s in shows.progress(conn, resolve_range(conn, "all"), f)["shows"] if s["key"] == "series:S1")
+    assert (p["watched"], p["total"]) == (2, 4)
+    d = shows.show_detail(conn, "series:S1", f)
+    assert [(s["season"], s["watched"], s["aired"]) for s in d["seasons"]] == [(1, 2, 4)]
+
+
+def test_anilist_overrides(tmp_path):
+    conn, _ = _cr_db(tmp_path)
+    calls = []
+
+    def post(q, v):
+        calls.append(v)
+        return fake_anilist(q, v) if "q" in v else {"data": {"Media": {**fake_anilist(q, v)["data"]["Page"]["media"][1], "id": v["id"]}}}
+    anilist.enrich(conn, [("S1", "Frieren"), ("S2", "Dandadan")], post=post, overrides={"Frieren": 999, "Dandadan": 0},
+                   pause_s=0, sleep=lambda s: None)
+    rows = dict(conn.execute("SELECT series_id, anilist_id FROM anilist").fetchall())
+    assert rows == {"S1": 999, "S2": None} and calls == [{"id": 999}]
+    f = tmp_path / "o.toml"
+    f.write_text('[anilist]\n"Frieren" = 154587\n"Dandadan" = 0\n')
+    assert anilist.load_overrides(f) == {"Frieren": 154587, "Dandadan": 0}
+
+
+def test_anilist_prefers_the_tv_series():
+    tv = {"id": 1, "title": {"english": "Frieren: Beyond Journey’s End", "romaji": "Sousou no Frieren"}, "synonyms": [],
+          "format": "TV", "seasonYear": 2023}
+    special = {"id": 2, "title": {"english": None, "romaji": "Sousou no Frieren: Mini Anime"},
+               "synonyms": ["Frieren: Beyond Journey's End"], "format": "ONA", "seasonYear": 2025}
+    assert anilist.best_match("Frieren: Beyond Journey's End", [special, tv])["id"] == 1

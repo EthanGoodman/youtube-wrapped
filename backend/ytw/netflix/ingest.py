@@ -86,6 +86,7 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
     rows = conn.execute("SELECT * FROM views WHERE supplemental IS NULL "
                         "ORDER BY local_date, COALESCE(start_epoch, 0), file_order").fetchall()
     has_times = any(r["start_epoch"] is not None for r in rows)
+    db.init_db(conn)  # the shared tables (incl. catalog_episodes), whatever version the database was made with
     # TMDB data, if `enrich` has run (else everything falls back to estimates)
     conn.executescript(tmdb.SCHEMA)
     meta = {r["query"]: r for r in conn.execute("SELECT * FROM tmdb_titles WHERE media_type != 'none'")}
@@ -178,6 +179,13 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
     conn.executemany("INSERT INTO creators VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(creators.values()))
     conn.execute("DELETE FROM item_genres")
     conn.executemany("INSERT INTO item_genres VALUES (?, ?)", [(i, g) for i, gs in genres.items() for g in gs])
+    # every episode of each matched show, for show progress and the episode checklist
+    conn.execute("DELETE FROM catalog_episodes")
+    conn.execute("""INSERT OR REPLACE INTO catalog_episodes
+        SELECT c.creator_id, e.season, e.number, e.name, e.runtime_min,
+               CASE WHEN e.still_path IS NOT NULL THEN 'https://image.tmdb.org/t/p/w300' || e.still_path END, e.air_date
+        FROM creators c JOIN tmdb_episodes e ON e.show_id = json_extract(c.extra, '$.tmdb_id')
+        WHERE e.season > 0""")
     # what this data can show: real times of day only come with the full export
     db.set_meta(conn, "extra_capabilities", "time_of_day" if has_times else "estimated_time")
     db.set_meta(conn, "built_at", datetime.now(timezone.utc).isoformat())
