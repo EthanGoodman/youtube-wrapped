@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Link, tr, useCreatorShape } from "../platform";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Info, Minus } from "lucide-react";
+import { Link, tr, useCreatorShape, usePlatformId } from "../platform";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Info, Minus, Film } from "lucide-react";
 import { ApiError, useMeta } from "../api";
 import { duration } from "../format";
 import { useLinkQuery } from "../filters";
@@ -163,11 +163,18 @@ export function Thumb({ src, videoId, short = false, width = 120, className = ""
   src?: string | null; videoId?: string | null; short?: boolean; width?: number; className?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const url = src ?? (videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : null);
+  // only YouTube ids can be looked up on YouTube's thumbnail server (anything else gets its gray placeholder)
+  const isYouTube = (usePlatformId() ?? "youtube") === "youtube";
+  const url = src ?? (videoId && isYouTube ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : null);
   // same row height for both; a Short is a 9:16 crop of it
   const height = Math.round(width * (9 / 16));
   const style = { width: short ? Math.round(height * (9 / 16)) : width, height };
-  if (!url || failed) return <div className={`shrink-0 rounded-lg bg-raised ${className}`} style={style} />;
+  if (!url || failed)
+    return (
+      <div className={`flex shrink-0 items-center justify-center rounded-lg bg-raised text-muted ${className}`} style={style}>
+        {!isYouTube && <Film size={Math.round(height * 0.38)} strokeWidth={1.5} aria-hidden />}
+      </div>
+    );
   return (
     <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
          className={`shrink-0 rounded-lg bg-raised object-cover ${className}`} style={style} />

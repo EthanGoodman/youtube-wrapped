@@ -1,4 +1,4 @@
-import { Link, tr, useCapability, useCreatorShape } from "../platform";
+import { Link, tr, useCapability, useCreatorShape, useHasSeries } from "../platform";
 import { RankedItem, WatchInfo } from "../api";
 import { clockTime, compact, date, duration, num, pct } from "../format";
 import { useFilters, useLinkQuery } from "../filters";
@@ -80,6 +80,7 @@ export function RankedRows({ items, kind, showShare = false, compactRows = false
 }) {
   const q = useLinkQuery();
   const { filters } = useFilters();
+  const creatorUnit = useHasSeries() ? "episodes" : tr("videos");
   return (
     <ol className="flex flex-col">
       {items.map((it) => {
@@ -96,7 +97,7 @@ export function RankedRows({ items, kind, showShare = false, compactRows = false
               )}
               <div className="min-w-0 flex-1">
                 <div className="line-clamp-2 text-sm font-medium leading-snug">
-                  {unavailable ? <span className="text-sub">Unavailable video</span> : it.title ?? "Unknown"}
+                  {unavailable ? <span className="text-sub">{tr("Unavailable video")}</span> : it.title ?? "Unknown"}
                 </div>
                 <div className="mt-0.5 truncate text-xs text-sub">
                   {kind === "video"
@@ -107,7 +108,7 @@ export function RankedRows({ items, kind, showShare = false, compactRows = false
               </div>
               <div className="flex shrink-0 flex-col items-end gap-0.5 text-right">
                 <span className="text-sm font-medium tabular">
-                  {kind === "video" && filters.metric === "count" ? `${it.count}×` : measure(it, filters.metric)}
+                  {kind === "video" && filters.metric === "count" ? `${it.count}×` : measure(it, filters.metric, creatorUnit)}
                 </span>
                 <span className="flex items-center gap-2 text-xs text-sub">
                   {showShare && <span className="tabular">{pct(it.share, 1)}</span>}
@@ -163,7 +164,7 @@ export function WatchRows({ items }: { items: WatchInfo[] }) {
             <Thumb src={w.thumb} videoId={w.video_id} short={w.bucket === "short"} width={96} />
             <div className="min-w-0 flex-1">
               <div className="line-clamp-2 text-sm font-medium leading-snug">
-                {w.title && !w.title.startsWith("http") ? w.title : <span className="text-sub">Unavailable video</span>}
+                {w.title && !w.title.startsWith("http") ? w.title : <span className="text-sub">{tr("Unavailable video")}</span>}
               </div>
               <div className="mt-0.5 truncate text-xs text-sub">{w.channel ?? tr("Unknown channel")}</div>
             </div>

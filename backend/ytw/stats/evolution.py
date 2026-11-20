@@ -27,7 +27,7 @@ def top_channel_per_year(conn, f: Filters) -> list[dict]:
     best: dict[int, tuple] = {}
     for year, cid, n, t in conn.execute(
             f"SELECT w.year, w.channel_id, COUNT(*), SUM({time_expr(f)}) FROM watches w "
-            f"WHERE {w_sql} AND w.channel_id IS NOT NULL GROUP BY 1, 2", p):
+            f"WHERE {w_sql} AND w.channel_id IS NOT NULL AND w.channel_id != 'show:unknown-show' GROUP BY 1, 2", p):
         val = t if f.metric == "time" else n
         if year not in best or val > best[year][3]:
             best[year] = (cid, n, t or 0, val)
@@ -43,7 +43,7 @@ def bar_race(conn, r: Range, f: Filters, top_n: int = 10) -> dict:
     months = []
     for month, cid, val in conn.execute(
             f"SELECT w.month, w.channel_id, {_metric(f)} FROM watches w "
-            f"WHERE {w_sql} AND w.channel_id IS NOT NULL GROUP BY 1, 2 ORDER BY 1", p):
+            f"WHERE {w_sql} AND w.channel_id IS NOT NULL AND w.channel_id != 'show:unknown-show' GROUP BY 1, 2 ORDER BY 1", p):
         if not months or months[-1] != month:
             months.append(month)
         per[month][cid] = val or 0
@@ -64,7 +64,7 @@ def new_discoveries(conn, r: Range, f: Filters, limit: int = 30) -> list[dict]:
     w_sql, p = where(r, f)
     rows = conn.execute(f"""
         WITH firsts AS (SELECT channel_id, MIN(local_date) AS first FROM watches
-                        WHERE channel_id IS NOT NULL GROUP BY channel_id)
+                        WHERE channel_id IS NOT NULL AND channel_id != 'show:unknown-show' GROUP BY channel_id)
         SELECT w.channel_id, fi.first, COUNT(*) n, SUM({time_expr(f)}) t FROM watches w
         JOIN firsts fi ON fi.channel_id = w.channel_id
         WHERE {w_sql} AND fi.first BETWEEN ? AND ?
@@ -82,7 +82,7 @@ def loyalty(conn, f: Filters, min_per_year: int = 3, limit: int = 30) -> list[di
         SELECT channel_id, COUNT(*) AS years, SUM(n) AS total, MIN(year), MAX(year),
                GROUP_CONCAT(year) FROM (
             SELECT w.channel_id, w.year, COUNT(*) n FROM watches w
-            WHERE {w_sql} AND w.channel_id IS NOT NULL GROUP BY 1, 2 HAVING n >= ?)
+            WHERE {w_sql} AND w.channel_id IS NOT NULL AND w.channel_id != 'show:unknown-show' GROUP BY 1, 2 HAVING n >= ?)
         GROUP BY channel_id ORDER BY years DESC, total DESC LIMIT ?""", [*p, min_per_year, limit]).fetchall()
     names = _channel_names(conn, [r_[0] for r_ in rows])
     return [{"channel_id": cid, "years": y, "count": total, "first_year": fy, "last_year": ly,
@@ -103,7 +103,7 @@ def fell_off(conn, f: Filters, asof: date | None = None, recent_days: int = 365,
                MAX(w.local_date) AS last, MIN(w.local_date) AS first,
                (SELECT year FROM watches w2 WHERE w2.channel_id = w.channel_id
                 GROUP BY year ORDER BY COUNT(*) DESC LIMIT 1) AS peak_year
-        FROM watches w WHERE {w_sql} AND w.channel_id IS NOT NULL GROUP BY 1
+        FROM watches w WHERE {w_sql} AND w.channel_id IS NOT NULL AND w.channel_id != 'show:unknown-show' GROUP BY 1
         HAVING before >= ? AND recent <= MAX(2, before * 0.05)
         ORDER BY before DESC LIMIT ?""", [cutoff, cutoff, *p, min_before, limit]).fetchall()
     names = _channel_names(conn, [r_[0] for r_ in rows])

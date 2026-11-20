@@ -125,3 +125,14 @@ def test_capability_gating():
     assert yt.has("ads") and yt.has("search") and yt.has("shorts")
     assert not nf.has("ads") and not nf.has("shorts")
     assert PLATFORMS["spotify"].vocab["verb"] == "listen"
+
+
+def test_build_endpoint(tmp_path):
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text('<script type="module" crossorigin src="/assets/index-AbC123.js"></script>')
+    client = TestClient(create_app(load_config(), db_paths={}, static_dir=dist))
+    assert client.get("/api/build").json() == {"build": "/assets/index-AbC123.js"}
+    # no frontend built: nothing to compare against
+    client2 = TestClient(create_app(load_config(), db_paths={}, static_dir=tmp_path / "none"))
+    assert client2.get("/api/build").json() == {"build": None}

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useBuildCheck } from "./useBuildCheck";
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { PageTitle } from "./components/ui";
@@ -33,6 +34,7 @@ export function App() {
   return (
     <>
       <ScrollToTop />
+      <BuildCheck />
       <Routes>
         <Route path="/" element={<HubPage />} />
         <Route path="/:platform/*" element={<PlatformApp />} />
@@ -116,4 +118,9 @@ function NotFound() {
       <HubLink to="/" className="rounded-full bg-raised px-4 py-2 text-sm font-medium">‹ All platforms</HubLink>
     </div>
   );
+}
+
+function BuildCheck() {
+  useBuildCheck();
+  return null;
 }

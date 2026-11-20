@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, tr } from "../platform";
+import { Link, tr, useHasSeries } from "../platform";
 import type { EChartsOption } from "echarts";
 import { Pause, Play } from "lucide-react";
 import { useMeta, useStats } from "../api";
@@ -153,6 +153,7 @@ function Loyalty() {
   const loyal = useStats<Loyal[]>("evolution/loyalty", { limit: 15 });
   const q = useLinkQuery();
   const allYears = meta?.years ?? [];
+  const seriesUnit = useHasSeries() ? "episodes" : tr("videos");
   return (
     <Section title="Most loyal" subtitle={tr("Channels you kept coming back to, in the most different years (3+ videos a year)")}>
       <QueryState q={loyal} minHeight={300} empty={(d) => !d.length}>
@@ -172,7 +173,7 @@ function Loyalty() {
                       ))}
                     </div>
                   </div>
-                  <div className="text-right text-xs text-sub"><div className="text-sm font-medium text-ink">{c.years} years</div>{num(c.count)} videos</div>
+                  <div className="text-right text-xs text-sub"><div className="text-sm font-medium text-ink">{c.years} years</div>{num(c.count)} {seriesUnit}</div>
                 </Link>
               </li>
             ))}

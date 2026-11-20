@@ -30,6 +30,13 @@ const SUBTITLE: Record<string, string> = {
   songs: "YouTube Music songs",
 };
 
+/** Wording on platforms other than YouTube (no topic tags or YouTube Music there). */
+const SUBTITLE_OTHER: Record<string, string> = {
+  channels: "channels",
+  videos: "most rewatched titles",
+  genres: "genres",
+};
+
 export function Top() {
   const { kind = "channels" } = useParams();
   const { filters, update } = useFilters();
@@ -39,6 +46,7 @@ export function Top() {
   const [grid, setGrid] = useState(false);
   const top = useStats<TopResponse>(`top/${kind}`, { limit });
   const caps = meta?.platform.capabilities;
+  const isYouTube = (meta?.platform.id ?? "youtube") === "youtube";
   const tabs = TABS.filter((t) => (!t.music || meta?.has_music) && (!t.cap || !caps || caps.includes(t.cap)));
 
   return (
@@ -55,7 +63,7 @@ export function Top() {
 
       <Section
         title={tr(`Top ${TABS.find((t) => t.kind === kind)?.label.toLowerCase() ?? kind}`)}
-        subtitle={<>Your top {tr(SUBTITLE[kind] ?? kind)} from {rangeLabel(filters)}{kind === "videos" && filters.metric === "count" && " · ranked by rewatches"}</>}
+        subtitle={<>Your top {isYouTube ? SUBTITLE[kind] ?? kind : tr(SUBTITLE_OTHER[kind] ?? SUBTITLE[kind] ?? kind)} from {rangeLabel(filters)}{kind === "videos" && filters.metric === "count" && " · ranked by rewatches"}</>}
         action={
           <>
             {kind === "channels" && (

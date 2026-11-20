@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 ALL_BUCKETS = ("long", "short", "music", "unknown")
+# Netflix episodes listed without a show name: counted in totals, never ranked as a show
+NAMELESS_SHOW = "show:unknown-show"
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,7 @@ import { CalendarHeat, MeasureToggle, MonthlyBars, WatchClock, WeekHeatmap, useM
 import { PageTitle, QueryState, Section, StatTile, WatchTimeInfo } from "../components/ui";
 import { duration, hourLabel, num } from "../format";
 import { rangeLabel, useFilters } from "../filters";
-import { tr } from "../platform";
+import { tr, useCapability } from "../platform";
 
 interface WW {
   count: number;
@@ -14,6 +14,7 @@ interface WW {
 }
 
 export function Patterns() {
+  const hasTimes = useCapability("time_of_day");
   const { filters } = useFilters();
   const [measure, setMeasure] = useMeasure();
   const period = rangeLabel(filters);
@@ -41,9 +42,9 @@ export function Patterns() {
               return (
                 <>
                   <WatchClock data={d.data} measure={measure} height={340} />
-                  <p className="text-center text-sm text-sub">
+                  {hasTimes && <p className="text-center text-sm text-sub">
                     Peak hour: <span className="font-medium text-ink">{hourLabel(peak.hour)}–{hourLabel((peak.hour + 1) % 24)}</span>
-                  </p>
+                  </p>}
                 </>
               );
             }}

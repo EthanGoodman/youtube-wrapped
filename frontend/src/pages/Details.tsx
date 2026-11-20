@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { useParams } from "react-router-dom";
-import { Link, tr, usePlatform } from "../platform";
+import { Link, tr, useCapability, useHasSeries, usePlatform } from "../platform";
 import type { EChartsOption } from "echarts";
 import { ExternalLink, Sparkles } from "lucide-react";
 import { HourPoint, MonthPoint, Overview, RankedItem, useStats } from "../api";
@@ -197,6 +197,8 @@ interface VideoDetail {
 export function VideoPage() {
   const pinfo = usePlatform();
   const platformName = pinfo?.name ?? "YouTube";
+  const isYouTubeVideo = (pinfo?.id ?? "youtube") === "youtube";
+  const hasTimes = useCapability("time_of_day");
   const { id = "" } = useParams();
   const d = useStats<VideoDetail>(`video/${encodeURIComponent(id)}`);
   const q = useLinkQuery();
@@ -209,12 +211,12 @@ export function VideoPage() {
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
               <div className="lg:col-span-3">
-                <div className={`overflow-hidden rounded-card bg-raised ${isShort ? "mx-auto aspect-[9/16] max-h-[560px]" : tr("aspect-video")}`}>
+                <div className={`overflow-hidden rounded-card bg-raised ${isShort ? "mx-auto aspect-[9/16] max-h-[560px]" : "aspect-video"}`}>
                   {!unavailable && (
-                    <img src={v.video.thumb_large ?? `https://i.ytimg.com/vi/${v.video.video_id}/hqdefault.jpg`} alt=""
+                    <img src={v.video.thumb_large ?? (isYouTubeVideo ? `https://i.ytimg.com/vi/${v.video.video_id}/hqdefault.jpg` : "")} alt=""
                          referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   )}
-                  {unavailable && <div className="flex h-full items-center justify-center p-6 text-center text-sub">This video was removed or made private.<br />Takeout still remembers you watched it.</div>}
+                  {unavailable && <div className="flex h-full items-center justify-center p-6 text-center text-sub">{isYouTubeVideo ? <>This video was removed or made private.<br />Takeout still remembers you watched it.</> : "No picture for this title."}</div>}
                 </div>
               </div>
               <div className="flex flex-col gap-3 lg:col-span-2">
@@ -233,7 +235,7 @@ export function VideoPage() {
                   <StatTile label="You watched it" value={`${num(v.watch_count)}×`} />
                   <StatTile label="Est. time" value={duration(v.total_est_s)} info={<WatchTimeInfo />} />
                   <StatTile label="Length" value={v.video.duration_s ? duration(v.video.duration_s) : "–"} />
-                  <StatTile label="Uploaded" value={<span className="text-lg">{date(v.video.published_at)}</span>} />
+                  <StatTile label={isYouTubeVideo ? "Uploaded" : "First aired"} value={<span className="text-lg">{date(v.video.published_at)}</span>} />
                 </div>
                 <div className="text-sm text-sub">
                   {[v.video.category, v.video.view_count != null && tr(`${compact(v.video.view_count)} views`),
@@ -248,7 +250,7 @@ export function VideoPage() {
                 <ol className="flex flex-col divide-y divide-line">
                   {[...v.watches].reverse().map((w) => (
                     <li key={w.entry_id} className="flex items-center justify-between py-2 text-sm">
-                      <span>{date(w.local_iso)} <span className="text-sub">· {clockTime(w.local_iso)}</span></span>
+                      <span>{date(w.local_iso)}{hasTimes && <span className="text-sub"> · {clockTime(w.local_iso)}</span>}</span>
                       <span className="text-xs text-sub">~{duration(w.est_s)}{w.delayed_fix ? " · start fixed" : ""}</span>
                     </li>
                   ))}
@@ -301,7 +303,9 @@ export function CategoryPage() {
 export function GenrePage() {
   const { topic = "" } = useParams();
   const d = useStats<GroupDetail & { genre: { title: string; url: string } }>(`genre/${encodeURIComponent(topic)}`);
-  return <QueryState q={d} minHeight={500}>{(g) => <GroupPage title={g.genre.title} kicker="Genre (YouTube topic)" d={g} external={g.genre.url} />}</QueryState>;
+  const isYouTube = (usePlatform()?.id ?? "youtube") === "youtube";
+  return <QueryState q={d} minHeight={500}>{(g) => <GroupPage title={g.genre.title} kicker={isYouTube ? "Genre (YouTube topic)" : "Genre"} d={g}
+                                                                external={isYouTube ? g.genre.url : undefined} />}</QueryState>;
 }
 
 // ------------------------------------------------------------------ year
@@ -320,6 +324,9 @@ interface YearDetail {
 
 export function YearPage() {
   const { year = "" } = useParams();
+  const platformName = usePlatform()?.name ?? "YouTube";
+  const hasCategories = useCapability("categories");
+  const useHasSeriesUnit = useHasSeries() ? "episodes" : tr("videos");
   const { filters } = useFilters();
   const d = useStats<YearDetail>(`year/${year}`);
   const [measure, setMeasure] = useMeasure();
@@ -330,7 +337,7 @@ export function YearPage() {
         <div className="flex flex-col gap-4">
           <Hero
             image={<div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-yt to-[#7a0019] text-2xl font-black">{y.year}</div>}
-            title={`Your ${y.year} on YouTube`}
+            title={`Your ${y.year} on ${platformName}`}
             lines={[tr(`${num(y.overview.videos)} videos · ${duration(y.overview.est_s)} estimated · ${num(y.overview.unique_channels)} channels`)]}
             action={<Link to={`/wrapped?year=${y.year}`} className="flex shrink-0 items-center gap-1.5 rounded-full bg-yt px-4 py-2 text-sm font-bold text-white hover:bg-yt-dark"><Sparkles size={15} /> Play {y.year} Wrapped</Link>}
           />
@@ -347,7 +354,7 @@ export function YearPage() {
             <Section title={tr("Top videos")}><RankedRows items={y.top_videos} kind="video" /></Section>
             <div className="flex flex-col gap-4">
               <Section title="Top genres"><BarList items={y.top_genres.slice(0, 6)} metric={filters.metric} linkTo={(g) => `/genre/${encodeURIComponent(g.key)}`} /></Section>
-              <Section title="Top categories"><BarList items={y.top_categories.slice(0, 6)} metric={filters.metric} linkTo={(c) => `/category/${c.key}`} /></Section>
+              {hasCategories && <Section title="Top categories"><BarList items={y.top_categories.slice(0, 6)} metric={filters.metric} linkTo={(c) => `/category/${c.key}`} /></Section>}
             </div>
           </div>
           <Section title="New discoveries" subtitle={tr(`Channels you found in ${y.year}`)}>
@@ -356,7 +363,7 @@ export function YearPage() {
                 <Link key={c.channel_id} to={`/channel/${c.channel_id}${q}`} className="flex w-[96px] shrink-0 flex-col items-center text-center">
                   <Avatar src={c.avatar_url} name={c.title} size={80} />
                   <div className="mt-2 line-clamp-1 w-full text-sm font-medium">{c.title}</div>
-                  <div className="text-xs text-sub">{num(c.count)} videos</div>
+                  <div className="text-xs text-sub">{num(c.count)} {useHasSeriesUnit}</div>
                 </Link>
               ))}
             </Carousel>

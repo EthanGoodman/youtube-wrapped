@@ -51,7 +51,8 @@ def top_channels(conn, r: Range, f: Filters, limit: int = 50) -> list[dict]:
 
 def top_videos(conn, r: Range, f: Filters, limit: int = 50) -> list[dict]:
     """By rewatch count (or time). Unavailable videos are included: they're still watches."""
-    items = ranked(conn, "w.video_id", r, f, limit)
+    # nameless Netflix episodes ("Unknown show · Episode 1") from different shows would look like rewatches
+    items = ranked(conn, "w.video_id", r, f, limit, extra_where="COALESCE(w.channel_id, '') != 'show:unknown-show'")
     return _attach(conn, items, _VIDEO_INFO)
 
 

@@ -10,6 +10,7 @@ Responses are cached in memory until the database is rebuilt.
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 import threading
 from collections import OrderedDict
@@ -358,6 +359,17 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     # ------------------------------------------------------------------ frontend
 
     static_dir = static_dir or cfg.root / "frontend" / "dist"
+
+    @app.get("/api/build")
+    def get_build():
+        """Which frontend build the server is handing out (the main script's hashed name), so an
+        open tab still running an older build can notice and reload itself."""
+        try:
+            m = re.search(r'src="(/assets/index-[^"]+\.js)"', (static_dir / "index.html").read_text(encoding="utf-8"))
+        except OSError:
+            m = None
+        return {"build": m.group(1) if m else None}
+
     if static_dir.exists():
         app.mount("/assets", StaticFiles(directory=static_dir / "assets"), name="assets")
 
