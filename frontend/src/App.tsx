@@ -13,7 +13,8 @@ import { CategoryPage, ChannelPage, GenrePage, VideoPage, YearPage } from "./pag
 import { Search } from "./pages/Search";
 import { WrappedPage } from "./wrapped/Wrapped";
 import { usePlatforms } from "./api";
-import { HubLink, PLATFORM_IDS, useCapability } from "./platform";
+import { HubLink, PLATFORM_IDS, setVocab, useCapability } from "./platform";
+import { setChartTheme } from "./theme";
 
 /** Sections of a platform. Old single-platform links (/top/channels, …) redirect to /youtube/… */
 const SECTIONS = ["top", "patterns", "records", "evolution", "ads", "search", "channel", "video", "category",
@@ -53,9 +54,13 @@ function PlatformApp() {
   const platforms = usePlatforms().data;
   const info = platforms?.find((p) => p.id === platform);
 
-  useEffect(() => {
-    if (info) document.documentElement.setAttribute("data-theme", info.theme);
-  }, [info]);
+  // apply the platform's theme before its pages render (CSS colors + chart colors)
+  const theme = info?.theme ?? platform;
+  if (PLATFORM_IDS.includes(platform)) {
+    document.documentElement.setAttribute("data-theme", theme);
+    setChartTheme(theme);
+    setVocab(info?.vocab ?? null);
+  }
 
   if (!PLATFORM_IDS.includes(platform)) {
     if (SECTIONS.includes(platform)) return <Navigate to={`/youtube${pathname}${search}`} replace />;

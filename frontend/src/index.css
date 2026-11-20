@@ -7,6 +7,8 @@
 :root {
   color-scheme: dark;
   --font-sans: Roboto;
+  --font-display: var(--font-sans);
+  --radius-card: 12px;
   --c-bg: 12 12 14;
   --c-card: 24 24 27;
   --c-raised: 34 34 38;
@@ -35,6 +37,24 @@
   --c-accent-soft: 255 51 85;
   --c-up: 43 166 64;
   --c-down: 255 78 69;
+}
+
+:root[data-theme="netflix"] {
+  --font-sans: Inter;
+  --font-display: "Bebas Neue";
+  --c-bg: 20 20 20;          /* #141414 */
+  --c-card: 28 28 28;        /* #1c1c1c */
+  --c-raised: 42 42 42;      /* #2a2a2a */
+  --c-line: 51 51 51;        /* #333333 */
+  --c-ink: 255 255 255;
+  --c-sub: 179 179 179;      /* #b3b3b3 */
+  --c-muted: 128 128 128;    /* #808080 */
+  --c-accent: 229 9 20;      /* #e50914 Netflix red */
+  --c-accent-dark: 178 7 16;
+  --c-accent-soft: 246 64 74;
+  --c-up: 70 211 105;        /* #46d369 Netflix "match" green */
+  --c-down: 229 9 20;
+  --radius-card: 6px;
 }
 
 html,
@@ -84,3 +104,6 @@ body {
   opacity: 0.55;
   transition: opacity 150ms;
 }
+
+/* Bebas Neue ships one weight: never fake-bold it */
+:root[data-theme="netflix"] .font-display { font-synthesis: none; font-weight: 400; }

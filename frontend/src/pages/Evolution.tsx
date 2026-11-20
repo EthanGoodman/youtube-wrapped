@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "../platform";
+import { Link, tr } from "../platform";
 import type { EChartsOption } from "echarts";
 import { Pause, Play } from "lucide-react";
 import { useMeta, useStats } from "../api";
@@ -7,7 +7,7 @@ import { Chart } from "../components/Chart";
 import { Avatar, Carousel, MetricToggle, PageTitle, QueryState, Section } from "../components/ui";
 import { date, duration, month, num, pct } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
-import { accent, axisLabel, categorical, ink, muted, otherColor, sub } from "../theme";
+import { accent, axisLabel, categorical, ink, muted, otherColor, sub, surface } from "../theme";
 
 interface ChannelRef { channel_id: string; title?: string | null; avatar_url?: string | null }
 type TopYear = ChannelRef & { year: number; count: number; time_s: number };
@@ -31,7 +31,7 @@ export function Evolution() {
         <div className="px-1"><MetricToggle value={filters.metric} onChange={(m) => update({ metric: m })} /></div>
       </div>
 
-      <Section title="#1 channel of every year" subtitle="All time">
+      <Section title={tr("#1 channel of every year")} subtitle="All time">
         <QueryState q={years} minHeight={170} empty={(d) => !d.length}>
           {(d) => (
             <Carousel>
@@ -41,7 +41,7 @@ export function Evolution() {
                   <div className="mb-2 text-lg font-black text-yt-soft">{y.year}</div>
                   <Avatar src={y.avatar_url} name={y.title} size={72} />
                   <div className="mt-2 line-clamp-1 w-full text-sm font-medium">{y.title}</div>
-                  <div className="text-xs text-sub">{filters.metric === "time" ? duration(y.time_s) : `${num(y.count)} videos`}</div>
+                  <div className="text-xs text-sub">{filters.metric === "time" ? duration(y.time_s) : tr(`${num(y.count)} videos`)}</div>
                 </Link>
               ))}
             </Carousel>
@@ -53,8 +53,8 @@ export function Evolution() {
 
       <Section title="New discoveries"
                subtitle={filters.range === "all"
-                 ? "Your biggest channels and when you first found them (pick a time range to see that period's finds)"
-                 : `Channels you watched for the first time ever in ${period}`}>
+                 ? tr("Your biggest channels and when you first found them (pick a time range to see that period's finds)")
+                 : tr(`Channels you watched for the first time ever in ${period}`)}>
         <QueryState q={disc} minHeight={160} empty={(d) => !d.length}>
           {(d) => (
             <Carousel>
@@ -62,7 +62,7 @@ export function Evolution() {
                 <Link key={c.channel_id} to={`/channel/${c.channel_id}${q}`} className="flex w-[104px] shrink-0 flex-col items-center text-center">
                   <Avatar src={c.avatar_url} name={c.title} size={88} />
                   <div className="mt-2 line-clamp-1 w-full text-sm font-medium">{c.title}</div>
-                  <div className="text-xs text-sub">{filters.metric === "time" ? duration(c.time_s) : `${num(c.count)} videos`}</div>
+                  <div className="text-xs text-sub">{filters.metric === "time" ? duration(c.time_s) : tr(`${num(c.count)} videos`)}</div>
                   <div className="text-[11px] text-muted">since {date(c.first_watched)}</div>
                 </Link>
               ))}
@@ -126,7 +126,7 @@ function BarRace() {
   }, [race.data, frames, i]);
 
   return (
-    <Section title="Bar chart race" subtitle={`Your top channels so far, month by month (${rangeLabel(filters)})`}
+    <Section title="Bar chart race" subtitle={tr(`Your top channels so far, month by month (${rangeLabel(filters)})`)}
              action={frames.length > 1 && (
                <button onClick={() => { if (i >= frames.length - 1) setI(0); setPlaying((p) => !p); }}
                        className="flex items-center gap-1.5 rounded-full bg-yt px-3 py-1.5 text-sm font-bold text-white hover:bg-yt-dark"
@@ -137,10 +137,10 @@ function BarRace() {
       <QueryState q={race} minHeight={360} empty={(d) => !d.frames.length}>
         {() => option && (
           <>
-            <Chart option={option} height={360} merge ariaLabel="Top channels bar chart race" />
+            <Chart option={option} height={360} merge ariaLabel={tr("Top channels bar chart race")} />
             <input type="range" min={0} max={frames.length - 1} value={i} aria-label="Month"
                    onChange={(e) => { setPlaying(false); setI(Number(e.target.value)); }}
-                   className="mt-2 w-full accent-[#ff0033]" />
+                   className="mt-2 w-full accent-yt" />
           </>
         )}
       </QueryState>
@@ -154,7 +154,7 @@ function Loyalty() {
   const q = useLinkQuery();
   const allYears = meta?.years ?? [];
   return (
-    <Section title="Most loyal" subtitle="Channels you kept coming back to, in the most different years (3+ videos a year)">
+    <Section title="Most loyal" subtitle={tr("Channels you kept coming back to, in the most different years (3+ videos a year)")}>
       <QueryState q={loyal} minHeight={300} empty={(d) => !d.length}>
         {(d) => (
           <ol className="flex flex-col">
@@ -187,7 +187,7 @@ function FellOffList() {
   const fell = useStats<FellOff[]>("evolution/fell_off", { limit: 15 });
   const q = useLinkQuery();
   return (
-    <Section title="Fell off" subtitle="Channels you used to watch a lot, but barely in the last year">
+    <Section title="Fell off" subtitle={tr("Channels you used to watch a lot, but barely in the last year")}>
       <QueryState q={fell} minHeight={300} empty={(d) => !d.length}>
         {(d) => (
           <ol className="flex flex-col">
@@ -252,7 +252,7 @@ function MixChart({ mix }: { mix: Mix }) {
     series: names.map((n, i) => ({
       name: n, type: "bar", stack: "mix", barMaxWidth: 48,
       data: mix.series[n].map((v, yi) => v / totals[yi]),
-      itemStyle: { color: color(n, i), borderColor: "#181818", borderWidth: 1 },
+      itemStyle: { color: color(n, i), borderColor: surface, borderWidth: 1 },
       emphasis: { focus: "series" },
     })),
   };

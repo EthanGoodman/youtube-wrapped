@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useVocab } from "../platform";
+import { Link, useVocab, tr, useCapability } from "../platform";
 import { HourPoint, Overview, TopResponse, WatchInfo, useMeta, useStats } from "../api";
 import { BarList, ChannelCarousel, RankedRows, WatchRows } from "../components/lists";
 import { MeasureToggle, WatchClock, useMeasure } from "../components/charts";
@@ -25,13 +25,15 @@ export function Home() {
     <div className="flex flex-col gap-4">
       {/* profile header */}
       <div className="flex items-center gap-4 px-1 pt-1">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yt to-[#7a0019] sm:h-20 sm:w-20">
-          <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><path d="M9 7v10l8-5z" fill="#fff" /></svg>
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yt to-black/60 sm:h-20 sm:w-20">
+          {meta?.platform.id === "youtube" || !meta
+            ? <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><path d="M9 7v10l8-5z" fill="#fff" /></svg>
+            : <span className="font-display text-4xl leading-none text-white" aria-hidden>{meta.platform.name.charAt(0)}</span>}
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Your YouTube</h1>
+          <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl">Your {meta?.platform.name ?? "YouTube"}</h1>
           <p className="text-sm text-sub">
-            {meta ? <>Watching since {date(meta.first_date)} · {num(meta.watches)} videos logged
+            {meta ? <>Watching since {date(meta.first_date)} · {num(meta.watches)} {tr("videos")} logged
               {meta.by_bucket.short ? <> ({num(meta.by_bucket.short)} Shorts, {num(meta.by_bucket.long ?? 0)} long-form
                 {meta.by_bucket.music ? `, ${num(meta.by_bucket.music)} songs` : ""}
                 {meta.by_bucket.unknown ? `, ${num(meta.by_bucket.unknown)} removed` : ""})</> : null}</> : " "}
@@ -80,21 +82,23 @@ export function Home() {
 }
 
 function OverviewTiles({ o }: { o: Overview }) {
+  const hasShorts = useCapability("shorts");
+  const hasTimes = useCapability("time_of_day");
   const { filters } = useFilters();
   const t = bigDuration(o.est_s);
   return (
     <>
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-        <StatTile label="Videos watched" value={compact(o.videos)} delta={o.change.videos}
+        <StatTile label={tr("Videos watched")} value={compact(o.videos)} delta={o.change.videos}
                   hint={`${num(o.avg_videos_per_day)} a day · ${num(o.unique_videos)} unique`} />
         <StatTile label="Est. watch time" value={t.value} unit={t.unit} delta={o.change.est_s} info={<WatchTimeInfo />}
-                  hint={`max possible ${duration(o.max_s)} · ${duration(o.avg_est_s_per_day)}/day`} />
-        <StatTile label="Channels" value={compact(o.unique_channels)} delta={o.change.unique_channels} />
+                  hint={`${hasTimes ? `max possible ${duration(o.max_s)} · ` : ""}${duration(o.avg_est_s_per_day)}/day`} />
+        <StatTile label={tr("Channels")} value={compact(o.unique_channels)} delta={o.change.unique_channels} />
         <StatTile label="Days you watched" value={pct(o.pct_days_active)}
                   delta={o.change.active_days} hint={`${num(o.active_days)} of ${num(o.days)} days`} />
       </div>
       {/* the long-form / Shorts split only means something when both are shown */}
-      {filters.buckets.includes("long") && filters.buckets.includes("short") && <SplitBar o={o} />}
+      {hasShorts && filters.buckets.includes("long") && filters.buckets.includes("short") && <SplitBar o={o} />}
     </>
   );
 }
@@ -118,7 +122,7 @@ function SplitBar({ o }: { o: Overview }) {
           return (
             <div key={p.key} className="flex h-full items-center rounded px-2 text-xs font-bold text-white"
                  style={{ width: `${share * 100}%`, background: p.color }}
-                 title={`${p.label}: ${num(p.videos)} videos, ${duration(p.est_s)} est.`}>
+                 title={tr(`${p.label}: ${num(p.videos)} videos, ${duration(p.est_s)} est.`)}>
               {share > 0.12 ? pct(share) : ""}
             </div>
           );
@@ -140,7 +144,7 @@ function RecentWatches() {
   const [n, setN] = useState(8);
   const recent = useStats<WatchInfo[]>("recent", { limit: n });
   return (
-    <Section title="Recent watches" subtitle="The latest videos in your history">
+    <Section title="Recent watches" subtitle={tr("The latest videos in your history")}>
       <QueryState q={recent} minHeight={300} empty={(d) => !d.length}>
         {(d) => (
           <>

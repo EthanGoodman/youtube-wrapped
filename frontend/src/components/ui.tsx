@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Link } from "../platform";
+import { Link, tr, useCreatorShape } from "../platform";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Info, Minus } from "lucide-react";
 import { ApiError, useMeta } from "../api";
 import { duration } from "../format";
@@ -135,19 +135,26 @@ export function RankChange({ item }: { item: { rank_change: number | null; compa
   );
 }
 
-export function Avatar({ src, name, size = 48, className = "" }: {
-  src?: string | null; name?: string | null; size?: number; className?: string;
+/** A creator's picture: a round avatar, or a 2:3 poster on platforms with shows. */
+export function Avatar({ src, name, size = 48, className = "", shape }: {
+  src?: string | null; name?: string | null; size?: number; className?: string; shape?: "circle" | "poster";
 }) {
   const [failed, setFailed] = useState(false);
+  const platformShape = useCreatorShape();
+  const poster = (shape ?? platformShape) === "poster";
   const initial = (name ?? "?").trim().charAt(0).toUpperCase() || "?";
-  if (!src || failed)
+  const box = poster ? { width: Math.round(size * 0.72), height: Math.round(size * 1.08) } : { width: size, height: size };
+  const round = poster ? "rounded-md" : "rounded-full";
+  // TMDB posters come in sizes; ask for a sharper one when shown big
+  const url = poster && src && size > 90 ? src.replace("/w185/", "/w342/") : src;
+  if (!url || failed)
     return (
-      <div className={`flex shrink-0 items-center justify-center rounded-full bg-raised font-bold text-sub ${className}`}
-           style={{ width: size, height: size, fontSize: size * 0.4 }}>{initial}</div>
+      <div className={`flex shrink-0 items-center justify-center ${round} bg-raised font-bold text-sub ${className}`}
+           style={{ ...box, fontSize: size * 0.4 }}>{initial}</div>
     );
   return (
-    <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
-         className={`shrink-0 rounded-full bg-raised object-cover ${className}`} style={{ width: size, height: size }} />
+    <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
+         className={`shrink-0 ${round} bg-raised object-cover ${className}`} style={box} />
   );
 }
 
@@ -219,7 +226,7 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
 export function MetricToggle({ value, onChange }: { value: "count" | "time"; onChange: (v: "count" | "time") => void }) {
   return (
     <div className="seg" role="group" aria-label="Rank by">
-      <button aria-pressed={value === "count"} onClick={() => onChange("count")}>Videos</button>
+      <button aria-pressed={value === "count"} onClick={() => onChange("count")}>{tr("Videos")}</button>
       <button aria-pressed={value === "time"} onClick={() => onChange("time")}>Time</button>
     </div>
   );

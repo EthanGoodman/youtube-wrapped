@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Link, NavLink } from "../platform";
+import { Link, NavLink, tr } from "../platform";
 import { LayoutGrid, List } from "lucide-react";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { BarList, RankedRows, shortsNote } from "../components/lists";
@@ -8,12 +8,12 @@ import { Avatar, MetricToggle, PageTitle, QueryState, RankChange, Section } from
 import { duration, num } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
 
-const TABS: { kind: string; label: string; music?: boolean }[] = [
+const TABS: { kind: string; label: string; music?: boolean; cap?: string }[] = [
   { kind: "channels", label: "Channels" },
   { kind: "videos", label: "Videos" },
-  { kind: "categories", label: "Categories" },
+  { kind: "categories", label: "Categories", cap: "categories" },
   { kind: "genres", label: "Genres" },
-  { kind: "tags", label: "Tags" },
+  { kind: "tags", label: "Tags", cap: "tags" },
   { kind: "artists", label: "Artists", music: true },
   { kind: "songs", label: "Songs", music: true },
 ];
@@ -36,7 +36,8 @@ export function Top() {
   const [limit, setLimit] = useState(50);
   const [grid, setGrid] = useState(false);
   const top = useStats<TopResponse>(`top/${kind}`, { limit });
-  const tabs = TABS.filter((t) => !t.music || meta?.has_music);
+  const caps = meta?.platform.capabilities;
+  const tabs = TABS.filter((t) => (!t.music || meta?.has_music) && (!t.cap || !caps || caps.includes(t.cap)));
 
   return (
     <div className="flex flex-col gap-4">
@@ -45,14 +46,14 @@ export function Top() {
         {tabs.map((t) => (
           <NavLink key={t.kind} to={`/top/${t.kind}${q}`} role="tab"
                    className={({ isActive }) => `chip ${isActive ? "chip-active" : ""}`}>
-            {t.label}
+            {tr(t.label)}
           </NavLink>
         ))}
       </div>
 
       <Section
-        title={`Top ${TABS.find((t) => t.kind === kind)?.label.toLowerCase() ?? kind}`}
-        subtitle={<>Your top {SUBTITLE[kind] ?? kind} from {rangeLabel(filters)}{kind === "videos" && filters.metric === "count" && " · ranked by rewatches"}</>}
+        title={tr(`Top ${TABS.find((t) => t.kind === kind)?.label.toLowerCase() ?? kind}`)}
+        subtitle={<>Your top {tr(SUBTITLE[kind] ?? kind)} from {rangeLabel(filters)}{kind === "videos" && filters.metric === "count" && " · ranked by rewatches"}</>}
         action={
           <>
             {kind === "channels" && (
@@ -103,7 +104,7 @@ function ChannelGrid({ items }: { items: RankedItem[] }) {
           </div>
           <div className="mt-2 line-clamp-1 w-full text-sm font-medium">{c.title ?? "Unknown"}</div>
           <div className="flex items-center gap-1.5 text-xs text-sub">
-            {filters.metric === "time" ? duration(c.time_s) : `${num(c.count)} videos`} <RankChange item={c} />
+            {filters.metric === "time" ? duration(c.time_s) : tr(`${num(c.count)} videos`)} <RankChange item={c} />
           </div>
           {shortsNote(c) && <div className="text-[11px] text-muted">{shortsNote(c)}</div>}
         </Link>

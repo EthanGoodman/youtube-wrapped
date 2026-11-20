@@ -2,15 +2,16 @@ import { useState } from "react";
 import type { EChartsOption } from "echarts";
 import { DayPoint, HourPoint, MonthPoint } from "../api";
 import { DOW, duration, hourLabel, month, num, shortDate } from "../format";
-import { accent, axis, axisLabel, empty, grid, muted, redRamp, sub } from "../theme";
+import { accent, accentHi, axis, axisLabel, empty, grid, muted, redRamp, sub, surface } from "../theme";
 import { Chart } from "./Chart";
+import { tr, useCapability } from "../platform";
 
 type Measure = "count" | "time";
 
 export function MeasureToggle({ value, onChange }: { value: Measure; onChange: (m: Measure) => void }) {
   return (
     <div className="seg" role="group" aria-label="Show">
-      <button aria-pressed={value === "count"} onClick={() => onChange("count")}>Videos</button>
+      <button aria-pressed={value === "count"} onClick={() => onChange("count")}>{tr("Videos")}</button>
       <button aria-pressed={value === "time"} onClick={() => onChange("time")}>Minutes</button>
     </div>
   );
@@ -24,7 +25,21 @@ const fmt = (m: Measure, v: number) => (m === "time" ? duration(v) : `${num(v)} 
 const val = (m: Measure, p: { count: number; time_s: number }) => (m === "time" ? p.time_s : p.count);
 
 /** stats.fm listening clock: 24 radial bars, midnight at the top. */
-export function WatchClock({ data, measure, height = 300 }: { data: HourPoint[]; measure: Measure; height?: number }) {
+/** Shown instead of time-of-day charts when the data only has dates (e.g. Netflix's quick download). */
+function NoTimes({ height }: { height: number }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg bg-raised/40 px-6 text-center" style={{ minHeight: height }}>
+      <p className="text-sm font-medium text-ink">Times of day aren't in this data</p>
+      <p className="mt-1 max-w-xs text-xs text-sub">This history only has dates. Add the full data export to see when you watch.</p>
+    </div>
+  );
+}
+
+export function WatchClock(props: { data: HourPoint[]; measure: Measure; height?: number }) {
+  return useCapability("time_of_day") ? <WatchClockChart {...props} /> : <NoTimes height={props.height ?? 300} />;
+}
+
+function WatchClockChart({ data, measure, height = 300 }: { data: HourPoint[]; measure: Measure; height?: number }) {
   const values = data.map((h) => val(measure, h));
   const peak = values.indexOf(Math.max(...values));
   const option: EChartsOption = {
@@ -51,10 +66,10 @@ export function WatchClock({ data, measure, height = 300 }: { data: HourPoint[];
     series: [{
       type: "bar",
       coordinateSystem: "polar",
-      data: values.map((v, i) => ({ value: v, itemStyle: { color: i === peak ? "#ff7a8c" : accent } })),
+      data: values.map((v, i) => ({ value: v, itemStyle: { color: i === peak ? accentHi : accent } })),
       barCategoryGap: "18%",
       itemStyle: { borderRadius: 4 },
-      emphasis: { itemStyle: { color: "#ff7a8c" } },
+      emphasis: { itemStyle: { color: accentHi } },
     }],
   };
   return <Chart option={option} height={height} ariaLabel={`Watch clock, peak at ${hourLabel(data[peak]?.hour ?? 0)}`} />;
@@ -90,14 +105,18 @@ export function MonthlyBars({ data, measure, height = 260 }: { data: MonthPoint[
       data: data.map((m) => val(measure, m)),
       itemStyle: { color: accent, borderRadius: [4, 4, 0, 0] },
       barMaxWidth: 24,
-      emphasis: { itemStyle: { color: "#ff7a8c" } },
+      emphasis: { itemStyle: { color: accentHi } },
     }],
   };
   return <Chart option={option} height={height} ariaLabel="Watching per month" />;
 }
 
 /** Day-of-week x hour heatmap, sequential red. */
-export function WeekHeatmap({ grid: g, measure, height = 280 }: {
+export function WeekHeatmap(props: { grid: { count: number[][]; time_s: number[][] }; measure: Measure; height?: number }) {
+  return useCapability("time_of_day") ? <WeekHeatmapChart {...props} /> : <NoTimes height={props.height ?? 280} />;
+}
+
+function WeekHeatmapChart({ grid: g, measure, height = 280 }: {
   grid: { count: number[][]; time_s: number[][] };
   measure: Measure;
   height?: number;
@@ -128,7 +147,7 @@ export function WeekHeatmap({ grid: g, measure, height = 280 }: {
     series: [{
       type: "heatmap",
       data: points.map(([h, d, v]) => ({ value: [h, d, v], itemStyle: v === 0 ? { color: empty } : undefined })),
-      itemStyle: { borderColor: "#181818", borderWidth: 2, borderRadius: 4 },
+      itemStyle: { borderColor: surface, borderWidth: 2, borderRadius: 4 },
       emphasis: { itemStyle: { borderColor: "#f1f1f1", borderWidth: 1 } },
     }],
   };
@@ -153,7 +172,7 @@ export function CalendarHeat({ data, measure }: { data: DayPoint[]; measure: Mea
       top: 28 + i * (cell * 7 + 34),
       left: 36,
       cellSize: years.length > 1 ? [cell, cell] : ["auto", cell],
-      itemStyle: { color: empty, borderColor: "#181818", borderWidth: 3 },
+      itemStyle: { color: empty, borderColor: surface, borderWidth: 3 },
       splitLine: { show: false },
       yearLabel: { show: years.length > 1, position: "left", color: muted, fontSize: 11, margin: 28 },
       dayLabel: { show: false },

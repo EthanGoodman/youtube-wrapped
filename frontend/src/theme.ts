@@ -1,18 +1,42 @@
 // Chart colors. Validated with the dataviz palette checker against the card surface #181818.
 
-export const surface = "#181818";
+export let surface = "#181818";
 export const ink = "#f1f1f1";
 export const sub = "#aaaaaa";
 export const muted = "#717171";
 export const grid = "#2a2a2a";
 export const axis = "#3a3a3a";
-export const empty = "#232323"; // a zero cell: neutral, so "none" never reads as "a little"
+export let empty = "#232323"; // a zero cell: neutral, so "none" never reads as "a little"
 
-/** Single measure (one series): YouTube red. */
-export const accent = "#ff3355";
+/* Per-platform chart colors. Each ramp is one hue, dark (low) -> bright (high), lightness strictly
+   increasing (checked with the dataviz validator), with the bright end >= 3:1 on that theme's card. */
+interface ChartTheme { accent: string; accentHi: string; ramp: string[]; surface: string; empty: string }
+const CHART_THEMES: Record<string, ChartTheme> = {
+  youtube: {
+    accent: "#ff3355", accentHi: "#ff7a8c", surface: "#181818", empty: "#232323",
+    ramp: ["#3a171b", "#5e1a21", "#871b27", "#b0192c", "#d91533", "#ff3355", "#ff7a8c"],
+  },
+  netflix: {
+    accent: "#e50914", accentHi: "#ff858b", surface: "#1c1c1c", empty: "#262626",
+    ramp: ["#3b1416", "#5f1519", "#8a141c", "#b5111d", "#e50914", "#f6404a", "#ff858b"],
+  },
+};
 
-/** Sequential YouTube-red ramp, dark (low) -> bright (high); lightness strictly increasing. */
-export const redRamp = ["#3a171b", "#5e1a21", "#871b27", "#b0192c", "#d91533", "#ff3355", "#ff7a8c"];
+/** Single measure (one series): the platform's accent. These are live bindings: setChartTheme() swaps them. */
+export let accent = CHART_THEMES.youtube.accent;
+export let accentHi = CHART_THEMES.youtube.accentHi;
+/** Sequential ramp in the platform's accent hue. */
+export let redRamp = CHART_THEMES.youtube.ramp;
+
+/** Called when entering a platform, before its pages render. Unknown themes keep YouTube's colors. */
+export function setChartTheme(theme: string) {
+  const t = CHART_THEMES[theme] ?? CHART_THEMES.youtube;
+  accent = t.accent;
+  accentHi = t.accentHi;
+  redRamp = t.ramp;
+  surface = t.surface;
+  empty = t.empty;
+}
 
 /** Categorical slots (fixed order, never cycled; 9th+ folds into Other). All checks pass on #181818. */
 export const categorical = [

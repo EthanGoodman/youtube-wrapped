@@ -65,7 +65,7 @@ PLATFORMS: dict[str, Platform] = {p.id: p for p in (
          "Put watch-history.json (and search-history.json) in data/youtube/"),
         "minutes to hours"),
     Platform(
-        "netflix", "Netflix", True, "netflix", _vocab("show", "shows", "episode", "episodes"),
+        "netflix", "Netflix", True, "netflix", _vocab("show", "shows", "title", "titles"),
         frozenset({"genres"}),
         ("Quick: netflix.com/viewingactivity → Download all → NetflixViewingHistory.csv (dates only)",
          "Full (adds times and durations): netflix.com/account → Download your personal information "

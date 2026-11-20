@@ -3,6 +3,7 @@ import { CalendarHeat, MeasureToggle, MonthlyBars, WatchClock, WeekHeatmap, useM
 import { PageTitle, QueryState, Section, StatTile, WatchTimeInfo } from "../components/ui";
 import { duration, hourLabel, num } from "../format";
 import { rangeLabel, useFilters } from "../filters";
+import { tr } from "../platform";
 
 interface WW {
   count: number;
@@ -59,8 +60,8 @@ export function Patterns() {
         <QueryState q={ww} minHeight={100}>
           {({ data: { weekday, weekend } }) => (
             <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-              <StatTile label="Weekday videos / day" value={num(weekday.avg_count_per_day)} hint={`${num(weekday.days)} weekdays`} />
-              <StatTile label="Weekend videos / day" value={num(weekend.avg_count_per_day)} hint={`${num(weekend.days)} weekend days`} />
+              <StatTile label={tr("Weekday videos / day")} value={num(weekday.avg_count_per_day)} hint={`${num(weekday.days)} weekdays`} />
+              <StatTile label={tr("Weekend videos / day")} value={num(weekend.avg_count_per_day)} hint={`${num(weekend.days)} weekend days`} />
               <StatTile label="Weekday time / day" value={duration(weekday.avg_time_s_per_day)} info={<WatchTimeInfo />} />
               <StatTile label="Weekend time / day" value={duration(weekend.avg_time_s_per_day)} info={<WatchTimeInfo />} />
             </div>
@@ -78,7 +79,7 @@ export function Patterns() {
         </QueryState>
       </Section>
 
-      <Section title="Month by month" subtitle={measure === "time" ? "Estimated watch time per month" : "Videos per month"}>
+      <Section title="Month by month" subtitle={measure === "time" ? "Estimated watch time per month" : tr("Videos per month")}>
         <QueryState q={monthly} minHeight={260} empty={(d) => !d.data.length}>
           {(d) => <MonthlyBars data={d.data} measure={measure} />}
         </QueryState>

@@ -28,9 +28,15 @@ export function Logo() {
           <path d="M13 11.5v9l8-4.5z" fill="#fff" />
         </svg>
       ) : (
-        <span className="h-6 w-6 rounded-md bg-yt" aria-hidden />
+        <span className="flex h-7 w-7 items-center justify-center rounded bg-yt font-display text-2xl leading-none text-white" aria-hidden>
+          {name.charAt(0)}
+        </span>
       )}
-      <span className="text-lg">{name} <span className="font-black">Wrapped</span></span>
+      <span className="text-lg">
+        {p?.theme === "netflix"
+          ? <span className="font-display text-2xl tracking-wide text-yt">{name.toUpperCase()} <span className="text-ink">WRAPPED</span></span>
+          : <>{name} <span className="font-black">Wrapped</span></>}
+      </span>
     </span>
   );
 }

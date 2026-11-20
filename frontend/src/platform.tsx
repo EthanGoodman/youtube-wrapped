@@ -32,6 +32,11 @@ export function usePlatform(): PlatformInfo | undefined {
   return useMeta().data?.platform;
 }
 
+/** How creators are pictured: round avatars (YouTube channels) or 2:3 posters (shows). */
+export function useCreatorShape(): "circle" | "poster" {
+  return ["netflix", "prime_video", "crunchyroll"].includes(usePlatform()?.theme ?? "") ? "poster" : "circle";
+}
+
 export function useCapability(capability: string): boolean {
   // until meta loads, assume yes so YouTube's layout doesn't jump
   const p = usePlatform();
@@ -69,3 +74,24 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(function NavL
 
 /** Link that always leaves the platform (e.g. back to the hub). */
 export { RouterLink as HubLink };
+
+// ------------------------------------------------------------------ wording
+
+/** Current platform wording, set when entering a platform (YouTube's words map to themselves). */
+let currentVocab: PlatformInfo["vocab"] | null = null;
+
+export function setVocab(v: PlatformInfo["vocab"] | null) {
+  currentVocab = v;
+}
+
+/** Translate YouTube wording in a UI string to the current platform's:
+ *  tr("Top channels") -> "Top shows" on Netflix; unchanged on YouTube. Keeps capitalization. */
+export function tr(text: string): string {
+  const v = currentVocab;
+  if (!v) return text;
+  const words: Record<string, string> = { videos: v.items, video: v.item, channels: v.creators, channel: v.creator };
+  return text.replace(/\b(videos?|channels?)\b/gi, (m) => {
+    const out = words[m.toLowerCase()] ?? m;
+    return m[0] === m[0].toUpperCase() ? out.charAt(0).toUpperCase() + out.slice(1) : out;
+  });
+}

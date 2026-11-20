@@ -1,4 +1,4 @@
-import { Link } from "../platform";
+import { Link, tr, useCapability, useCreatorShape } from "../platform";
 import { RankedItem, WatchInfo } from "../api";
 import { clockTime, compact, date, duration, num, pct } from "../format";
 import { useFilters, useLinkQuery } from "../filters";
@@ -19,6 +19,8 @@ export function shortsNote(item: RankedItem): string | null {
 export function ChannelCarousel({ items }: { items: RankedItem[] }) {
   const q = useLinkQuery();
   const { filters } = useFilters();
+  const shape = useCreatorShape();
+  if (shape === "poster") return <PosterTopRow items={items} />;
   return (
     <Carousel>
       {items.map((c) => (
@@ -31,11 +33,38 @@ export function ChannelCarousel({ items }: { items: RankedItem[] }) {
               {c.rank}
             </span>
           </div>
-          <div className="mt-2 line-clamp-1 w-full text-sm font-medium">{c.title ?? "Unknown channel"}</div>
+          <div className="mt-2 line-clamp-1 w-full text-sm font-medium">{c.title ?? tr("Unknown channel")}</div>
           <div className="flex items-center gap-1.5 text-xs text-sub">
             {measure(c, filters.metric)} <RankChange item={c} />
           </div>
           {shortsNote(c) && <div className="text-[11px] text-muted">{shortsNote(c)}</div>}
+        </Link>
+      ))}
+    </Carousel>
+  );
+}
+
+/** Netflix-style "Top 10" row: big outlined rank numbers tucked behind 2:3 posters. */
+function PosterTopRow({ items }: { items: RankedItem[] }) {
+  const q = useLinkQuery();
+  const { filters } = useFilters();
+  return (
+    <Carousel>
+      {items.map((c) => (
+        <Link key={c.key} to={`/channel/${c.key}${q}`} className="group flex shrink-0 flex-col">
+          <div className="flex items-end">
+            <span aria-hidden className="select-none font-display text-[150px] leading-[0.8] text-card"
+                  style={{ WebkitTextStroke: "3px rgb(var(--c-muted))" }}>{c.rank}</span>
+            <div className="-ml-3 transition-transform group-hover:scale-[1.04]">
+              <Avatar src={c.avatar_url} name={c.title} size={150} shape="poster" />
+            </div>
+          </div>
+          <div className="mt-2 w-[108px] self-end">
+            <div className="line-clamp-1 text-sm font-medium">{c.title ?? "Unknown"}</div>
+            <div className="flex items-center gap-1.5 text-xs text-sub">
+              {measure(c, filters.metric, "episodes")} <RankChange item={c} />
+            </div>
+          </div>
         </Link>
       ))}
     </Carousel>
@@ -124,6 +153,7 @@ export function BarList({ items, linkTo, metric }: {
 }
 
 export function WatchRows({ items }: { items: WatchInfo[] }) {
+  const hasTimes = useCapability("time_of_day");
   const q = useLinkQuery();
   return (
     <ul className="flex flex-col">
@@ -135,11 +165,11 @@ export function WatchRows({ items }: { items: WatchInfo[] }) {
               <div className="line-clamp-2 text-sm font-medium leading-snug">
                 {w.title && !w.title.startsWith("http") ? w.title : <span className="text-sub">Unavailable video</span>}
               </div>
-              <div className="mt-0.5 truncate text-xs text-sub">{w.channel ?? "Unknown channel"}</div>
+              <div className="mt-0.5 truncate text-xs text-sub">{w.channel ?? tr("Unknown channel")}</div>
             </div>
             <div className="shrink-0 text-right text-xs text-sub">
               <div>{date(w.local_iso)}</div>
-              <div>{clockTime(w.local_iso)}</div>
+              {hasTimes && <div>{clockTime(w.local_iso)}</div>}
             </div>
           </Link>
         </li>

@@ -20,8 +20,11 @@ export default {
         up: v("up"),
         down: v("down"),
       },
-      fontFamily: { sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"] },
-      borderRadius: { card: "12px" },
+      fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-sans)", "system-ui", "sans-serif"],
+      },
+      borderRadius: { card: "var(--radius-card, 12px)" },
     },
   },
   plugins: [],

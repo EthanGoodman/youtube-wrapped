@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Link } from "../platform";
+import { Link, tr, useCapability } from "../platform";
 import { CalendarDays, Clock3, Flame, Hourglass, Moon, Rocket, Sunrise, Tv, Zap } from "lucide-react";
 import { WatchInfo, useStats } from "../api";
 import { PageTitle, QueryState, Section, Thumb, WatchTimeInfo } from "../components/ui";
@@ -22,6 +22,7 @@ interface RecordsResponse {
 type Milestone = WatchInfo & { n: number };
 
 export function Records() {
+  const hasTimes = useCapability("time_of_day");
   const { filters } = useFilters();
   const rec = useStats<RecordsResponse>("records");
   const ms = useStats<Milestone[]>("milestones");
@@ -33,14 +34,14 @@ export function Records() {
       <QueryState q={rec} minHeight={500}>
         {(r) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <RecordCard icon={<CalendarDays />} label="Biggest day" value={r.biggest_day.by_count ? `${num(r.biggest_day.by_count.count)} videos` : "–"}
+            <RecordCard icon={<CalendarDays />} label="Biggest day" value={r.biggest_day.by_count ? tr(`${num(r.biggest_day.by_count.count)} videos`) : "–"}
                         detail={r.biggest_day.by_count && date(r.biggest_day.by_count.date)} />
             <RecordCard icon={<Clock3 />} label="Most watch time in a day" info
                         value={r.biggest_day.by_time ? duration(r.biggest_day.by_time.time_s) : "–"}
-                        detail={r.biggest_day.by_time && `${date(r.biggest_day.by_time.date)} · ${num(r.biggest_day.by_time.count)} videos`} />
+                        detail={r.biggest_day.by_time && tr(`${date(r.biggest_day.by_time.date)} · ${num(r.biggest_day.by_time.count)} videos`)} />
             <RecordCard icon={<Tv />} label="Longest binge" info
                         value={r.longest_session ? duration(r.longest_session.time_s) : "–"}
-                        detail={r.longest_session && `${num(r.longest_session.videos)} videos without a 30-min break · ${date(r.longest_session.start)}${r.longest_session.top_channel ? ` · mostly ${r.longest_session.top_channel}` : ""}`} />
+                        detail={r.longest_session && tr(`${num(r.longest_session.videos)} videos without a 30-min break · ${date(r.longest_session.start)}`) + (r.longest_session.top_channel ? ` · mostly ${r.longest_session.top_channel}` : "")} />
             <RecordCard icon={<Flame />} label="Longest streak" value={r.streaks.longest ? `${num(r.streaks.longest.days)} days` : "–"}
                         detail={r.streaks.longest && `${date(r.streaks.longest.start)} – ${date(r.streaks.longest.end)}`} />
             <RecordCard icon={<Zap />} label="Current streak" value={`${num(r.streaks.current.days)} days`}
@@ -48,13 +49,13 @@ export function Records() {
             <RecordCard icon={<Hourglass />} label="Longest break" value={r.streaks.longest_break ? `${num(r.streaks.longest_break.days)} days` : "None"}
                         detail={r.streaks.longest_break && `${date(r.streaks.longest_break.start)} – ${date(r.streaks.longest_break.end)}`} />
             {r.channel_day && (
-              <RecordCard icon={<Rocket />} label="One channel, one day" value={`${num(r.channel_day.count)} videos`}
+              <RecordCard icon={<Rocket />} label={tr("One channel, one day")} value={tr(`${num(r.channel_day.count)} videos`)}
                           detail={<><Link className="text-ink hover:underline" to={`/channel/${r.channel_day.channel_id}${q}`}>{r.channel_day.channel}</Link> on {date(r.channel_day.date)}</>} />
             )}
-            <RecordCard icon={<Zap />} label="Early bird" value={`${num(r.early_bird_count)} videos`}
+            <RecordCard icon={<Zap />} label="Early bird" value={tr(`${num(r.early_bird_count)} videos`)}
                         detail={r.fastest ? `watched within an hour of upload · fastest: ${duration(r.fastest.seconds_after_upload)} after` : "watched within an hour of upload"} />
-            <RecordCard icon={<Tv />} label="Removed & private videos"
-                        value={`${num(r.counts.unavailable)} videos`}
+            <RecordCard icon={<Tv />} label={tr("Removed & private videos")}
+                        value={tr(`${num(r.counts.unavailable)} videos`)}
                         detail={`still counted as watches · ${num(r.counts.ads)} ads and ${num(r.counts.surveys)} surveys are left out of everything`} />
           </div>
         )}
@@ -63,15 +64,15 @@ export function Records() {
       <QueryState q={rec} minHeight={200}>
         {(r) => (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <WatchCard icon={<Moon size={18} />} title="Latest night" subtitle="Closest to 5am" w={r.latest_night} />
-            <WatchCard icon={<Sunrise size={18} />} title="Earliest morning" subtitle="Earliest after 5am" w={r.earliest_morning} />
-            <WatchCard icon={<CalendarDays size={18} />} title="Oldest video you watched"
+            {hasTimes && <WatchCard icon={<Moon size={18} />} title="Latest night" subtitle="Closest to 5am" w={r.latest_night} />}
+            {hasTimes && <WatchCard icon={<Sunrise size={18} />} title="Earliest morning" subtitle="Earliest after 5am" w={r.earliest_morning} />}
+            <WatchCard icon={<CalendarDays size={18} />} title={tr("Oldest video you watched")}
                        subtitle={r.oldest ? `Uploaded ${date(r.oldest.published_at)}` : ""} w={r.oldest} />
           </div>
         )}
       </QueryState>
 
-      <Section title="Milestones" subtitle="Your 1st, 1,000th, 10,000th video… (all time)">
+      <Section title="Milestones" subtitle={tr("Your 1st, 1,000th, 10,000th video… (all time)")}>
         <QueryState q={ms} minHeight={200} empty={(d) => !d.length}>
           {(d) => (
             <ol className="relative ml-3 border-l border-line">
@@ -85,7 +86,7 @@ export function Records() {
                     </div>
                     <Thumb src={m.thumb} videoId={m.video_id} short={m.bucket === "short"} width={96} />
                     <div className="min-w-0">
-                      <div className="line-clamp-2 text-sm font-medium">{m.title ?? "Unavailable video"}</div>
+                      <div className="line-clamp-2 text-sm font-medium">{m.title ?? tr("Unavailable video")}</div>
                       <div className="truncate text-xs text-sub">{m.channel}</div>
                     </div>
                   </Link>
@@ -127,7 +128,7 @@ function WatchCard({ icon, title, subtitle, w }: { icon: ReactNode; title: strin
           <div className="flex gap-3">
             <Thumb src={w.thumb} videoId={w.video_id} short={w.bucket === "short"} width={120} />
             <div className="min-w-0">
-              <div className="line-clamp-2 text-sm font-medium group-hover:underline">{w.title ?? "Unavailable video"}</div>
+              <div className="line-clamp-2 text-sm font-medium group-hover:underline">{w.title ?? tr("Unavailable video")}</div>
               <div className="truncate text-xs text-sub">{w.channel}</div>
             </div>
           </div>

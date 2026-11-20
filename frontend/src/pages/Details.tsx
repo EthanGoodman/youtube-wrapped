@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { useParams } from "react-router-dom";
-import { Link } from "../platform";
+import { Link, tr, usePlatform } from "../platform";
 import type { EChartsOption } from "echarts";
 import { ExternalLink, Sparkles } from "lucide-react";
 import { HourPoint, MonthPoint, Overview, RankedItem, useStats } from "../api";
@@ -10,7 +10,7 @@ import { BarList, ChannelCarousel, RankedRows } from "../components/lists";
 import { Avatar, Carousel, MetricToggle, QueryState, Section, StatTile, WatchTimeInfo } from "../components/ui";
 import { clockTime, compact, date, duration, num, pct } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
-import { accent, axisLabel, grid, sub } from "../theme";
+import { accent, axisLabel, grid, sub, surface } from "../theme";
 
 interface SubsetTotals {
   videos: number; unique_videos: number; est_s: number;
@@ -53,8 +53,8 @@ function SubsetTiles({ d }: { d: SubsetBase }) {
   const { filters } = useFilters();
   return (
     <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-      <StatTile label={`Videos (${rangeLabel(filters)})`} value={num(d.in_range.videos)}
-                hint={filters.range === "all" ? undefined : `${num(d.all_time.videos)} all time`} />
+      <StatTile label={tr(`Videos (${rangeLabel(filters)})`)} value={num(d.in_range.videos)}
+                hint={filters.range === "all" ? undefined : tr(`${num(d.all_time.videos)} all time`)} />
       <StatTile label="Est. watch time" value={duration(d.in_range.est_s)} info={<WatchTimeInfo />}
                 hint={filters.range === "all" ? undefined : `${duration(d.all_time.est_s)} all time`} />
       <StatTile label="First watched" value={<span className="text-xl sm:text-2xl">{date(d.all_time.first_watched)}</span>} />
@@ -105,6 +105,9 @@ interface ChannelDetail extends SubsetBase {
 }
 
 export function ChannelPage() {
+  const pinfo = usePlatform();
+  const platformName = pinfo?.name ?? "YouTube";
+  const isYouTube = (pinfo?.id ?? "youtube") === "youtube";
   const { id = "" } = useParams();
   const { filters } = useFilters();
   const d = useStats<ChannelDetail>(`channel/${encodeURIComponent(id)}`);
@@ -114,24 +117,26 @@ export function ChannelPage() {
         <div className="flex flex-col gap-4">
           <Hero
             image={<Avatar src={c.channel.avatar_url} name={c.channel.title} size={128} className="ring-4 ring-bg" />}
-            title={c.channel.title ?? "Unknown channel"}
+            title={c.channel.title ?? tr("Unknown channel")}
             lines={[
               [c.channel.handle, c.channel.subscriber_count != null && `${compact(c.channel.subscriber_count)} subscribers`,
-               c.channel.video_count != null && `${num(c.channel.video_count)} uploads`].filter(Boolean).join(" · "),
-              [c.channel.country, c.channel.created_at && `on YouTube since ${date(c.channel.created_at)}`].filter(Boolean).join(" · "),
+               c.channel.video_count != null && (isYouTube ? `${num(c.channel.video_count)} uploads` : `${num(c.channel.video_count)} episodes`)]
+                .filter(Boolean).join(" · "),
+              [c.channel.country, c.channel.created_at && (isYouTube ? `on YouTube since ${date(c.channel.created_at)}`
+                                                                     : `first aired ${date(c.channel.created_at)}`)].filter(Boolean).join(" · "),
             ]}
-            action={<YouTubeButton href={c.url} />}
+            action={<YouTubeButton href={c.url} label={`Find on ${platformName}`} />}
           />
           <SubsetTiles d={c} />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <Section title="Your top videos from them" subtitle={rangeLabel(filters)} className="lg:col-span-3">
+            <Section title={tr("Your top videos from them")} subtitle={rangeLabel(filters)} className="lg:col-span-3">
               {c.top_videos.length ? <RankedRows items={c.top_videos} kind="video" showShare /> : <p className="text-sm text-muted">Nothing in this period.</p>}
             </Section>
-            <Section title="Rank among your channels" subtitle="Per year" className="lg:col-span-2">
+            <Section title={tr("Rank among your channels")} subtitle="Per year" className="lg:col-span-2">
               <RankHistory data={c.rank_history} />
             </Section>
           </div>
-          <SubsetCharts d={c} what="from this channel" />
+          <SubsetCharts d={c} what={tr("from this channel")} />
           {c.channel.topics.length > 0 && (
             <Section title="Genres">
               <Chips items={c.channel.topics} to={(t) => `/genre/${encodeURIComponent(t)}`} />
@@ -158,9 +163,9 @@ function RankHistory({ data }: { data: ChannelDetail["rank_history"] }) {
         return `<b>#${num(d.rank)}</b> of ${num(d.channels_that_year)} channels<br/><span style="color:${sub}">${d.year} · ${num(d.count)} videos</span>`;
       },
     },
-    series: [{ type: "line", data: data.map((d) => d.rank), lineStyle: { color: accent, width: 2 }, itemStyle: { color: accent, borderColor: "#181818", borderWidth: 2 }, symbolSize: 9 }],
+    series: [{ type: "line", data: data.map((d) => d.rank), lineStyle: { color: accent, width: 2 }, itemStyle: { color: accent, borderColor: surface, borderWidth: 2 }, symbolSize: 9 }],
   };
-  return <Chart option={option} height={260} ariaLabel="Channel rank per year" />;
+  return <Chart option={option} height={260} ariaLabel={tr("Channel rank per year")} />;
 }
 
 function Chips({ items, to }: { items: string[]; to?: (s: string) => string }) {
@@ -190,6 +195,8 @@ interface VideoDetail {
 }
 
 export function VideoPage() {
+  const pinfo = usePlatform();
+  const platformName = pinfo?.name ?? "YouTube";
   const { id = "" } = useParams();
   const d = useStats<VideoDetail>(`video/${encodeURIComponent(id)}`);
   const q = useLinkQuery();
@@ -202,7 +209,7 @@ export function VideoPage() {
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
               <div className="lg:col-span-3">
-                <div className={`overflow-hidden rounded-card bg-raised ${isShort ? "mx-auto aspect-[9/16] max-h-[560px]" : "aspect-video"}`}>
+                <div className={`overflow-hidden rounded-card bg-raised ${isShort ? "mx-auto aspect-[9/16] max-h-[560px]" : tr("aspect-video")}`}>
                   {!unavailable && (
                     <img src={v.video.thumb_large ?? `https://i.ytimg.com/vi/${v.video.video_id}/hqdefault.jpg`} alt=""
                          referrerPolicy="no-referrer" className="h-full w-full object-cover" />
@@ -211,10 +218,10 @@ export function VideoPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 lg:col-span-2">
-                <h1 className="text-xl font-bold leading-snug sm:text-2xl">{v.video.title && !v.video.title.startsWith("http") ? v.video.title : "Unavailable video"}</h1>
+                <h1 className="text-xl font-bold leading-snug sm:text-2xl">{v.video.title && !v.video.title.startsWith("http") ? v.video.title : tr("Unavailable video")}</h1>
                 {v.video.channel_id && (
                   <Link to={`/channel/${v.video.channel_id}${q}`} className="text-sm font-medium text-sub hover:text-ink">
-                    {v.video.channel_title ?? "Channel"} ›
+                    {v.video.channel_title ?? tr("Channel")} ›
                   </Link>
                 )}
                 <div className="flex flex-wrap gap-2 text-xs">
@@ -229,10 +236,10 @@ export function VideoPage() {
                   <StatTile label="Uploaded" value={<span className="text-lg">{date(v.video.published_at)}</span>} />
                 </div>
                 <div className="text-sm text-sub">
-                  {[v.video.category, v.video.view_count != null && `${compact(v.video.view_count)} views`,
-                    v.video.like_count != null && `${compact(v.video.like_count)} likes`].filter(Boolean).join(" · ")}
+                  {[v.video.category, v.video.view_count != null && tr(`${compact(v.video.view_count)} views`),
+                    v.video.like_count != null && tr(`${compact(v.video.like_count)} likes`)].filter(Boolean).join(" · ")}
                 </div>
-                <div><YouTubeButton href={v.url} /></div>
+                <div><YouTubeButton href={v.url} label={`Find on ${platformName}`} /></div>
               </div>
             </div>
 
@@ -270,14 +277,14 @@ function GroupPage({ title, kicker, d, external }: { title: string; kicker: stri
       <Hero
         image={<div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-yt text-4xl font-black text-white">{title.charAt(0)}</div>}
         title={title}
-        lines={[kicker, `${num(d.all_time.videos)} videos all time · ${num(d.all_time.unique_videos)} different`]}
+        lines={[kicker, tr(`${num(d.all_time.videos)} videos all time · ${num(d.all_time.unique_videos)} different`)]}
         action={external && <YouTubeButton href={external} label="About on Wikipedia" />}
       />
       <SubsetTiles d={d} />
-      <Section title="Top channels" subtitle={rangeLabel(filters)} action={<MetricToggle value={filters.metric} onChange={(m) => update({ metric: m })} />}>
+      <Section title={tr("Top channels")} subtitle={rangeLabel(filters)} action={<MetricToggle value={filters.metric} onChange={(m) => update({ metric: m })} />}>
         {d.top_channels.length ? <ChannelCarousel items={d.top_channels} /> : <p className="text-sm text-muted">Nothing in this period.</p>}
       </Section>
-      <Section title="Top videos" subtitle={rangeLabel(filters)}>
+      <Section title={tr("Top videos")} subtitle={rangeLabel(filters)}>
         {d.top_videos.length ? <RankedRows items={d.top_videos.slice(0, 10)} kind="video" showShare /> : <p className="text-sm text-muted">Nothing in this period.</p>}
       </Section>
       <SubsetCharts d={d} what={`in ${title}`} />
@@ -324,26 +331,26 @@ export function YearPage() {
           <Hero
             image={<div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-yt to-[#7a0019] text-2xl font-black">{y.year}</div>}
             title={`Your ${y.year} on YouTube`}
-            lines={[`${num(y.overview.videos)} videos · ${duration(y.overview.est_s)} estimated · ${num(y.overview.unique_channels)} channels`]}
+            lines={[tr(`${num(y.overview.videos)} videos · ${duration(y.overview.est_s)} estimated · ${num(y.overview.unique_channels)} channels`)]}
             action={<Link to={`/wrapped?year=${y.year}`} className="flex shrink-0 items-center gap-1.5 rounded-full bg-yt px-4 py-2 text-sm font-bold text-white hover:bg-yt-dark"><Sparkles size={15} /> Play {y.year} Wrapped</Link>}
           />
           <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-            <StatTile label="Videos" value={compact(y.overview.videos)} delta={y.overview.change.videos} />
+            <StatTile label={tr("Videos")} value={compact(y.overview.videos)} delta={y.overview.change.videos} />
             <StatTile label="Est. watch time" value={duration(y.overview.est_s)} delta={y.overview.change.est_s} info={<WatchTimeInfo />} />
-            <StatTile label="Channels" value={compact(y.overview.unique_channels)} delta={y.overview.change.unique_channels} />
+            <StatTile label={tr("Channels")} value={compact(y.overview.unique_channels)} delta={y.overview.change.unique_channels} />
             <StatTile label="Days you watched" value={pct(y.overview.pct_days_active)} hint={`${num(y.overview.active_days)} days`} />
           </div>
-          <Section title="Top channels" subtitle={`${y.year}, by ${filters.metric === "time" ? "watch time" : "videos"}`}>
+          <Section title={tr("Top channels")} subtitle={tr(`${y.year}, by ${filters.metric === "time" ? "watch time" : tr("videos")}`)}>
             <ChannelCarousel items={y.top_channels} />
           </Section>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Section title="Top videos"><RankedRows items={y.top_videos} kind="video" /></Section>
+            <Section title={tr("Top videos")}><RankedRows items={y.top_videos} kind="video" /></Section>
             <div className="flex flex-col gap-4">
               <Section title="Top genres"><BarList items={y.top_genres.slice(0, 6)} metric={filters.metric} linkTo={(g) => `/genre/${encodeURIComponent(g.key)}`} /></Section>
               <Section title="Top categories"><BarList items={y.top_categories.slice(0, 6)} metric={filters.metric} linkTo={(c) => `/category/${c.key}`} /></Section>
             </div>
           </div>
-          <Section title="New discoveries" subtitle={`Channels you found in ${y.year}`}>
+          <Section title="New discoveries" subtitle={tr(`Channels you found in ${y.year}`)}>
             <Carousel>
               {y.new_discoveries.map((c) => (
                 <Link key={c.channel_id} to={`/channel/${c.channel_id}${q}`} className="flex w-[96px] shrink-0 flex-col items-center text-center">
