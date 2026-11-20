@@ -80,6 +80,8 @@ def test_split_and_top_movies(tmp_path):
     s = shows.split(conn, r, f)
     assert (s["episode"]["count"], s["episode"]["titles"], s["movie"]["count"], s["movie"]["titles"]) == (8, 2, 1, 1)
     assert [m["title"] for m in shows.top_movies(conn, r, f)] == ["Don't Look Up"]
+    m = shows.top_movies(conn, r, f)[0]
+    assert m["year"] == "2021" and m["runtime_s"] == 138 * 60 and m["genres"] == ["Comedy"] and m["poster"]
 
 
 def test_rewatches(tmp_path):

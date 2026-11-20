@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Link, NavLink, tr } from "../platform";
+import { Link, NavLink, tr, useHasSeries, usePlatform } from "../platform";
+import { NetflixTop } from "./NetflixTop";
 import { LayoutGrid, List } from "lucide-react";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { BarList, RankedRows, shortsNote } from "../components/lists";
@@ -37,7 +38,15 @@ const SUBTITLE_OTHER: Record<string, string> = {
   genres: "genres",
 };
 
+/** Netflix gets its own Top page (posters, Top 10 numerals); everything else uses the stats.fm-style one. */
 export function Top() {
+  const platform = usePlatform();
+  const series = useHasSeries();
+  if (!platform) return null;
+  return series ? <NetflixTop /> : <StatsTop />;
+}
+
+function StatsTop() {
   const { kind = "channels" } = useParams();
   const { filters, update } = useFilters();
   const meta = useMeta().data;

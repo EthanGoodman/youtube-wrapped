@@ -205,8 +205,12 @@ def split(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
 
 
 def top_movies(conn: sqlite3.Connection, r: Range, f: Filters, limit: int = 50) -> list[dict]:
-    items = ranked(conn, "w.video_id", r, f, limit, extra_where="w.kind = 'movie'")
-    return _attach(conn, items, _VIDEO_INFO)
+    items = _attach(conn, ranked(conn, "w.video_id", r, f, limit, extra_where="w.kind = 'movie'"), _VIDEO_INFO)
+    cards = _movie_cards(conn, [i["key"] for i in items])
+    for i in items:  # poster, backdrop, year, runtime and genres for the movie lists
+        c = cards.get(i["key"], {})
+        i.update({k: c.get(k) for k in ("poster", "backdrop", "year", "runtime_s")}, genres=c.get("genres", []))
+    return items
 
 
 # ------------------------------------------------------------------ home screen (Netflix-style rows)
