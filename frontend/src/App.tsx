@@ -5,6 +5,8 @@ import { PageTitle } from "./components/ui";
 import { Home } from "./pages/Home";
 import { Top } from "./pages/Top";
 import { Patterns } from "./pages/Patterns";
+import { Records } from "./pages/Records";
+import { Ads } from "./pages/Ads";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -24,9 +26,9 @@ export function App() {
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/top/:kind" element={<Layout><Top /></Layout>} />
         <Route path="/patterns" element={<Layout><Patterns /></Layout>} />
-        <Route path="/records" element={<Layout><Placeholder title="Records" /></Layout>} />
+        <Route path="/records" element={<Layout><Records /></Layout>} />
         <Route path="/evolution" element={<Layout><Placeholder title="Evolution" /></Layout>} />
-        <Route path="/ads" element={<Layout><Placeholder title="Ads" /></Layout>} />
+        <Route path="/ads" element={<Layout><Ads /></Layout>} />
         <Route path="/search" element={<Layout><Placeholder title="Search" /></Layout>} />
         <Route path="/channel/:id" element={<Layout><Placeholder title="Channel" /></Layout>} />
         <Route path="/video/:id" element={<Layout showRange={false}><Placeholder title="Video" /></Layout>} />
