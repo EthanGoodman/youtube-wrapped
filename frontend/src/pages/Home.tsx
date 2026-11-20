@@ -6,7 +6,7 @@ import { MeasureToggle, WatchClock, useMeasure } from "../components/charts";
 import { MetricToggle, QueryState, Section, SeeAll, StatTile, WatchTimeInfo } from "../components/ui";
 import { bigDuration, compact, date, duration, num, pct } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
-import { categorical } from "../theme";
+import { categorical, otherColor } from "../theme";
 
 export function Home() {
   const { filters, update } = useFilters();
@@ -30,7 +30,10 @@ export function Home() {
         <div className="min-w-0">
           <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Your YouTube</h1>
           <p className="text-sm text-sub">
-            {meta ? <>Watching since {date(meta.first_date)} · {num(meta.watches)} videos logged</> : " "}
+            {meta ? <>Watching since {date(meta.first_date)} · {num(meta.watches)} videos logged
+              {meta.by_bucket.short ? <> ({num(meta.by_bucket.short)} Shorts, {num(meta.by_bucket.long ?? 0)} long-form
+                {meta.by_bucket.music ? `, ${num(meta.by_bucket.music)} songs` : ""}
+                {meta.by_bucket.unknown ? `, ${num(meta.by_bucket.unknown)} removed` : ""})</> : null}</> : " "}
           </p>
         </div>
       </div>
@@ -99,6 +102,7 @@ function SplitBar({ o }: { o: Overview }) {
     { key: "long", label: "Long-form", color: categorical[0], ...o.split.long },
     { key: "short", label: "Shorts (approx.)", color: categorical[1], ...o.split.short },
     { key: "music", label: "Music", color: categorical[2], ...o.split.music },
+    { key: "unknown", label: "Removed/private (type unknown)", color: otherColor, ...o.split.unknown },
   ].filter((p) => p.videos > 0);
   const total = parts.reduce((s, p) => s + p.videos, 0);
   if (!total) return null;

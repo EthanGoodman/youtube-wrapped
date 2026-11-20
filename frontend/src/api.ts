@@ -51,6 +51,7 @@ export interface Meta {
   enriched: boolean;
   has_music: boolean;
   has_search: boolean;
+  by_bucket: Partial<Record<"long" | "short" | "music" | "unknown", number>>;
   built_at: string | null;
   watchtime: {
     session_gap_minutes: number;
@@ -76,7 +77,7 @@ export interface WatchInfo {
   channel_id: string | null;
   thumb: string | null;
   kind: string;
-  bucket: "long" | "short" | "music";
+  bucket: "long" | "short" | "music" | "unknown";
   duration_s: number | null;
   est_s: number;
 }
@@ -101,7 +102,7 @@ export interface Overview extends Totals {
   range: RangeInfo;
   change: Record<"videos" | "unique_videos" | "unique_channels" | "est_s" | "active_days", number | null>;
   previous: Totals;
-  split: Record<"long" | "short" | "music", { videos: number; est_s: number }>;
+  split: Record<"long" | "short" | "music" | "unknown", { videos: number; est_s: number }>;
   first_watch: WatchInfo | null;
   last_watch: WatchInfo | null;
 }
@@ -128,7 +129,7 @@ export interface RankedItem {
   duration_s?: number | null;
   channel_id?: string | null;
   channel?: string | null;
-  bucket?: "long" | "short" | "music";
+  bucket?: "long" | "short" | "music" | "unknown";
   kind?: string;
 }
 

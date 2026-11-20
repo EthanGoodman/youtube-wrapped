@@ -122,6 +122,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             "watches": q("SELECT COUNT(*) FROM watches"),
             "enriched": q("SELECT COUNT(*) FROM videos WHERE status='ok'") > 0,
             "has_music": q("SELECT COUNT(*) FROM watches WHERE bucket='music'") > 0,
+            "by_bucket": dict(c.execute("SELECT bucket, COUNT(*) FROM watches GROUP BY bucket").fetchall()),
             "has_search": q("SELECT COUNT(*) FROM searches WHERE kind='search'") > 0,
             "built_at": db.get_meta(c, "built_at"),
             "watchtime": {

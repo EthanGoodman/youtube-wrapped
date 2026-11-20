@@ -150,7 +150,8 @@ def compute(rows: list[Raw], c: WatchConfig) -> list[dict]:
             "start_epoch": start, "duration_s": dur, "est_s": int(round(est)), "est_method": method,
             "max_s": min(dur, c.max_possible_cap_s) if dur else None,
             "gap_next_s": gap, "session_id": session,
-            "bucket": "music" if r.kind == "music" else ("short" if short else "long"),
+            "bucket": ("music" if r.kind == "music" else "unknown" if r.kind == "unavailable"
+                       else "short" if short else "long"),
             "short_basis": short, "is_background": int(is_background(r, c, delayed)),
             "is_live": int(live), "delayed_fix": int(delayed), "category_id": r.category_id,
             "published_epoch": _epoch(r.published_at),

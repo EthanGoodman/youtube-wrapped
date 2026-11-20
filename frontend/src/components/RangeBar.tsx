@@ -93,6 +93,7 @@ function SettingsPanel() {
     ["long", "Long-form videos", "Regular videos"],
     ["short", "Shorts", "Detected from vertical video ≤ 3 min (approximate)"],
     ["music", "YouTube Music", meta?.has_music ? "Songs from YouTube Music" : "None in your history"],
+    ["unknown", "Removed & private videos", "Deleted since you watched them: no length or type is known"],
   ];
   return (
     <div className="w-72 p-1">

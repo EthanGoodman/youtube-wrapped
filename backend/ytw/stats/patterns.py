@@ -45,16 +45,16 @@ def monthly(conn: sqlite3.Connection, r: Range, f: Filters) -> list[dict]:
     w_sql, p = where(r, f)
     rows = conn.execute(f"""
         SELECT w.month, COUNT(*), SUM({time_expr(f)}),
-               SUM(w.bucket = 'long'), SUM(w.bucket = 'short'), SUM(w.bucket = 'music')
+               SUM(w.bucket = 'long'), SUM(w.bucket = 'short'), SUM(w.bucket = 'music'), SUM(w.bucket = 'unknown')
         FROM watches w WHERE {w_sql} GROUP BY 1 ORDER BY 1""", p).fetchall()
-    got = {m: (n, t, lo, sh, mu) for m, n, t, lo, sh, mu in rows}
+    got = {m: (n, t, lo, sh, mu, un) for m, n, t, lo, sh, mu, un in rows}
     out = []
     y, m = r.start.year, r.start.month
     while (y, m) <= (r.end.year, r.end.month):
         key = f"{y:04d}-{m:02d}"
-        n, t, lo, sh, mu = got.get(key, (0, 0, 0, 0, 0))
+        n, t, lo, sh, mu, un = got.get(key, (0, 0, 0, 0, 0, 0))
         out.append({"month": key, "count": n, "time_s": t or 0, "long": lo or 0, "short": sh or 0,
-                    "music": mu or 0})
+                    "music": mu or 0, "unknown": un or 0})
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
     return out
 

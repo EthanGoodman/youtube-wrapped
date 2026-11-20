@@ -5,7 +5,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-ALL_BUCKETS = ("long", "short", "music")
+ALL_BUCKETS = ("long", "short", "music", "unknown")
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ def resolve_range(conn: sqlite3.Connection, preset: str = "all", start: str | No
 
 @dataclass(frozen=True)
 class Filters:
-    buckets: tuple[str, ...] = ALL_BUCKETS  # which of long / short / music to include
+    buckets: tuple[str, ...] = ALL_BUCKETS  # which of long / short / music / unknown to include
     exclude_bg_time: bool = True            # background audio counts as a watch but 0 time
     metric: str = "count"                   # ranking metric: count | time
 

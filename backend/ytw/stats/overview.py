@@ -4,7 +4,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import date
 
-from .common import Filters, Range, max_expr, pct_change, time_expr, where
+from .common import ALL_BUCKETS, Filters, Range, max_expr, pct_change, time_expr, where
 
 
 def _totals(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
@@ -31,7 +31,7 @@ def _totals(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
 
 def _split(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
     w_sql, p = where(r, Filters(exclude_bg_time=f.exclude_bg_time))  # always all buckets here
-    out = {b: {"videos": 0, "est_s": 0} for b in ("long", "short", "music")}
+    out = {b: {"videos": 0, "est_s": 0} for b in ALL_BUCKETS}
     for b, n, t in conn.execute(
             f"SELECT w.bucket, COUNT(*), SUM({time_expr(f)}) FROM watches w WHERE {w_sql} GROUP BY 1", p):
         out[b] = {"videos": n, "est_s": t or 0}

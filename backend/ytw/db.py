@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS watches (
     est_method    TEXT NOT NULL,     -- gap | full | cap | fallback
     gap_next_s    REAL,
     session_id    INTEGER NOT NULL,
-    bucket        TEXT NOT NULL,     -- long | short | music
+    bucket        TEXT NOT NULL,     -- long | short | music | unknown (removed/private)
     short_basis   TEXT,              -- shape | hint | duration (how a Short was detected)
     is_background INTEGER NOT NULL,
     is_live       INTEGER NOT NULL,

@@ -24,7 +24,7 @@ export interface WrappedData {
     active_days: number;
     days: number;
     pct_days_active: number;
-    split: Record<"long" | "short" | "music", { videos: number; est_s: number }>;
+    split: Record<"long" | "short" | "music" | "unknown", { videos: number; est_s: number }>;
     change: Record<string, number | null>;
   };
   top_channels: RankedItem[];

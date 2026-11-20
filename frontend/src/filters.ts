@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
-export type Bucket = "long" | "short" | "music";
+export type Bucket = "long" | "short" | "music" | "unknown";
 export type Metric = "count" | "time";
 
 export interface Filters {
@@ -13,7 +13,8 @@ export interface Filters {
   metric: Metric;
 }
 
-const ALL: Bucket[] = ["long", "short", "music"];
+export const ALL_BUCKETS: Bucket[] = ["long", "short", "music", "unknown"];
+const ALL = ALL_BUCKETS;
 export const DEFAULTS: Filters = { range: "4w", buckets: ALL, bg: true, metric: "count" };
 
 /** Filters live in the URL so every view can be bookmarked or shared. */
@@ -66,7 +67,7 @@ export function toQuery(f: Filters, extra: Record<string, string | number | unde
     p.set("start", f.start);
     p.set("end", f.end);
   }
-  if (f.buckets.length && f.buckets.length < 3) p.set("buckets", f.buckets.join(","));
+  if (f.buckets.length && f.buckets.length < ALL.length) p.set("buckets", f.buckets.join(","));
   if (!f.bg) p.set("bg", "0");
   p.set("metric", f.metric);
   for (const [k, v] of Object.entries(extra)) if (v !== undefined) p.set(k, String(v));

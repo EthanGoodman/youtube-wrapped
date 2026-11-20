@@ -168,6 +168,7 @@ def test_local_dates_and_buckets(conn):
     assert got == {"c2": "2024-01-13", "gone1": "2024-01-20"}
     assert conn.execute("SELECT bucket FROM watches WHERE video_id='c2'").fetchone()[0] == "short"
     assert conn.execute("SELECT is_background FROM watches WHERE video_id='c1'").fetchone()[0] == 1
+    assert conn.execute("SELECT bucket FROM watches WHERE video_id='gone1'").fetchone()[0] == "unknown"
 
 
 # ------------------------------------------------------------------ overview
@@ -183,7 +184,8 @@ def test_overview_2024(conn):
     assert o["background_s"] == 7200        # last of its session: min(2h, 3h cap)
     assert o["active_days"] == 6            # 10, 11, 12, 13, 17, 20
     assert o["days"] == 366
-    assert o["split"]["short"]["videos"] == 1 and o["split"]["long"]["videos"] == 8
+    assert o["split"]["short"]["videos"] == 1 and o["split"]["long"]["videos"] == 7
+    assert o["split"]["unknown"]["videos"] == 1     # the removed video
     assert o["first_watch"]["video_id"] == "b1"
     assert o["last_watch"]["video_id"] == "gone1"
     # vs 2023: 4 videos -> 9 videos
