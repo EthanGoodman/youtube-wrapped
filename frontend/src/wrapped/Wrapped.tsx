@@ -24,7 +24,7 @@ const BRAND: Record<string, { mark: (size: number) => React.ReactNode; file: str
     pickerBg: "radial-gradient(ellipse at top,#5c0a0f,#0b0b0b 60%)",
     tiles: ["#e50914", "#b20710", "#831010", "#5c0a0f", "#e50914", "#b20710"],
     backdrop: "radial-gradient(circle at 30% 30%, #e50914, transparent 55%), radial-gradient(circle at 70% 70%, #5c0a0f, transparent 55%)",
-    tileFont: '"Bebas Neue", Inter, sans-serif',
+    tileFont: "Inter, sans-serif",
   },
 };
 const brandOf = (platform: string | null | undefined) => BRAND[platform ?? "youtube"] ?? BRAND.youtube;
@@ -98,7 +98,7 @@ function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: Wrapped
                   className="flex aspect-[4/5] flex-col justify-between rounded-2xl p-4 transition-transform hover:scale-[1.03]"
                   style={{ background: `linear-gradient(160deg, ${brand.tiles[i % brand.tiles.length]}, #1a1a1a 130%)` }}>
               {brand.mark(26)}
-              <span className={brand.tileFont ? "text-6xl" : "text-4xl font-black"} style={{ fontFamily: brand.tileFont }}>{y}</span>
+              <span className={brand.tileFont ? "text-5xl font-black tracking-tight" : "text-4xl font-black"} style={{ fontFamily: brand.tileFont }}>{y}</span>
             </Link>
           </motion.div>
         ))}

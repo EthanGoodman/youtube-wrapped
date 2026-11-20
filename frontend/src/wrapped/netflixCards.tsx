@@ -1,5 +1,5 @@
 /* Netflix Wrapped cards: same 360 x 640 design size and player as YouTube's, Netflix look
-   (near-black, Netflix red, Bebas Neue headlines, posters instead of avatars). */
+   (near-black, Netflix red, heavy Inter headlines, posters instead of avatars). */
 import { ReactNode, useState } from "react";
 import { motion } from "framer-motion";
 import { compact, date, hourLabel, num } from "../format";
@@ -7,7 +7,11 @@ import { CardDef, CountUp, RadialClock, pop, rise } from "./cards";
 import { NetflixWrappedData, img } from "./types";
 
 const RED = "#e50914";
-const DISPLAY = '"Bebas Neue", Inter, system-ui, sans-serif';
+// Inter Black, like the dashboard (Netflix's own type is a heavy sans, not a condensed display face)
+const DISPLAY = "Inter, system-ui, sans-serif";
+/** Inter is much wider than the condensed face these sizes were set for: scale headlines to fit. */
+const FIT = 0.74;
+const heavy = { fontFamily: DISPLAY, fontWeight: 900, letterSpacing: "-0.035em" } as const;
 const hrs = (s: number) => Math.round(s / 3600);
 const days = (n: number) => (n === 1 ? "1 day" : `${num(n)} days`);
 /** TMDB posters: ask for a bigger size when shown big. */
@@ -37,7 +41,7 @@ function Card({ children, footer = true, year, glow = "top" }: {
             <span className="text-[15px] font-extrabold tracking-tight">Wrapped</span>
             <span className="text-[13px] text-white/50">· Netflix</span>
           </span>
-          {year && <span style={{ fontFamily: DISPLAY }} className="text-[17px] tracking-[0.08em] text-white/70">{year}</span>}
+          {year && <span className="text-[15px] font-extrabold text-white/70">{year}</span>}
         </div>
       )}
     </div>
@@ -48,13 +52,13 @@ function Kicker({ children, delay = 0 }: { children: ReactNode; delay?: number }
   return <motion.p {...rise(delay)} className="text-[17px] font-medium leading-snug text-white/80">{children}</motion.p>;
 }
 
-/** Bebas headline. Bebas has one weight: never bold it. */
+/** Heavy headline (Inter Black). */
 function Display({ children, size = 64, delay = 0.2, color, className = "" }: {
   children: ReactNode; size?: number; delay?: number; color?: string; className?: string;
 }) {
   return (
-    <motion.div {...rise(delay)} className={`leading-[0.9] ${className}`}
-                style={{ fontFamily: DISPLAY, fontSize: size, color, fontWeight: 400, fontSynthesis: "none" }}>
+    <motion.div {...rise(delay)} className={`leading-[0.95] ${className}`}
+                style={{ ...heavy, fontSize: Math.round(size * FIT), color }}>
       {children}
     </motion.div>
   );
@@ -69,20 +73,22 @@ function Poster({ src, name, w, big = false, className = "" }: {
   if (!url || failed)
     return (
       <div className={`flex shrink-0 items-center justify-center rounded-md bg-white/10 px-2 text-center ${className}`}
-           style={{ width: w, height: h, fontFamily: DISPLAY, fontSize: Math.max(14, w / 5) }}>
+           style={{ width: w, height: h, ...heavy, fontSize: Math.max(12, w / 7) }}>
         {name ?? "?"}
       </div>
     );
   return <img src={url} alt="" onError={() => setFailed(true)} className={`shrink-0 rounded-md object-cover ${className}`} style={{ width: w, height: h }} />;
 }
 
-/** Outlined rank number, as on Netflix's Top 10 rows. */
+/** Outlined rank number, the same numeral as the dashboard's Top 10 rows (SVG, so it exports cleanly). */
 function Rank({ n, size }: { n: number; size: number }) {
   return (
-    <span aria-hidden className="select-none leading-[0.8]"
-          style={{ fontFamily: DISPLAY, fontSize: size, color: "#0b0b0b", WebkitTextStroke: `${Math.max(2, size / 40)}px rgba(255,255,255,0.75)` }}>
-      {n}
-    </span>
+    <svg viewBox="0 0 100 150" width={size * 0.66} height={size} aria-hidden className="shrink-0">
+      <text x={n >= 10 ? 52 : 60} y="140" textAnchor="middle" fontSize="150" fontWeight="900" letterSpacing="-14"
+            fontFamily="Inter, sans-serif" fill="#0b0b0b" stroke="rgba(255,255,255,0.7)" strokeWidth="4" paintOrder="stroke fill">
+        {n}
+      </text>
+    </svg>
   );
 }
 
@@ -157,11 +163,11 @@ export const NETFLIX_CARDS: NCard[] = [
     render: (d) => (
       <Card year={d.year}>
         <Display size={46} delay={0}>Your Top 5 shows</Display>
-        <div className="mt-5 flex flex-col gap-2.5">
+        <div className="mt-4 flex flex-col gap-2">
           {d.top_channels.slice(0, 5).map((s, i) => (
             <motion.div key={s.key} {...rise(0.3 + i * 0.18)} className="flex items-center">
-              <div className="flex w-[66px] justify-end"><Rank n={i + 1} size={86} /></div>
-              <Poster src={s.avatar_url} name={s.title} w={52} className="-ml-3 relative" />
+              <div className="flex w-[66px] justify-end"><Rank n={i + 1} size={76} /></div>
+              <Poster src={s.avatar_url} name={s.title} w={48} className="-ml-3 relative" />
               <div className="ml-3 min-w-0">
                 <div className="truncate text-[17px] font-bold">{s.title}</div>
                 <div className="text-[13px] text-white/65">{num(s.count)} episodes</div>
@@ -188,7 +194,7 @@ export const NETFLIX_CARDS: NCard[] = [
             </div>
           </div>
           <div className="flex flex-1 flex-col justify-center">
-            <Display size={120} delay={1.2} color={RED}>{days(b.days)}</Display>
+            <Display size={120} delay={1.2} color={RED} className="pb-[0.22em]">{days(b.days)}</Display>
             <Kicker delay={1.4}>start to finish. That's {num(Math.round(b.per_day * 10) / 10)} episodes a day.</Kicker>
           </div>
           {d.episode_day && (
@@ -213,7 +219,7 @@ export const NETFLIX_CARDS: NCard[] = [
           <div className="mt-6 grid grid-cols-3 gap-2">
             {rows.map(([label, n, color], i) => (
               <motion.div key={label} {...rise(0.7 + i * 0.15)} className="rounded-xl bg-white/[0.07] px-3 py-3">
-                <div style={{ fontFamily: DISPLAY, fontSize: 48, color, lineHeight: 1 }}>{num(n)}</div>
+                <div style={{ ...heavy, fontSize: 38, color, lineHeight: 1 }}>{num(n)}</div>
                 <div className="mt-1 text-[12px] font-medium text-white/75">{label}</div>
               </motion.div>
             ))}
@@ -278,7 +284,7 @@ export const NETFLIX_CARDS: NCard[] = [
         <div className="mt-8 flex flex-col gap-2.5">
           {d.top_genres.slice(1, 5).map((g, i) => (
             <motion.div key={g.key} {...rise(0.8 + i * 0.15)} className="flex items-center gap-4 rounded-xl bg-white/[0.07] px-4 py-3">
-              <span style={{ fontFamily: DISPLAY }} className="w-6 text-[30px] leading-none text-white/60">{i + 2}</span>
+              <span style={heavy} className="w-6 text-[24px] leading-none text-white/50">{i + 2}</span>
               <span className="text-[18px] font-bold">{g.title}</span>
             </motion.div>
           ))}
@@ -378,7 +384,7 @@ function NetflixSummary({ d }: { d: NetflixWrappedData }) {
           <span className="text-[20px] font-extrabold tracking-tight">Wrapped</span>
           <span className="text-[14px] text-white/50">· Netflix</span>
         </span>
-        <span style={{ fontFamily: DISPLAY }} className="text-[40px] leading-none">{d.year}</span>
+        <span style={heavy} className="text-[32px] leading-none">{d.year}</span>
       </div>
       <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Top shows</p>
       <div className="mt-2 flex gap-1.5">
@@ -405,7 +411,7 @@ function NetflixSummary({ d }: { d: NetflixWrappedData }) {
         <span className="text-[38px] leading-none">{p.emoji}</span>
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/80">Viewer personality</p>
-          <p style={{ fontFamily: DISPLAY }} className="text-[26px] leading-none">{p.name}</p>
+          <p style={heavy} className="text-[21px] leading-tight">{p.name}</p>
         </div>
       </div>
     </Card>
@@ -416,7 +422,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   return (
     <div className="min-w-0 rounded-xl bg-white/[0.07] px-3 py-2">
       <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">{label}</p>
-      <p style={{ fontFamily: DISPLAY }} className="truncate text-[32px] leading-none">{value}</p>
+      <p style={heavy} className="truncate text-[25px] leading-none">{value}</p>
       {sub && <p className="truncate text-[10px] text-white/60">{sub}</p>}
     </div>
   );
