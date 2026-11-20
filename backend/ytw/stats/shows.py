@@ -238,6 +238,9 @@ def _show_cards(conn: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
             "key": row["creator_id"], "kind": "show", "title": row["title"], "poster": row["avatar_url"],
             "backdrop": extra.get("backdrop"), "year": extra.get("year"), "seasons": extra.get("seasons"),
             "genres": extra.get("topics") or [], "overview": extra.get("overview"), "episodes_total": row["item_count"],
+            # anime details from AniList (Crunchyroll); absent elsewhere
+            "studios": extra.get("studios") or [], "anime_season": extra.get("anime_season"), "score": extra.get("score"),
+            "format": extra.get("format"), "simulcast": bool(extra.get("simulcast")),
         }
     return out
 
@@ -283,6 +286,13 @@ def home(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
                 "total": p.get("total"), "pct": p.get("pct"), "status": p.get("status"),
                 "last_watched": p.get("last_watched"), **more}
 
+    # how much of each show you watched dubbed (only platforms that record the audio language, i.e. Crunchyroll)
+    dubbed = {k: (d or 0) / n for k, d, n in conn.execute(
+        """SELECT w.channel_id, SUM(json_extract(i.extra, '$.dubbed')), COUNT(*) FROM watches w
+           JOIN items i ON i.item_id = w.video_id WHERE w.channel_id IS NOT NULL
+             AND json_extract(i.extra, '$.dubbed') IS NOT NULL GROUP BY w.channel_id""")}
+    for c in cards.values():
+        c["dub_share"] = dubbed.get(c["key"])
     top10 = [x for t in top if (x := show(t["key"], count=t["count"], time_s=t["time_s"], rank=t["rank"]))]
     finished = sorted((s for s in prog.values() if s["status"] == "finished"), key=lambda s: s["last_watched"], reverse=True)
     return {

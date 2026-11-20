@@ -297,3 +297,17 @@ def test_anilist_prefers_the_tv_series():
     special = {"id": 2, "title": {"english": None, "romaji": "Sousou no Frieren: Mini Anime"},
                "synonyms": ["Frieren: Beyond Journey's End"], "format": "ONA", "seasonYear": 2025}
     assert anilist.best_match("Frieren: Beyond Journey's End", [special, tv])["id"] == 1
+
+
+def test_home_cards_carry_anime_details(tmp_path):
+    conn, _ = _cr_db(tmp_path)
+    client = Client(COOKIE, transport=FakeCatalog(), pause_s=0, sleep=lambda s: None)
+    catalog.fetch_catalog(conn, client, ["S1"])
+    anilist.enrich(conn, [("S1", "Frieren")], post=fake_anilist, pause_s=0, sleep=lambda s: None)
+    cr.build(conn, tmp_path / "crunchyroll", NY)
+    h = shows.home(conn, resolve_range(conn, "all"), Filters())
+    frieren = next(i for i in h["top10"] if i["key"] == "series:S1")
+    assert frieren["studios"] == ["Madhouse"] and frieren["anime_season"] == "Fall 2023" and frieren["score"] == 90
+    assert frieren["dub_share"] == 0.0
+    dandadan = next(i for i in h["top10"] if i["key"] == "series:S2")
+    assert dandadan["dub_share"] == 1.0                  # its one counted episode was the English dub
