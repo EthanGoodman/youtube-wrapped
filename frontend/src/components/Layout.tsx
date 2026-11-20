@@ -1,0 +1,110 @@
+import { ReactNode, useState } from "react";
+import { NavLink, Link, useLocation } from "react-router-dom";
+import { BarChart3, Clock, Home, Megaphone, MoreHorizontal, Search, Sparkles, TrendingUp, Trophy } from "lucide-react";
+import { useLinkQuery } from "../filters";
+import { useMeta } from "../api";
+import { RangeBar } from "./RangeBar";
+
+const NAV = [
+  { to: "/", label: "Home", icon: Home, end: true },
+  { to: "/top/channels", label: "Top", icon: BarChart3, match: "/top" },
+  { to: "/patterns", label: "Patterns", icon: Clock },
+  { to: "/records", label: "Records", icon: Trophy },
+  { to: "/evolution", label: "Evolution", icon: TrendingUp },
+  { to: "/ads", label: "Ads", icon: Megaphone },
+  { to: "/search", label: "Search", icon: Search },
+];
+const MOBILE_MAIN = NAV.slice(0, 4);
+const MOBILE_MORE = NAV.slice(4);
+
+export function Logo() {
+  return (
+    <span className="flex items-center gap-1.5 font-bold tracking-tight">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden>
+        <rect x="2" y="7" width="28" height="18" rx="6" fill="#ff0033" />
+        <path d="M13 11.5v9l8-4.5z" fill="#fff" />
+      </svg>
+      <span className="text-lg">YouTube <span className="font-black">Wrapped</span></span>
+    </span>
+  );
+}
+
+export function Layout({ children, showRange = true }: { children: ReactNode; showRange?: boolean }) {
+  const q = useLinkQuery();
+  const meta = useMeta();
+  const { pathname } = useLocation();
+  const [more, setMore] = useState(false);
+
+  return (
+    <div className="min-h-screen pb-24 sm:pb-10">
+      <header className="sticky top-0 z-40 border-b border-line/60 bg-bg/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
+          <Link to={"/" + q} aria-label="Home"><Logo /></Link>
+          <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
+            {NAV.map((n) => (
+              <NavLink key={n.to} to={n.to + q} end={n.end}
+                       className={({ isActive }) =>
+                         `rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                           isActive || (n.match && pathname.startsWith(n.match)) ? "bg-raised text-ink" : "text-sub hover:text-ink"
+                         }`}>
+                {n.label}
+              </NavLink>
+            ))}
+          </nav>
+          <Link to={"/wrapped" + q}
+                className="ml-auto flex items-center gap-1.5 rounded-full bg-yt px-3.5 py-1.5 text-sm font-bold text-white hover:bg-yt-dark">
+            <Sparkles size={15} /> Wrapped
+          </Link>
+        </div>
+        {showRange && (
+          <div className="mx-auto max-w-6xl px-4 pb-2">
+            <RangeBar />
+          </div>
+        )}
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 pt-4">
+        {meta.error ? (
+          <div className="card mt-6 text-sm">
+            <p className="font-bold">Can't reach your data.</p>
+            <p className="mt-1 text-sub">{meta.error.message}</p>
+          </div>
+        ) : (
+          children
+        )}
+      </main>
+
+      {/* mobile bottom nav */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+           aria-label="Main">
+        <div className="grid grid-cols-5">
+          {MOBILE_MAIN.map((n) => (
+            <NavLink key={n.to} to={n.to + q} end={n.end} onClick={() => setMore(false)}
+                     className={({ isActive }) =>
+                       `flex flex-col items-center gap-0.5 py-2 text-[11px] ${
+                         isActive || (n.match && pathname.startsWith(n.match)) ? "text-ink" : "text-muted"
+                       }`}>
+              <n.icon size={22} />
+              {n.label}
+            </NavLink>
+          ))}
+          <button onClick={() => setMore((m) => !m)} aria-expanded={more}
+                  className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${more ? "text-ink" : "text-muted"}`}>
+            <MoreHorizontal size={22} />
+            More
+          </button>
+        </div>
+        {more && (
+          <div className="absolute bottom-full right-2 mb-2 w-48 rounded-xl border border-line bg-[#282828] p-1 shadow-2xl">
+            {MOBILE_MORE.map((n) => (
+              <NavLink key={n.to} to={n.to + q} onClick={() => setMore(false)}
+                       className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-raised">
+                <n.icon size={18} /> {n.label}
+              </NavLink>
+            ))}
+          </div>
+        )}
+      </nav>
+    </div>
+  );
+}

@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0f0f0f;
+  color: #f1f1f1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .card {
+    @apply rounded-card bg-card p-4 sm:p-5;
+  }
+  .chip {
+    @apply inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-raised px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-[#3f3f3f];
+  }
+  .chip-active {
+    @apply bg-ink text-bg hover:bg-white;
+  }
+  .seg {
+    @apply inline-flex rounded-full bg-raised p-0.5 text-xs font-medium;
+  }
+  .seg > button {
+    @apply rounded-full px-3 py-1 text-sub transition-colors;
+  }
+  .seg > button[aria-pressed="true"] {
+    @apply bg-ink text-bg;
+  }
+  .link-row {
+    @apply flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-raised;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* charts keep their previous render while refetching */
+.refetching {
+  opacity: 0.55;
+  transition: opacity 150ms;
+}
