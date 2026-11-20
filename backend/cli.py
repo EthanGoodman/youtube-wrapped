@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -187,6 +188,27 @@ def cmd_build(args, cfg) -> None:
           f"Shorts: {r[6]:,}  music: {r[7]:,}")
 
 
+def cmd_fetch(args, cfg) -> None:
+    """Download history straight from the platform (only Crunchyroll, which has no data export)."""
+    if args.platform != "crunchyroll":
+        sys.exit("fetch is only for Crunchyroll (other platforms have their own data exports).")
+    from ytw.crunchyroll.fetch import WEB_CLIENT_ID, CrunchyrollError, fetch_history
+    sec = cfg.section("crunchyroll")
+    cookie = os.environ.get("CRUNCHYROLL_ETP_RT", "")
+    if not cookie:
+        sys.exit("No CRUNCHYROLL_ETP_RT in .env. Log in at crunchyroll.com, open DevTools (F12) > Application > "
+                 "Cookies > https://www.crunchyroll.com, copy the value of etp_rt and add\n"
+                 "  CRUNCHYROLL_ETP_RT=...\nto .env. Treat it like a password.")
+    try:
+        res = fetch_history(cfg.platform_dir("crunchyroll"), cookie, client_id=sec.get("client_id", WEB_CLIENT_ID),
+                            locale=sec.get("locale", "en-US"),
+                            progress=lambda n: print(f"  {n:,} history entries...", end="\r", flush=True))
+    except CrunchyrollError as e:
+        sys.exit(f"\n{e}")
+    span = f" ({res['first'][:10]} -> {res['last'][:10]})" if res["first"] else ""
+    print(f"\nCrunchyroll: saved {res['items']:,} history entries{span} to {res['file']} ({res['requests']} requests)")
+
+
 def main() -> None:
     force_utf8_stdout()
     ap = argparse.ArgumentParser(prog="ytw")
@@ -206,6 +228,9 @@ def main() -> None:
     p = sub.add_parser("build", help="Recompute watch time, sessions and rollups (after editing config)")
     p.set_defaults(func=cmd_build)
 
+    p = sub.add_parser("fetch", help="Crunchyroll: download your watch history with your browser cookie")
+    p.set_defaults(func=cmd_fetch)
+
     p = sub.add_parser("investigate-delay", help="Report on videos logged hours after their pre-roll ad")
     p.add_argument("--min-gap-hours", type=float, default=1.0)
     p.set_defaults(func=cmd_investigate_delay)
@@ -217,7 +242,7 @@ def main() -> None:
 
     args = ap.parse_args()
     p = platforms.get(getattr(args, "platform", platforms.DEFAULT))
-    if not p.implemented:
+    if not p.implemented and args.cmd != "fetch":  # fetching comes before a platform is switched on
         sys.exit(f"{p.name} isn't supported yet - see issue #{p.issue}.\n"
                  f"How to get the data when it is: " + "; ".join(p.export_steps))
     cfg = load_config()

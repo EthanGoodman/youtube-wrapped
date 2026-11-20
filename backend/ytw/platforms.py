@@ -101,8 +101,10 @@ PLATFORMS: dict[str, Platform] = {p.id: p for p in (
     Platform(
         "crunchyroll", "Crunchyroll", False, "crunchyroll", _vocab("series", "series", "episode", "episodes"),
         frozenset({"genres"}),
-        ("No official export: use the history export script (coming with this platform)",),
-        "instant (unofficial)", issue=7),
+        ("No official export. Log in at crunchyroll.com, open DevTools (F12) > Application > Cookies and copy etp_rt",
+         "Add it to .env as CRUNCHYROLL_ETP_RT=... (treat it like a password)",
+         "Run: python backend/cli.py fetch --platform crunchyroll (unofficial: reads your own history from Crunchyroll's site)"),
+        "a minute (unofficial)", issue=7),
 )}
 
 DEFAULT = "youtube"

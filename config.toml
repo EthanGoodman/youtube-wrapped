@@ -57,3 +57,9 @@ min_duration_seconds = 3600
 keywords = ["sleep", "rain", "thunder", "white noise", "brown noise", "black screen",
             "ambience", "ambient", "relaxing", "lofi", "lo-fi", "asmr", "fan noise", "10 hours"]
 channels = []  # channel IDs or exact names to always treat as background
+
+[crunchyroll]
+# History is fetched with your browser's etp_rt cookie (CRUNCHYROLL_ETP_RT in .env):
+#   python backend/cli.py fetch --platform crunchyroll
+locale = "en-US"                  # language of titles in the history
+# client_id = "..."               # only if Crunchyroll changes its web app's public client id
