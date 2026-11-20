@@ -32,9 +32,11 @@ def netflix_ingest(args, cfg) -> None:
         res = nf.ingest(conn, folder, cfg.tz, profile)
     except (FileNotFoundError, ValueError) as e:
         sys.exit(str(e))
-    kind = "full export (times + durations)" if res["format"] == "full" else "quick download (dates only)"
+    kind = {"full": "full export (times + durations)", "simple": "quick download (dates only)",
+            "mixed": "full export + quick download"}[res["format"]]
     print(f"Netflix: read {res['file']} - {kind}: {res['rows']:,} rows, "
-          f"{res['supplemental']:,} trailers/previews skipped")
+          f"{res['supplemental']:,} trailers/previews skipped"
+          + (f", {res['duplicates']:,} duplicates across files dropped" if res["duplicates"] else ""))
     netflix_build(conn, cfg)
 
 

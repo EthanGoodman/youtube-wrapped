@@ -27,6 +27,8 @@ from typing import Callable
 API = "https://api.themoviedb.org/3/"
 IMG = "https://image.tmdb.org/t/p/"
 
+from .parser import UNKNOWN_SHOW
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tmdb_titles (
     query          TEXT PRIMARY KEY,   -- "tv|show name" or "movie|title"
@@ -54,6 +56,11 @@ CREATE TABLE IF NOT EXISTS tmdb_episodes (    -- every episode of each matched s
     still_path  TEXT,
     air_date    TEXT,
     PRIMARY KEY (show_id, season, number)
+);
+CREATE TABLE IF NOT EXISTS show_parent (        -- "One Piece: East Blue" is really One Piece, arc East Blue
+    show   TEXT PRIMARY KEY,
+    parent TEXT NOT NULL,
+    season TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS title_resolution (   -- how one-off titles were settled
     title    TEXT PRIMARY KEY,
@@ -202,6 +209,25 @@ class Matcher:
         self.conn.commit()
         return len(rows)
 
+    def parent_of(self, show: str, row: sqlite3.Row) -> tuple[str, str] | None:
+        """Netflix names some seasons after an arc or subtitle ("One Piece: East Blue",
+        "Is It Cake?: Is It Cake, Too?"), which then looks like its own show. When such a name has
+        no exact TMDB match but a shorter prefix does, that prefix is the show and the rest is the
+        season. Returns (parent, season) or None. Shows named in overrides are left alone."""
+        if ": " not in show or show in self.overrides["shows"]:
+            return None
+        if row["media_type"] == "tv" and norm(row["name"] or "") == norm(show):
+            return None
+        head, rest = show, []
+        while ": " in head:
+            head, tail = head.rsplit(": ", 1)
+            rest.insert(0, tail)
+            p = self.match("tv", head)
+            if p["media_type"] == "tv" and norm(p["name"] or "") == norm(head):
+                self.ensure_episodes(p)
+                return head, ": ".join(rest)
+        return None
+
     def resolve_unknown(self, title: str) -> tuple[str, str | None, str | None]:
         """A one-off title with a colon: movie, or an episode of a show? Returns (kind, show, episode)."""
         found = self.conn.execute("SELECT kind, show, episode FROM title_resolution WHERE title = ?", (title,)).fetchone()
@@ -263,18 +289,27 @@ def enrich(conn: sqlite3.Connection, fetch: Fetcher, overrides: dict | None = No
     for t in unknown:
         m.resolve_unknown(t)
     shows = {r[0] for r in conn.execute("SELECT DISTINCT show FROM views WHERE kind = 'episode' AND show IS NOT NULL")}
+    shows.discard(UNKNOWN_SHOW)
     shows |= {r[0] for r in conn.execute("SELECT show FROM title_resolution WHERE kind = 'episode'")}
     movies = {r[0] for r in conn.execute("SELECT DISTINCT title FROM views WHERE kind = 'movie'")}
     movies |= {r[0] for r in conn.execute("SELECT title FROM title_resolution WHERE kind = 'movie'")}
     found = {"tv": 0, "movie": 0}
+    parents: list[tuple[str, str, str]] = []
     for i, s in enumerate(sorted(shows)):
         progress(f"show {i + 1}/{len(shows)}: {s}")
         row = m.match("tv", s)
-        if row["media_type"] == "tv":
+        parent = m.parent_of(s, row)
+        if parent:
+            parents.append((s, *parent))
+            found["tv"] += 1
+        elif row["media_type"] == "tv":
             found["tv"] += 1
             m.ensure_episodes(row)
     for i, t in enumerate(sorted(movies)):
         progress(f"movie {i + 1}/{len(movies)}: {t}")
         found["movie"] += m.match("movie", t)["media_type"] == "movie"
-    return {"shows": len(shows), "shows_found": found["tv"], "movies": len(movies), "movies_found": found["movie"],
+    conn.execute("DELETE FROM show_parent")
+    conn.executemany("INSERT INTO show_parent VALUES (?, ?, ?)", parents)
+    conn.commit()
+    return {"shows": len(shows), "shows_found": found["tv"], "merged": len(parents), "movies": len(movies), "movies_found": found["movie"],
             "one_offs": len(unknown), "requests": m.requests}

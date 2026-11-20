@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from .. import db
 from . import tmdb
-from .parser import FULL, SIMPLE, find_files, parse_history, profiles_in
+from .parser import FULL, SIMPLE, find_files, parse_files, profiles_in
 
 VIEWS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS views (
@@ -49,19 +49,19 @@ def init(conn: sqlite3.Connection) -> None:
 
 
 def ingest(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo, profile: str | None = None) -> dict:
-    """Replace the stored history with what's in `folder` (exports are complete snapshots).
-    The full export wins over the quick download when both are present."""
-    full, quick = find_files(folder)
-    path = full or quick
-    if path is None:
+    """Replace the stored history with everything in `folder` (exports are complete snapshots).
+    Several files (e.g. two accounts) are merged in date order; a viewing in two files counts once."""
+    paths = find_files(folder)
+    if not paths:
         raise FileNotFoundError(f"No NetflixViewingHistory.csv or ViewingActivity.csv in {folder}")
-    text = path.read_text(encoding="utf-8-sig")
-    if full and not profile:
-        names = profiles_in(text)
-        if len(names) > 1:
-            raise ValueError("This export has several profiles: " + ", ".join(names)
-                             + ". Pick yours with --profile or [netflix] profile in config.toml.")
-    fmt, views = parse_history(text, tz, profile)
+    texts = [p.read_text(encoding="utf-8-sig") for p in paths]
+    if not profile:
+        for p, text in zip(paths, texts):
+            names = profiles_in(text)
+            if len(names) > 1:
+                raise ValueError(f"{p.name} has several profiles: " + ", ".join(names)
+                                 + ". Pick yours with --profile or [netflix] profile in config.toml.")
+    fmt, views, dropped = parse_files(texts, tz, profile)
     init(conn)
     conn.execute("DELETE FROM views")
     conn.executemany(
@@ -72,11 +72,11 @@ def ingest(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo, profile: str | 
           v.start_utc.timestamp() if v.start_utc else None, v.duration_s, v.profile, v.device, v.country,
           v.supplemental, v.attributes, v.bookmark_s, v.order) for v in views])
     db.set_meta(conn, "netflix_source", fmt)
-    db.set_meta(conn, "netflix_file", path.name)
+    db.set_meta(conn, "netflix_file", ", ".join(p.name for p in paths))
     db.set_meta(conn, "timezone", str(tz))
     conn.commit()
-    return {"format": fmt, "file": path.name, "rows": len(views),
-            "supplemental": sum(1 for v in views if v.supplemental)}
+    return {"format": fmt, "file": ", ".join(p.name for p in paths), "files": len(paths), "rows": len(views),
+            "duplicates": dropped, "supplemental": sum(1 for v in views if v.supplemental)}
 
 
 def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap_s: float = 1800) -> int:
@@ -84,12 +84,13 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
     fallback = {"episode": cfg_netflix.get("fallback_episode_minutes", 42) * 60,
                 "movie": cfg_netflix.get("fallback_movie_minutes", 110) * 60}
     rows = conn.execute("SELECT * FROM views WHERE supplemental IS NULL "
-                        "ORDER BY COALESCE(start_epoch, 0), local_date, file_order").fetchall()
+                        "ORDER BY local_date, COALESCE(start_epoch, 0), file_order").fetchall()
     has_times = any(r["start_epoch"] is not None for r in rows)
     # TMDB data, if `enrich` has run (else everything falls back to estimates)
     conn.executescript(tmdb.SCHEMA)
     meta = {r["query"]: r for r in conn.execute("SELECT * FROM tmdb_titles WHERE media_type != 'none'")}
     resolved = {r["title"]: r for r in conn.execute("SELECT * FROM title_resolution")}
+    parents = {r["show"]: (r["parent"], r["season"]) for r in conn.execute("SELECT * FROM show_parent")}
 
     find_episode = tmdb.episode_lookup(conn)
 
@@ -106,11 +107,15 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
             kind, show, episode = (res["kind"], res["show"], res["episode"]) if res else ("movie", None, None)
         if kind != "episode":
             show = episode = None
+        season = r["season"]
+        if show in parents:  # "One Piece: East Blue" -> One Piece, season "East Blue"
+            show, arc = parents[show]
+            season = season or arc
         t = info("tv", show) if show else info("movie", r["title"])
-        ep = find_episode(t["tmdb_id"], r["season"], episode) if t and show else None
+        ep = find_episode(t["tmdb_id"], season, episode) if t and show else None
         runtime_min = (ep["runtime_min"] if ep and ep["runtime_min"] else None) or (t["runtime_min"] if t else None)
         runtime_s = runtime_min * 60 if runtime_min else None
-        item_id = ("ep:" + slug(show, r["season"], episode)) if show else ("mv:" + slug(r["title"]))
+        item_id = ("ep:" + slug(show, season, episode)) if show else ("mv:" + slug(r["title"]))
         creator_id = ("show:" + slug(show)) if show else None
         if r["start_epoch"] is not None:
             start = datetime.fromtimestamp(r["start_epoch"], timezone.utc)
@@ -141,7 +146,7 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
                 tmdb.img((ep["still_path"] if ep else None) or t["backdrop_path"] or t["poster_path"], "w780") if t else None,
                 runtime_s, t["first_air_date"] if t else None, None,
                 "https://www.netflix.com/search?q=" + quote(show or r["title"]),
-                json.dumps({"show": show, "season": r["season"], "episode": episode, "kind": kind,
+                json.dumps({"show": show, "season": season, "episode": episode, "kind": kind,
                             "netflix_title": r["title"], "year": t["year"] if t else None,
                             "overview": t["overview"] if t and not show else None,
                             "poster": tmdb.img(t["poster_path"], "w500") if t else None,

@@ -166,35 +166,77 @@ def split_titles(titles: list[str]) -> dict[str, tuple[str | None, str | None, s
 
 # ------------------------------------------------------------------ parsing
 
+UNKNOWN_SHOW = "Unknown show"  # Netflix sometimes leaves the show name out (": Episode 5")
+
 def parse_history(text: str, tz, profile: str | None = None) -> tuple[str, list[View]]:
-    """Parse either format. Returns (format, views oldest-first). Supplemental rows (trailers,
-    previews…) are kept but flagged; `profile` filters the full export to one profile."""
-    fmt, rows = read_rows(text)
-    if fmt == FULL and profile:
-        rows = [r for r in rows if r.get("profile name", "").lower() == profile.lower()]
-    parts = split_titles([r["title"] for r in rows if r.get("title")])
-    views: list[View] = []
-    if fmt == SIMPLE:
-        order = date_order([r["date"] for r in rows])
-        n = len(rows)
-        for i, r in enumerate(rows):
-            show, season, ep, kind = parts[r["title"]]
-            views.append(View(SIMPLE, r["title"], show, season, ep, kind,
-                              parse_date(r["date"], order).isoformat(), None, None, None, None, None,
-                              None, None, None, n - i))  # file is newest first
-    else:
-        for i, r in enumerate(rows):
-            if not r.get("title") or not r.get("start time"):
-                continue
-            start = parse_start(r["start time"])
-            show, season, ep, kind = parts[r["title"]]
-            views.append(View(
-                FULL, r["title"], show, season, ep, kind, start.astimezone(tz).date().isoformat(), start,
-                parse_hms(r.get("duration", "")), r.get("profile name") or None, r.get("device type") or None,
-                r.get("country") or None, r.get("supplemental video type") or None,
-                r.get("attributes") or None, parse_hms(r.get("bookmark", "")), i))
-    views.sort(key=lambda v: (v.start_utc.timestamp() if v.start_utc else 0, v.local_date, v.order))
+    """Parse one file of either format. Returns (format, views oldest-first)."""
+    fmt, views, _ = parse_files([text], tz, profile)
     return fmt, views
+
+
+def parse_files(texts: list[str], tz, profile: str | None = None) -> tuple[str, list[View], int]:
+    """Parse and merge several history files (e.g. two accounts, or a quick download next to a
+    full export). Returns (format, views oldest-first, duplicates dropped).
+
+    Titles from all files are split together, so a show seen in both files is one show. A row
+    with the same title on the same day as a row in an earlier file is the same viewing showing
+    up twice and is dropped (full exports come first, so their exact times win). Supplemental
+    rows (trailers, previews…) are kept but flagged; `profile` filters full exports to one profile.
+    format is "full", "simple", or "mixed" when both kinds were merged."""
+    parsed = [read_rows(t) for t in texts]
+    parsed.sort(key=lambda p: p[0] != FULL)  # full exports first
+    if profile:
+        parsed = [(fmt, [r for r in rows if r.get("profile name", "").lower() == profile.lower()] if fmt == FULL else rows)
+                  for fmt, rows in parsed]
+    parts = split_titles([r["title"] for _, rows in parsed for r in rows if r.get("title")])
+    views: list[View] = []
+    seen: set[tuple[str, str]] = set()
+    dropped = 0
+    for fmt, rows in parsed:
+        file_views: list[View] = []
+        if fmt == SIMPLE:
+            order = date_order([r["date"] for r in rows])
+            n = len(rows)
+            for i, r in enumerate(rows):
+                if not r.get("title") or not r.get("date"):
+                    continue
+                show, season, ep, kind = parts[r["title"]]
+                if show is not None and not show.strip():
+                    show = UNKNOWN_SHOW
+                file_views.append(View(SIMPLE, r["title"], show, season, ep, kind,
+                                       parse_date(r["date"], order).isoformat(), None, None, None, None, None,
+                                       None, None, None, n - i))  # file is newest first
+        else:
+            for i, r in enumerate(rows):
+                if not r.get("title") or not r.get("start time"):
+                    continue
+                start = parse_start(r["start time"])
+                show, season, ep, kind = parts[r["title"]]
+                if show is not None and not show.strip():
+                    show = UNKNOWN_SHOW
+                file_views.append(View(
+                    FULL, r["title"], show, season, ep, kind, start.astimezone(tz).date().isoformat(), start,
+                    parse_hms(r.get("duration", "")), r.get("profile name") or None, r.get("device type") or None,
+                    r.get("country") or None, r.get("supplemental video type") or None,
+                    r.get("attributes") or None, parse_hms(r.get("bookmark", "")), -i))  # file is newest first
+        # same title, same day as an earlier file: the same viewing (only checked across files)
+        keys = {(v.title, v.local_date) for v in file_views}
+        for v in file_views:
+            if (v.title, v.local_date) in seen:
+                dropped += 1
+            else:
+                views.append(v)
+        seen |= keys
+    # oldest first: by day, then real start time, then the file's own order; `order` becomes the
+    # position within the day so same-day quick rows from different files don't collide
+    views.sort(key=lambda v: (v.local_date, v.start_utc.timestamp() if v.start_utc else 0, v.order))
+    day, pos = None, 0
+    for v in views:
+        pos = pos + 1 if v.local_date == day else 1
+        day = v.local_date
+        v.order = pos
+    kinds = {fmt for fmt, _ in parsed}
+    return (kinds.pop() if len(kinds) == 1 else "mixed") if kinds else SIMPLE, views, dropped
 
 
 def profiles_in(text: str) -> list[str]:
@@ -204,8 +246,7 @@ def profiles_in(text: str) -> list[str]:
     return sorted({r.get("profile name", "") for r in rows if r.get("profile name")})
 
 
-def find_files(folder: Path) -> tuple[Path | None, Path | None]:
-    """(full export ViewingActivity.csv, quick NetflixViewingHistory.csv) found under folder."""
-    full = next(iter(sorted(folder.rglob("ViewingActivity.csv"))), None)
-    quick = next(iter(sorted(folder.glob("NetflixViewingHistory*.csv"))), None)
-    return full, quick
+def find_files(folder: Path) -> list[Path]:
+    """Every history file under folder: full exports (ViewingActivity.csv, any depth) first,
+    then quick downloads (NetflixViewingHistory*.csv, e.g. one per account)."""
+    return sorted(folder.rglob("ViewingActivity.csv")) + sorted(folder.glob("NetflixViewingHistory*.csv"))

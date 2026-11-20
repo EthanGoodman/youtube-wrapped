@@ -269,3 +269,44 @@ def test_episode_runtimes_and_stills(tmp_path):
     # the show's typical length becomes the real average of its episodes
     avg = conn.execute("SELECT runtime_min FROM tmdb_titles WHERE query = 'tv|peaky blinders'").fetchone()[0]
     assert avg == round(sum(58 + e + n * 10 for n in (1, 2) for e in range(1, 7)) / 12)
+
+
+def test_two_accounts_merge(tmp_path):
+    # a second account's quick download: one viewing in both files (same title, same day) counts once
+    other = 'Title,Date\n"Stranger Things: Chapter Three: Holly, Jolly","11/21/25"\n"Don\'t Look Up","8/27/26"\n"Heroes: Season 1: Genesis","1/2/17"\n'
+    conn, folder = _db(tmp_path, QUICK, "NetflixViewingHistory.csv")
+    (folder / "NetflixViewingHistory (1).csv").write_text(other, encoding="utf-8")
+    res = nf.ingest(conn, folder, NY)
+    assert res["files"] == 2 and res["rows"] == 15 and res["duplicates"] == 1
+    nf.build(conn, NY, {})
+    rows = conn.execute("SELECT local_date, video_id FROM watches ORDER BY start_epoch").fetchall()
+    assert [r[0] for r in rows] == sorted(r[0] for r in rows)          # one timeline, in date order
+    assert rows[0][1].startswith("ep:heroes")
+    # the other account's Stranger Things episode joins the same show
+    assert conn.execute("SELECT COUNT(*) FROM watches WHERE channel_id = 'show:stranger-things'").fetchone()[0] == 4
+
+
+def test_arc_names_join_their_show(tmp_path):
+    # "Peaky Blinders: Small Heath Arc" has no TMDB match of its own, "Peaky Blinders" does
+    text = ('Title,Date\n"Peaky Blinders: Small Heath Arc: Episode 2","3/2/26"\n'
+            '"Peaky Blinders: Small Heath Arc: Episode 1","3/1/26"\n"Peaky Blinders: Season 1: Episode 6","2/1/26"\n')
+    conn, folder = _db(tmp_path, text, "NetflixViewingHistory.csv")
+    nf.ingest(conn, folder, NY)
+    assert tmdb.enrich(conn, FakeTmdb())["merged"] == 1
+    nf.build(conn, NY, {})
+    assert {r[0] for r in conn.execute("SELECT title FROM creators")} == {"Peaky Blinders"}
+    assert conn.execute("SELECT COUNT(*) FROM items WHERE json_extract(extra, '$.season') = 'Small Heath Arc'").fetchone()[0] == 2
+
+
+def test_nameless_episodes(tmp_path):
+    from ytw.stats import shows
+    from ytw.stats.common import Filters, resolve_range
+    text = 'Title,Date\n": Episode 5","3/20/26"\n": Episode 5","3/1/26"\n"Peaky Blinders: Season 1: Episode 6","2/1/26"\n'
+    conn, folder = _db(tmp_path, text, "NetflixViewingHistory.csv")
+    nf.ingest(conn, folder, NY)
+    tmdb.enrich(conn, FakeTmdb())
+    nf.build(conn, NY, {})
+    assert conn.execute("SELECT COUNT(*) FROM watches WHERE channel_id = 'show:unknown-show'").fetchone()[0] == 2
+    r, f = resolve_range(conn, "all"), Filters()
+    assert [s["title"] for s in shows.progress(conn, r, f)["shows"]] == ["Peaky Blinders"]
+    assert shows.rewatches(conn, r, f)["items"] == []   # two different shows' "Episode 5", not a rewatch
