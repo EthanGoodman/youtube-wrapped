@@ -12,7 +12,7 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 | Prime Video | Planned ([#4](https://github.com/EthanGoodman/youtube-wrapped/issues/4)) |
 | TikTok | Planned ([#5](https://github.com/EthanGoodman/youtube-wrapped/issues/5)) |
 | Instagram | Planned ([#6](https://github.com/EthanGoodman/youtube-wrapped/issues/6)) |
-| Crunchyroll | Planned ([#7](https://github.com/EthanGoodman/youtube-wrapped/issues/7)) |
+| Crunchyroll | ✅ Supported, unofficial (see [Crunchyroll](#crunchyroll)) |
 
 Each platform keeps the same layout (stats.fm-style top lists, clock, records, evolution and a Wrapped story) but is styled like the service itself. The steps below cover YouTube.
 
@@ -143,6 +143,40 @@ Notes on the data:
 - Netflix sometimes writes an episode without its show (": Episode 5"). Those count in your totals as **Unknown show** but are left out of show rankings and progress.
 
 *This product uses the TMDB API but is not endorsed or certified by TMDB.*
+
+## Crunchyroll
+
+> **Unofficial.** Crunchyroll has no "download your data" option, so the app reads your watch history the same way crunchyroll.com shows it to you: from Crunchyroll's own (private) web API, signed in with your browser cookie. It only reads **your own** history, one request a second. It can stop working whenever Crunchyroll changes its site, and it isn't affiliated with or endorsed by Crunchyroll.
+
+1. Log in at crunchyroll.com **on your profile** (accounts can have several profiles; the history you get is the one the browser is on).
+2. Open DevTools (F12) → **Application** → **Cookies** → `https://www.crunchyroll.com`, and copy the value of **`etp_rt`**.
+3. Add it to `.env` (treat it like a password; it never leaves your machine and `.env` is git-ignored):
+   ```
+   CRUNCHYROLL_ETP_RT=...
+   ```
+4. In `config.toml`, set your profile name so a cookie from someone else's profile is refused:
+   ```toml
+   [crunchyroll]
+   profile = "Ethan"
+   ```
+5. Run:
+   ```bash
+   python backend/cli.py fetch --platform crunchyroll    # history -> data/crunchyroll/watch-history.json
+   python backend/cli.py enrich --platform crunchyroll   # posters + episode lists (Crunchyroll) and studios / seasons (AniList)
+   ```
+   If the cookie has expired (you logged out), copy a fresh `etp_rt`. Re-run both commands any time for new episodes.
+
+What you get: real watch time (how far into each episode you got) and real times of day, show progress against every episode out, the **Anime** tab (sub vs dub, simulcast watching, studios, the season each series aired, AniList scores and tags), series pages with an episode checklist, and a Crunchyroll Wrapped story with anime personalities (`personalities-crunchyroll.toml`).
+
+Notes on the data:
+- Crunchyroll keeps only your **latest** play of each episode, so rewatches aren't visible.
+- Subbed and dubbed versions of an episode are different videos on Crunchyroll; progress counts each episode once.
+- Plays under 30 seconds and videos that have since been removed are skipped.
+- Studios, seasons, scores and tags come from [AniList](https://anilist.co) (free, no key), matched by title. Fix a wrong match in `data/crunchyroll/overrides.toml`:
+  ```toml
+  [anilist]
+  "Some Title" = 12345   # AniList id from anilist.co/anime/<id>; 0 = don't match
+  ```
 
 ## How platforms are organized
 
