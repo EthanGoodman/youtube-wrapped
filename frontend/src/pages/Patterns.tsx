@@ -48,7 +48,7 @@ export function Patterns() {
             }}
           </QueryState>
         </Section>
-        <Section title="Day × hour" subtitle="Darker red = more watching" className="lg:col-span-3">
+        <Section title="Day × hour" subtitle="Brighter = more watching" className="lg:col-span-3">
           <QueryState q={heat} minHeight={340}>
             {(d) => <WeekHeatmap grid={d.data} measure={measure} height={340} />}
           </QueryState>
