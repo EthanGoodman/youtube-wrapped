@@ -5,6 +5,7 @@ import { BarChart3, Film, Clock, Home, LayoutGrid, Megaphone, MoreHorizontal, Se
 import { useLinkQuery } from "../filters";
 import { useMeta } from "../api";
 import { RangeBar } from "./RangeBar";
+import { NetflixShell } from "./NetflixShell";
 
 interface NavItem { to: string; label: string; icon: typeof Home; end?: boolean; match?: string; cap?: string }
 const ALL_NAV: NavItem[] = [
@@ -43,6 +44,12 @@ export function Logo() {
 }
 
 export function Layout({ children, showRange = true }: { children: ReactNode; showRange?: boolean }) {
+  // Netflix gets its own frame (top bar, menus, phone tabs) so it feels like Netflix, not a recolored YouTube
+  if (usePlatform()?.theme === "netflix") return <NetflixShell showRange={showRange}>{children}</NetflixShell>;
+  return <DefaultLayout showRange={showRange}>{children}</DefaultLayout>;
+}
+
+function DefaultLayout({ children, showRange = true }: { children: ReactNode; showRange?: boolean }) {
   const q = useLinkQuery();
   const meta = useMeta();
   const { pathname } = useLocation();

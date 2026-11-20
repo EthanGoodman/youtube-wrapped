@@ -4,7 +4,6 @@ import { useStats } from "../api";
 import { Avatar } from "./ui";
 import { date, duration, num, pct } from "../format";
 import { useLinkQuery } from "../filters";
-import { categorical } from "../theme";
 
 export type ShowStatus = "finished" | "watching" | "dropped";
 
@@ -111,8 +110,9 @@ export function BingeRows({ binges }: { binges: Binge[] }) {
 /** Episodes vs movies as one whole split in two (tall segmented bar + legend). */
 export function KindSplitBar({ split }: { split: KindSplit }) {
   const parts = [
-    { key: "episode", label: "Episodes", unit: "shows", color: categorical[0], ...split.episode },
-    { key: "movie", label: "Movies", unit: "movies", color: categorical[1], ...split.movie },
+    // two parts of one whole: the platform's accent for shows, a neutral gray for movies
+    { key: "episode", label: "Episodes", unit: "shows", color: "rgb(var(--c-accent))", ...split.episode },
+    { key: "movie", label: "Movies", unit: "movies", color: "#6d6d6e", ...split.movie },
   ].filter((p) => p.count > 0);
   const total = parts.reduce((s, p) => s + p.est_s, 0);
   if (!total) return null;

@@ -1,3 +1,4 @@
+import { Smile } from "lucide-react";
 import { useState } from "react";
 import { Link, useVocab, tr, useCapability, useHasSeries } from "../platform";
 import { KindSplit, KindSplitBar, ShowProgress, ShowProgressRows, useShows } from "../components/shows";
@@ -27,10 +28,11 @@ export function Home() {
     <div className="flex flex-col gap-4">
       {/* profile header */}
       <div className="flex items-center gap-4 px-1 pt-1">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yt to-black/60 sm:h-20 sm:w-20">
+        <div className={`flex h-16 w-16 shrink-0 items-center justify-center sm:h-20 sm:w-20 ${meta && meta.platform.id !== "youtube"
+                ? "rounded-[4px] bg-gradient-to-br from-[#2c6cdb] to-[#1b3f9c]" : "rounded-full bg-gradient-to-br from-yt to-black/60"}`}>
           {meta?.platform.id === "youtube" || !meta
             ? <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><path d="M9 7v10l8-5z" fill="#fff" /></svg>
-            : <span className="font-display text-4xl leading-none text-white" aria-hidden>{meta.platform.name.charAt(0)}</span>}
+            : <Smile size={36} strokeWidth={2.5} aria-hidden />}
         </div>
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl">Your {meta?.platform.name ?? "YouTube"}</h1>

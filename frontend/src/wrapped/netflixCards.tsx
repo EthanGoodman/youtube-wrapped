@@ -15,15 +15,9 @@ const poster = (url: string | null | undefined, big = false) => img(big && url ?
 
 // ------------------------------------------------------------------ building blocks
 
-/** Not the real logo: a red tile with an N in the display font. */
-export function NMark({ size = 20 }: { size?: number }) {
-  return (
-    <span className="inline-flex shrink-0 items-center justify-center rounded-[3px] text-white"
-          style={{ width: size * 0.72, height: size, background: RED, fontFamily: DISPLAY, fontSize: size * 0.95, lineHeight: 1 }}>
-      N
-    </span>
-  );
-}
+/** Our own mark (not Netflix's N), shared with the dashboard's top bar. */
+import { WrappedMark as NMark } from "../components/NetflixShell";
+export { NMark };
 
 function Card({ children, footer = true, year, glow = "top" }: {
   children: ReactNode; footer?: boolean; year?: number; glow?: "top" | "bottom" | "center" | "none";
@@ -40,7 +34,8 @@ function Card({ children, footer = true, year, glow = "top" }: {
       {footer && (
         <div className="relative z-10 flex items-center justify-between px-7 pb-6">
           <span className="flex items-center gap-2"><NMark size={18} />
-            <span style={{ fontFamily: DISPLAY }} className="text-[17px] tracking-[0.08em]">NETFLIX <span style={{ color: RED }}>WRAPPED</span></span>
+            <span className="text-[15px] font-extrabold tracking-tight">Wrapped</span>
+            <span className="text-[13px] text-white/50">· Netflix</span>
           </span>
           {year && <span style={{ fontFamily: DISPLAY }} className="text-[17px] tracking-[0.08em] text-white/70">{year}</span>}
         </div>
@@ -379,8 +374,9 @@ function NetflixSummary({ d }: { d: NetflixWrappedData }) {
   return (
     <Card footer={false}>
       <div className="-mt-4 flex items-center justify-between">
-        <span className="flex items-center gap-2"><NMark size={24} />
-          <span style={{ fontFamily: DISPLAY }} className="text-[22px] tracking-[0.06em]">NETFLIX <span style={{ color: RED }}>WRAPPED</span></span>
+        <span className="flex items-center gap-2"><NMark size={26} />
+          <span className="text-[20px] font-extrabold tracking-tight">Wrapped</span>
+          <span className="text-[14px] text-white/50">· Netflix</span>
         </span>
         <span style={{ fontFamily: DISPLAY }} className="text-[40px] leading-none">{d.year}</span>
       </div>

@@ -41,9 +41,10 @@ function Hero({ image, title, lines, action }: { image: ReactNode; title: ReactN
 }
 
 function YouTubeButton({ href, label = "Open on YouTube" }: { href: string; label?: string }) {
+  const isYouTube = (usePlatform()?.id ?? "youtube") === "youtube";
   return (
     <a href={href} target="_blank" rel="noreferrer noopener"
-       className="flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-bold text-bg hover:bg-white">
+       className={isYouTube ? "flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-bold text-bg hover:bg-white" : "btn-secondary"}>
       <ExternalLink size={15} /> {label}
     </a>
   );
@@ -339,7 +340,7 @@ export function YearPage() {
             image={<div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-yt to-[#7a0019] text-2xl font-black">{y.year}</div>}
             title={`Your ${y.year} on ${platformName}`}
             lines={[tr(`${num(y.overview.videos)} videos · ${duration(y.overview.est_s)} estimated · ${num(y.overview.unique_channels)} channels`)]}
-            action={<Link to={`/wrapped?year=${y.year}`} className="flex shrink-0 items-center gap-1.5 rounded-full bg-yt px-4 py-2 text-sm font-bold text-white hover:bg-yt-dark"><Sparkles size={15} /> Play {y.year} Wrapped</Link>}
+            action={<Link to={`/wrapped?year=${y.year}`} className={platformName === "YouTube" ? "flex shrink-0 items-center gap-1.5 rounded-full bg-yt px-4 py-2 text-sm font-bold text-white hover:bg-yt-dark" : "btn-primary"}><Sparkles size={15} /> Play {y.year} Wrapped</Link>}
           />
           <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
             <StatTile label={tr("Videos")} value={compact(y.overview.videos)} delta={y.overview.change.videos} />

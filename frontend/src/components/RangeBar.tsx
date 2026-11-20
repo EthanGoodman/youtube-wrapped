@@ -87,7 +87,7 @@ function ContentSwitch() {
   );
 }
 
-function CustomRange({ onDone, min, max }: { onDone: () => void; min?: string | null; max?: string }) {
+export function CustomRange({ onDone, min, max }: { onDone: () => void; min?: string | null; max?: string }) {
   const { filters, update } = useFilters();
   const [start, setStart] = useState(filters.start ?? min ?? "");
   const [end, setEnd] = useState(filters.end ?? max ?? "");
@@ -155,7 +155,7 @@ function CheckRow({ checked, onClick, label, hint }: { checked: boolean; onClick
   );
 }
 
-function Popover({ label, children, align = "left" }: {
+export function Popover({ label, children, align = "left" }: {
   label: React.ReactNode;
   children: (close: () => void) => React.ReactNode;
   align?: "left" | "right";
