@@ -60,5 +60,45 @@ first = min(raw, key=lambda e: e["time"])
 print(f"\nFirst entry in raw file: {first['time']}  {first['title']}")
 print("First in db:           ", conn.execute(
     "SELECT time_utc, title FROM entries ORDER BY epoch LIMIT 1").fetchone())
+# Watch-time estimate for whole days, recomputed from the raw JSON with the documented rule
+# (independent of the app's code; durations come from the API cache):
+#   in a session (gap <= 30 min): min(duration, gap); last of a session: min(duration, 3h);
+#   unknown duration: min(gap, 10 min) in a session, else 10 min.
+# Days are chosen without delayed-log fixes so the simple rule applies exactly.
+def utc(e):
+    return datetime.fromisoformat(e["time"].replace("Z", "+00:00"))
+
+
+watch_raw = sorted((e for e in raw if not marker(e) and "watch?v=" in e.get("titleUrl", "")
+                    and not e["title"].startswith(("Visited ", "Answered"))
+                    and "/post/" not in e.get("titleUrl", "")), key=utc)
+durations = dict(conn.execute("SELECT video_id, duration_s FROM videos WHERE status='ok' "
+                              "AND live='none' AND duration_s > 0"))
+for day, utc_offset, show in (("2025-11-15", 5, True), ("2024-07-04", 4, False), ("2021-03-03", 5, False)):
+    y, m, d = map(int, day.split("-"))
+    start = datetime(y, m, d, utc_offset, tzinfo=timezone.utc)
+    end = start + timedelta(days=1)
+    total = 0
+    lines = []
+    for i, e in enumerate(watch_raw):
+        if not (start <= utc(e) < end):
+            continue
+        vid = e["titleUrl"].split("v=")[1].split("&")[0]
+        gap = (utc(watch_raw[i + 1]) - utc(e)).total_seconds() if i + 1 < len(watch_raw) else None
+        dur = durations.get(vid)
+        in_session = gap is not None and gap <= 1800
+        if dur is None:
+            est = min(gap, 600) if in_session else 600
+        else:
+            est = min(dur, gap) if in_session else min(dur, 10800)
+        est = round(min(est, 10800))
+        total += est
+        lines.append(f"    {utc(e) - timedelta(hours=utc_offset):%H:%M:%S}  dur={dur}  "
+                     f"gap={gap and round(gap)}  est={est}  {e['title'][8:58]}")
+    db_total = q("SELECT COALESCE(SUM(est_s), 0) FROM watches WHERE local_date=?", day)
+    check(f"estimated seconds on {day} (rule redone by hand)", total, db_total)
+    if show:
+        print("\n".join(lines))
+
 print("\nALL CHECKS PASSED" if ok else "\nMISMATCHES FOUND")
 sys.exit(0 if ok else 1)
