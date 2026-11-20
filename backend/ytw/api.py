@@ -18,13 +18,16 @@ from pathlib import Path
 from typing import Callable
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+import tomllib
+
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import db
+from . import db, images
 from .config import Config
 from .stats import ads, details, evolution, overview, patterns, records, search, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, data_bounds, resolve_range
+from .wrapped import load_personalities, wrapped as wrapped_data
 
 TOP_KINDS: dict[str, Callable] = {
     "channels": tops.top_channels, "videos": tops.top_videos, "categories": tops.top_categories,
@@ -228,6 +231,37 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     def get_year(year: int, request: Request):
         _, f = parse(request)
         return cached(request, lambda: details.year(conn(), year, f, today()))
+
+    # ------------------------------------------------------------------ wrapped
+
+    personalities_path = cfg.root / "personalities.toml"
+
+    @app.get("/api/wrapped/{year}")
+    def get_wrapped(year: int, request: Request):
+        _, f = parse(request)
+        try:
+            mtime = personalities_path.stat().st_mtime
+            pcfg = load_personalities(personalities_path)
+        except FileNotFoundError:
+            mtime, pcfg = 0, {}
+        except (ValueError, tomllib.TOMLDecodeError) as e:
+            raise HTTPException(500, f"personalities.toml: {e}") from None
+        stamp = db.get_meta(conn(), "built_at")
+        key = (request.url.path, tuple(sorted(request.query_params.multi_items())), mtime)
+        return cache.get_or_compute(stamp, key, lambda: wrapped_data(conn(), year, f, pcfg, today()))
+
+    @app.get("/api/img")
+    def get_image(u: str):
+        """Relay a YouTube thumbnail/avatar so the browser can export Wrapped cards as PNG
+        (images from other origins can't be drawn into an exportable canvas).
+        Only YouTube's image hosts are allowed: this is not an open proxy."""
+        try:
+            data, ctype = images.fetch(u)
+        except images.NotAllowed as e:
+            raise HTTPException(400, str(e)) from None
+        except images.FetchFailed as e:
+            raise HTTPException(502, str(e)) from None
+        return Response(content=data, media_type=ctype, headers={"Cache-Control": "public, max-age=604800"})
 
     @app.exception_handler(sqlite3.OperationalError)
     def db_error(_request, exc):

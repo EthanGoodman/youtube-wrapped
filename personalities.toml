@@ -1,0 +1,127 @@
+# Viewer personalities for the Wrapped story. Edit freely; reload the Wrapped page to see changes.
+#
+# Each personality looks at one metric for the year. Its score is  value / threshold,
+# and the personality with the highest score wins, as long as that score is at least 1
+# (the value reached its threshold). If none reach it, the fallback is used.
+#
+# Metrics (all for the chosen year; shares are 0..1):
+#   night_share        videos started between midnight and 5am
+#   early_share        videos started between 5am and 9am
+#   weekend_share      videos watched on Saturday or Sunday (an even spread is ~0.29)
+#   shorts_share       videos that were Shorts
+#   music_share        videos from YouTube Music
+#   gaming_share       videos in the Gaming category
+#   background_share   share of watch time from sleep / background audio
+#   top5_share         videos from your top 5 channels
+#   explorer_ratio     different channels per video watched
+#   avg_session_min    average binge session length in minutes (estimated)
+#
+# In `reason`, {pct} is the value as a percentage, {value} the raw number (rounded).
+
+[[personality]]
+id = "night_owl"
+name = "The Night Owl"
+emoji = "🦉"
+color = "#7c5cff"
+metric = "night_share"
+threshold = 0.18
+tagline = "The algorithm knows you're awake."
+reason = "{pct} of your videos started between midnight and 5am."
+
+[[personality]]
+id = "early_bird"
+name = "The Early Bird"
+emoji = "🌅"
+color = "#ff9f1c"
+metric = "early_share"
+threshold = 0.18
+tagline = "Coffee in one hand, YouTube in the other."
+reason = "{pct} of your videos started between 5am and 9am."
+
+[[personality]]
+id = "shorts_scroller"
+name = "The Shorts Scroller"
+emoji = "📱"
+color = "#ff0033"
+metric = "shorts_share"
+threshold = 0.7
+tagline = "Swipe. Swipe. Swipe. Swipe."
+reason = "{pct} of everything you watched was a Short."
+
+[[personality]]
+id = "binger"
+name = "The Binger"
+emoji = "🍿"
+color = "#e8a33d"
+metric = "avg_session_min"
+threshold = 75
+tagline = "Just one more video. Again."
+reason = "Your average session lasted about {value} minutes."
+
+[[personality]]
+id = "loyalist"
+name = "The Loyalist"
+emoji = "💎"
+color = "#2ec4b6"
+metric = "top5_share"
+threshold = 0.3
+tagline = "You know what you like."
+reason = "{pct} of your videos came from just 5 channels."
+
+[[personality]]
+id = "explorer"
+name = "The Explorer"
+emoji = "🧭"
+color = "#3a86ff"
+metric = "explorer_ratio"
+threshold = 0.5
+tagline = "Always something new."
+reason = "You watched a new channel roughly every {inverse} videos."
+
+[[personality]]
+id = "gamer"
+name = "The Gamer"
+emoji = "🎮"
+color = "#06d6a0"
+metric = "gaming_share"
+threshold = 0.4
+tagline = "GG. Next match."
+reason = "{pct} of your videos were gaming."
+
+[[personality]]
+id = "sleep_streamer"
+name = "The Sleep Streamer"
+emoji = "🌧️"
+color = "#5390d9"
+metric = "background_share"
+threshold = 0.35
+tagline = "Rain sounds. Black screen. Goodnight."
+reason = "{pct} of your watch time was sleep and background audio."
+
+[[personality]]
+id = "weekend_warrior"
+name = "The Weekend Warrior"
+emoji = "🛋️"
+color = "#ef476f"
+metric = "weekend_share"
+threshold = 0.42
+tagline = "Saturdays are for the queue."
+reason = "{pct} of your videos were on weekends."
+
+[[personality]]
+id = "music_head"
+name = "The Music Head"
+emoji = "🎧"
+color = "#c77dff"
+metric = "music_share"
+threshold = 0.3
+tagline = "Your YouTube is basically a playlist."
+reason = "{pct} of what you played was music."
+
+[fallback]
+id = "all_rounder"
+name = "The All-Rounder"
+emoji = "⭐"
+color = "#ff0033"
+tagline = "A little bit of everything."
+reason = "No single habit took over your year."
