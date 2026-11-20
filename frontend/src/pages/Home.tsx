@@ -1,6 +1,7 @@
 import { Smile } from "lucide-react";
 import { useState } from "react";
-import { Link, useVocab, tr, useCapability, useHasSeries } from "../platform";
+import { Link, useVocab, tr, useCapability, useHasSeries, usePlatform } from "../platform";
+import { NetflixHome } from "./NetflixHome";
 import { KindSplit, KindSplitBar, ShowProgress, ShowProgressRows, useShows } from "../components/shows";
 import { HourPoint, Overview, TopResponse, WatchInfo, useMeta, useStats } from "../api";
 import { BarList, ChannelCarousel, RankedRows, WatchRows } from "../components/lists";
@@ -11,6 +12,14 @@ import { rangeLabel, useFilters, useLinkQuery } from "../filters";
 import { categorical, otherColor } from "../theme";
 
 export function Home() {
+  // platforms with shows (Netflix) get their own home screen
+  const platform = usePlatform();
+  const series = useHasSeries();
+  if (!platform) return null;  // wait for the platform, so Netflix doesn't flash the stats layout first
+  return series ? <NetflixHome /> : <StatsHome />;
+}
+
+function StatsHome() {
   const { filters, update } = useFilters();
   const meta = useMeta().data;
   const ov = useStats<Overview>("overview");

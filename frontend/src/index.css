@@ -108,6 +108,15 @@ body {
 
 /* ---------------------------------------------------------------- Netflix look */
 
+.nf { overflow-x: clip; }  /* full-bleed billboard: no sideways scroll from the scrollbar width */
+@keyframes nf-pop {
+  from { opacity: 0; transform: scale(0.72); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[nf-pop"] { animation: none !important; }
+}
+
 /* rows sit straight on the page, like Netflix's rows (no boxed cards) */
 :root[data-theme="netflix"] .card {
   background: transparent;

@@ -6,6 +6,7 @@ show's episode count and season binges can't be worked out.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections import defaultdict
 from datetime import date, timedelta
@@ -205,3 +206,74 @@ def split(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
 def top_movies(conn: sqlite3.Connection, r: Range, f: Filters, limit: int = 50) -> list[dict]:
     items = ranked(conn, "w.video_id", r, f, limit, extra_where="w.kind = 'movie'")
     return _attach(conn, items, _VIDEO_INFO)
+
+
+# ------------------------------------------------------------------ home screen (Netflix-style rows)
+
+def _show_cards(conn: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
+    """Display details for shows: poster, 16:9 backdrop, year, seasons, genres, synopsis."""
+    if not keys:
+        return {}
+    ph = ",".join("?" * len(keys))
+    out = {}
+    for row in conn.execute(f"SELECT creator_id, title, avatar_url, item_count, extra FROM creators WHERE creator_id IN ({ph})", keys):
+        extra = json.loads(row["extra"] or "{}")
+        out[row["creator_id"]] = {
+            "key": row["creator_id"], "kind": "show", "title": row["title"], "poster": row["avatar_url"],
+            "backdrop": extra.get("backdrop"), "year": extra.get("year"), "seasons": extra.get("seasons"),
+            "genres": extra.get("topics") or [], "overview": extra.get("overview"), "episodes_total": row["item_count"],
+        }
+    return out
+
+
+def _movie_cards(conn: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
+    if not keys:
+        return {}
+    ph = ",".join("?" * len(keys))
+    genres: dict[str, list[str]] = defaultdict(list)
+    for item, g in conn.execute(f"SELECT item_id, genre FROM item_genres WHERE item_id IN ({ph})", keys):
+        genres[item].append(g)
+    out = {}
+    for row in conn.execute(f"SELECT item_id, title, thumb_small, thumb_large, duration_s, extra FROM items WHERE item_id IN ({ph})", keys):
+        extra = json.loads(row["extra"] or "{}")
+        out[row["item_id"]] = {
+            "key": row["item_id"], "kind": "movie", "title": row["title"], "poster": row["thumb_small"],
+            "backdrop": row["thumb_large"], "year": extra.get("year"), "runtime_s": row["duration_s"],
+            "genres": genres.get(row["item_id"], []), "overview": extra.get("overview"),
+        }
+    return out
+
+
+def home(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
+    """The Netflix home page's show/movie details for a period: your #1 show (its backdrop sets the
+    mood of the stats header), Top 10 with stats, finished shows, movies, and shows new to you."""
+    from . import evolution, tops  # local import: tops imports this module's neighbours
+    prog = {s["key"]: s for s in progress(conn, r, f, 500)["shows"]}
+    top = tops.top_channels(conn, r, f, 10)
+    movies = top_movies(conn, r, f, 10)
+    # over your whole history every show is "new", so that list only makes sense for a shorter period
+    bounds = data_bounds(conn)
+    covers_all = bool(bounds) and r.start <= bounds[0]
+    new = [] if covers_all else [d for d in evolution.new_discoveries(conn, r, f, 12) if d["channel_id"] != UNKNOWN]
+    cards = _show_cards(conn, list({*prog, *(t["key"] for t in top), *(d["channel_id"] for d in new)}))
+    mcards = _movie_cards(conn, [m["key"] for m in movies])
+
+    def show(key: str, **more) -> dict | None:
+        card = cards.get(key)
+        if not card:
+            return None
+        p = prog.get(key, {})
+        return {**card, "count": p.get("count", 0), "time_s": p.get("time_s", 0), "watched": p.get("watched"),
+                "total": p.get("total"), "pct": p.get("pct"), "status": p.get("status"),
+                "last_watched": p.get("last_watched"), **more}
+
+    top10 = [x for t in top if (x := show(t["key"], count=t["count"], time_s=t["time_s"], rank=t["rank"]))]
+    finished = sorted((s for s in prog.values() if s["status"] == "finished"), key=lambda s: s["last_watched"], reverse=True)
+    return {
+        "billboard": top10[0] if top10 else None,
+        "top10": top10,
+        "finished": [x for s in finished if (x := show(s["key"]))],
+        "movies": [{**mcards[m["key"]], "count": m["count"], "time_s": m["time_s"], "rank": m["rank"]}
+                   for m in movies if m["key"] in mcards],
+        "new": [x for d in new if (x := show(d["channel_id"], first_watched=d["first_watched"], count=d["count"]))],
+    }

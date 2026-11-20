@@ -130,3 +130,15 @@ def test_netflix_wrapped_api(tmp_path):
                                    static_dir=tmp_path / "nodist"))
     d = client.get("/api/wrapped/2026?platform=netflix").json()
     assert d["platform"] == "netflix" and d["personality"]["name"]
+
+
+def test_home(tmp_path):
+    conn, r, f = _built(tmp_path)
+    h = shows.home(conn, r, f)
+    assert h["billboard"]["title"] == "Peaky Blinders" and h["billboard"]["kind"] == "show"
+    assert [i["title"] for i in h["top10"]] == ["Peaky Blinders", "Money Heist"]
+    assert h["top10"][0]["count"] == 7 and h["top10"][0]["rank"] == 1
+    assert [i["title"] for i in h["movies"]] == ["Don't Look Up"]
+    assert h["new"] == []                                                     # whole history: everything is "new"
+    march = shows.home(conn, resolve_range(conn, "custom", "2026-03-01", "2026-03-31"), f)
+    assert [i["title"] for i in march["new"]] == ["Peaky Blinders"]
