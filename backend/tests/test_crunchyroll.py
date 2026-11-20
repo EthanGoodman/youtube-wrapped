@@ -325,3 +325,16 @@ def test_anime_page(tmp_path):
     assert a["studios"][0]["name"] == "Madhouse" and a["studios"][0]["count"] == 2
     assert a["seasons"][0]["season"] == "Fall 2023" and a["decades"] == [{"decade": "2020s", "count": 2}]
     assert a["scores"]["average"] == 90 and a["tags"][0]["tag"] == "Elf"
+
+
+def test_show_detail_episode_progress(tmp_path):
+    conn, _ = _cr_db(tmp_path)
+    client = Client(COOKIE, transport=FakeCatalog(), pause_s=0, sleep=lambda s: None)
+    catalog.fetch_catalog(conn, client, ["S1"])
+    cr.build(conn, tmp_path / "crunchyroll", NY)
+    d = shows.show_detail(conn, "series:S1", Filters())
+    eps = d["seasons"][0]["episodes"]
+    assert eps[0]["pct"] == 1.0 and eps[0]["dubbed"] is False      # finished, subbed
+    assert round(eps[1]["pct"], 2) == 0.49                          # 700 of 1440 seconds
+    assert eps[2]["pct"] is None and not eps[2]["watched"]
+    assert d["dub_share"] == 0.0

@@ -320,13 +320,17 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
 
     # what you watched, per episode: first and last day, how many times
     watched: dict[str, dict] = {}
-    for item, s, n, label, title, first, last, times, t in conn.execute(
+    for item, s, n, label, title, first, last, times, t, length, dubbed, thumb in conn.execute(
             f"""SELECT w.video_id, json_extract(i.extra, '$.season_number'), json_extract(i.extra, '$.episode_number'),
-                       json_extract(i.extra, '$.season'), i.title, MIN(w.local_date), MAX(w.local_date), COUNT(*), SUM({time_expr(f)})
+                       json_extract(i.extra, '$.season'), i.title, MIN(w.local_date), MAX(w.local_date), COUNT(*), SUM({time_expr(f)}),
+                       MAX(w.max_s), json_extract(i.extra, '$.dubbed'), i.thumb_small
                 FROM watches w LEFT JOIN items i ON i.item_id = w.video_id
                 WHERE w.channel_id = ? AND w.kind = 'episode' GROUP BY w.video_id""", (key,)):
         watched[item] = {"season": s, "number": n, "label": label, "title": title, "first": first, "last": last,
-                         "times": times, "time_s": t or 0}
+                         "times": times, "time_s": t or 0,
+                         # how far into the episode you got (Crunchyroll records it; elsewhere a finished watch)
+                         "pct": min(1.0, (t or 0) / (length * times)) if length else None,
+                         "dubbed": None if dubbed is None else bool(dubbed), "thumb": thumb}
     by_num = {(_as_int(v["season"]), _as_int(v["number"])): v for v in watched.values()
               if _as_int(v["season"]) is not None and _as_int(v["number"]) is not None}
 
@@ -346,12 +350,14 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
                 "number": n, "name": name, "runtime_min": runtime, "air_date": air or None, "aired": aired,
                 "still": still,
                 "watched": bool(w), "first": w["first"] if w else None, "times": w["times"] if w else 0,
+                "pct": w["pct"] if w else None, "dubbed": w["dubbed"] if w else None,
             })
         for s, eps in by_season.items():
             aired = [e for e in eps if e["aired"]]
             seasons.append({"season": s, "episodes": eps, "aired": len(aired), "watched": sum(e["watched"] for e in aired)})
     # episodes TMDB's numbering can't place (e.g. One Piece's arcs): listed under Netflix's own season name
-    other = sorted(({"title": v["title"], "season": v["label"], "first": v["first"], "times": v["times"]}
+    other = sorted(({"title": v["title"], "season": v["label"], "first": v["first"], "times": v["times"],
+                     "pct": v["pct"], "dubbed": v["dubbed"], "still": v["thumb"]}
                     for v in watched.values()
                     if (_as_int(v["season"]), _as_int(v["number"])) not in matched),
                    key=lambda e: e["first"])
@@ -394,6 +400,8 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
         "time_s": sum(v["time_s"] for v in watched.values()),
         "episodes_watched": len(watched),
         "views": sum(v["times"] for v in watched.values()),
+        "dub_share": (sum(1 for v in watched.values() if v["dubbed"]) / len(watched)
+                      if watched and any(v["dubbed"] is not None for v in watched.values()) else None),
     }
 
 

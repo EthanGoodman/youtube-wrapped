@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { NetflixShowPage } from "./NetflixShow";
+import { CrunchyrollShowPage } from "./CrunchyrollShow";
 import { Link, tr, useCapability, useHasSeries, usePlatform } from "../platform";
 import type { EChartsOption } from "echarts";
 import { ExternalLink, Sparkles } from "lucide-react";
@@ -112,8 +113,9 @@ interface ChannelDetail extends SubsetBase {
 export function ChannelPage() {
   // shows on Netflix get their own page (episode checklist, pace, backdrop header)
   const series = useHasSeries();
-  const known = usePlatform() !== undefined;
-  if (!known) return null;
+  const platform = usePlatform();
+  if (!platform) return null;
+  if (platform.theme === "crunchyroll") return <CrunchyrollShowPage />;
   return series ? <NetflixShowPage /> : <CreatorPage />;
 }
 
