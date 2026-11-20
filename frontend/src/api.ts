@@ -111,6 +111,7 @@ export interface RankedItem {
   key: string;
   count: number;
   time_s: number;
+  shorts?: number; // how many of `count` were Shorts
   share: number;
   rank: number;
   prev_rank: number | null;

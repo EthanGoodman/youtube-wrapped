@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, useParams } from "react-router-dom";
 import { LayoutGrid, List } from "lucide-react";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
-import { BarList, RankedRows } from "../components/lists";
+import { BarList, RankedRows, shortsNote } from "../components/lists";
 import { Avatar, MetricToggle, PageTitle, QueryState, RankChange, Section } from "../components/ui";
 import { duration, num } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
@@ -104,6 +104,7 @@ function ChannelGrid({ items }: { items: RankedItem[] }) {
           <div className="flex items-center gap-1.5 text-xs text-sub">
             {filters.metric === "time" ? duration(c.time_s) : `${num(c.count)} videos`} <RankChange item={c} />
           </div>
+          {shortsNote(c) && <div className="text-[11px] text-muted">{shortsNote(c)}</div>}
         </Link>
       ))}
     </div>

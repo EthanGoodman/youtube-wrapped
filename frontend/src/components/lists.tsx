@@ -9,6 +9,12 @@ function measure(item: RankedItem, metric: "count" | "time", unit = "videos") {
   return metric === "time" ? duration(item.time_s) : `${num(item.count)} ${item.count === 1 ? unit.replace(/s$/, "") : unit}`;
 }
 
+/** "99 Shorts" / "all Shorts" note, so it's clear when a rank comes from Shorts. */
+export function shortsNote(item: RankedItem): string | null {
+  if (!item.shorts) return null;
+  return item.shorts >= item.count ? "all Shorts" : `${num(item.shorts)} Shorts`;
+}
+
 /** Horizontal carousel of round channel avatars with rank numbers (stats.fm "top artists"). */
 export function ChannelCarousel({ items }: { items: RankedItem[] }) {
   const q = useLinkQuery();
@@ -29,6 +35,7 @@ export function ChannelCarousel({ items }: { items: RankedItem[] }) {
           <div className="flex items-center gap-1.5 text-xs text-sub">
             {measure(c, filters.metric)} <RankChange item={c} />
           </div>
+          {shortsNote(c) && <div className="text-[11px] text-muted">{shortsNote(c)}</div>}
         </Link>
       ))}
     </div>
@@ -65,9 +72,8 @@ export function RankedRows({ items, kind, showShare = false, compactRows = false
                 <div className="mt-0.5 truncate text-xs text-sub">
                   {kind === "video"
                     ? [it.channel, it.duration_s ? duration(it.duration_s) : null].filter(Boolean).join(" · ")
-                    : it.subscriber_count != null
-                      ? `${compact(it.subscriber_count)} subscribers`
-                      : it.first_watched && `since ${date(it.first_watched)}`}
+                    : [it.subscriber_count != null ? `${compact(it.subscriber_count)} subscribers`
+                        : it.first_watched && `since ${date(it.first_watched)}`, shortsNote(it)].filter(Boolean).join(" · ")}
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-0.5 text-right">

@@ -102,7 +102,7 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
            compare: bool = True, pre_aggregate_by_video: bool = False) -> list[dict]:
     """Rank `key_sql` values by count or estimated time within a range.
 
-    Returns [{key, count, time_s, share, rank, prev_rank, rank_change, comparable, is_new}]:
+    Returns [{key, count, time_s, shorts, share, rank, prev_rank, rank_change, comparable, is_new}]:
     share is the fraction of the range total for the chosen metric; rank_change is positive
     when the item moved up; is_new marks items unranked in the previous period, and
     comparable is False when the previous period has no data (nothing is "new" then).
@@ -113,15 +113,16 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
         w_sql, params = where(rng, f)
         order = "time_s" if f.metric == "time" else "cnt"
         if pre_aggregate_by_video:
-            src = (f"(SELECT w.video_id, COUNT(*) AS n, SUM({time_expr(f)}) AS t FROM watches w "
+            src = (f"(SELECT w.video_id, COUNT(*) AS n, SUM({time_expr(f)}) AS t, "
+                   f"SUM(w.bucket = 'short') AS sh FROM watches w "
                    f"WHERE {w_sql} GROUP BY w.video_id) pv {joins}")
-            cnt, tsum, where_sql = "SUM(pv.n)", "SUM(pv.t)", "1=1"
+            cnt, tsum, shorts, where_sql = "SUM(pv.n)", "SUM(pv.t)", "SUM(pv.sh)", "1=1"
         else:
             src = f"watches w {joins}"
-            cnt, tsum, where_sql = "COUNT(*)", f"SUM({time_expr(f)})", w_sql
+            cnt, tsum, shorts, where_sql = "COUNT(*)", f"SUM({time_expr(f)})", "SUM(w.bucket = 'short')", w_sql
         if extra_where:
             where_sql += f" AND {extra_where}"
-        q = (f"SELECT {key_sql} AS k, {cnt} AS cnt, {tsum} AS time_s FROM {src} "
+        q = (f"SELECT {key_sql} AS k, {cnt} AS cnt, {tsum} AS time_s, {shorts} AS shorts FROM {src} "
              f"WHERE {where_sql} AND {key_sql} IS NOT NULL GROUP BY k ORDER BY {order} DESC, k "
              + (f"LIMIT {int(lim)}" if lim else ""))
         rows = conn.execute(q, params + list(extra_params)).fetchall()
@@ -133,7 +134,7 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
             tot = conn.execute(f"SELECT COUNT(*), SUM({time_expr(f)}) FROM watches w {joins} "
                                f"WHERE {w_sql} AND {extra_where}", params + list(extra_params)).fetchone()
         total = (tot[1] if f.metric == "time" else tot[0]) or 0
-        return [{"key": k, "count": c, "time_s": t or 0} for k, c, t in rows], total
+        return [{"key": k, "count": c, "time_s": t or 0, "shorts": s or 0} for k, c, t, s in rows], total
 
     cur, total = run(r, limit)
     prev_rank = {}

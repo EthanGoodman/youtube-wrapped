@@ -208,6 +208,7 @@ def test_overview_bucket_filter(conn):
 def test_top_channels_count_and_rank_change(conn):
     t = tops.top_channels(conn, Y2024, F)
     assert [(i["key"], i["count"]) for i in t] == [("UCa", 3), ("UCb", 3), ("UCc", 2)]
+    assert [i["shorts"] for i in t] == [0, 0, 1]          # c2 is a Short
     # 2023: UCa #1 (3), UCb #2 (1). Tie in 2024 broken by key -> UCa #1, UCb #2.
     assert [i["rank_change"] for i in t] == [0, 0, None]
     assert [i["is_new"] for i in t] == [False, False, True]   # UCc is new
