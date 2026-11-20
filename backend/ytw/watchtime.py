@@ -73,6 +73,7 @@ class Raw:
     embed_h: int | None = None
     tags: tuple[str, ...] = ()
     category_id: str | None = None
+    published_at: str | None = None
 
 
 def is_short(r: Raw, c: WatchConfig) -> str | None:
@@ -152,9 +153,19 @@ def compute(rows: list[Raw], c: WatchConfig) -> list[dict]:
             "bucket": "music" if r.kind == "music" else ("short" if short else "long"),
             "short_basis": short, "is_background": int(is_background(r, c, delayed)),
             "is_live": int(live), "delayed_fix": int(delayed), "category_id": r.category_id,
+            "published_epoch": _epoch(r.published_at),
         })
         prev_gap = gap
     return out
+
+
+def _epoch(iso: str | None) -> float | None:
+    if not iso:
+        return None
+    try:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
 
 
 # ------------------------------------------------------------------ database
@@ -162,7 +173,7 @@ def compute(rows: list[Raw], c: WatchConfig) -> list[dict]:
 _LOAD_SQL = """
 SELECT e.id, e.kind, e.epoch, e.video_id, e.channel_id, e.channel_name,
        COALESCE(v.title, e.title), v.duration_s, v.live, v.was_live, v.embed_w, v.embed_h,
-       v.tags, v.category_id
+       v.tags, v.category_id, v.published_at
 FROM entries e
 LEFT JOIN videos v ON v.video_id = e.video_id AND v.status = 'ok'
 WHERE e.kind IN ('ad', 'video', 'unavailable', 'music')
@@ -171,17 +182,17 @@ ORDER BY e.epoch, e.id
 
 _COLS = ("entry_id, kind, video_id, channel_id, start_epoch, local_iso, local_date, year, month, "
          "local_hour, local_minute, local_dow, duration_s, est_s, max_s, est_method, gap_next_s, session_id, "
-         "bucket, short_basis, is_background, is_live, delayed_fix, category_id")
+         "bucket, short_basis, is_background, is_live, delayed_fix, category_id, published_epoch")
 
 
 def load_rows(conn: sqlite3.Connection) -> list[Raw]:
     rows = []
-    for (eid, kind, epoch, vid, cid, cname, title, dur, live, was_live, ew, eh, tags, cat) in conn.execute(_LOAD_SQL):
+    for (eid, kind, epoch, vid, cid, cname, title, dur, live, was_live, ew, eh, tags, cat, pub) in conn.execute(_LOAD_SQL):
         if kind == AD:
             rows.append(Raw(eid, kind, epoch))
             continue
         rows.append(Raw(eid, kind, epoch, vid, cid, cname, title, dur, live, was_live or 0, ew, eh,
-                        tuple(json.loads(tags)) if tags else (), cat))
+                        tuple(json.loads(tags)) if tags else (), cat, pub))
     return rows
 
 
@@ -196,7 +207,7 @@ def build_watches(conn: sqlite3.Connection, c: WatchConfig, tz: ZoneInfo) -> int
             local.isoformat(), date, local.year, date[:7], local.hour, local.hour * 60 + local.minute,
             local.weekday(), w["duration_s"], w["est_s"], w["max_s"], w["est_method"], w["gap_next_s"], w["session_id"],
             w["bucket"], w["short_basis"], w["is_background"], w["is_live"], w["delayed_fix"],
-            w["category_id"],
+            w["category_id"], w["published_epoch"],
         ))
     conn.execute("DELETE FROM watches")
     conn.executemany(f"INSERT INTO watches ({_COLS}) VALUES ({','.join('?' * len(_COLS.split(',')))})",

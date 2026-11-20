@@ -129,7 +129,8 @@ CREATE TABLE IF NOT EXISTS watches (
     is_background INTEGER NOT NULL,
     is_live       INTEGER NOT NULL,
     delayed_fix   INTEGER NOT NULL,  -- 1 if start was moved back to its pre-roll ad
-    category_id   TEXT
+    category_id   TEXT,
+    published_epoch REAL             -- video upload time (from the API), for "early bird" stats
 );
 -- covering index: date-range stats read everything they need from it
 CREATE INDEX IF NOT EXISTS ix_watches_date    ON watches(local_date, is_background, bucket, est_s, max_s,
@@ -164,7 +165,7 @@ def connect(path: Path) -> sqlite3.Connection:
 
 # Columns added after a table was first created: (table, column, type)
 _ADDED_COLUMNS = [("videos", "embed_w", "INTEGER"), ("videos", "embed_h", "INTEGER"),
-                  ("watches", "max_s", "INTEGER")]
+                  ("watches", "max_s", "INTEGER"), ("watches", "published_epoch", "REAL")]
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
