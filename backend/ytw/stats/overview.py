@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import date
 
 from .common import Filters, Range, max_expr, pct_change, time_expr, where
 
@@ -73,3 +74,11 @@ def overview(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
         "first_watch": _edge_watch(conn, r, f, "ASC"),
         "last_watch": _edge_watch(conn, r, f, "DESC"),
     }
+
+
+def recent(conn: sqlite3.Connection, f: Filters, limit: int = 20, offset: int = 0) -> list[dict]:
+    """Most recent watches (not limited to a range), newest first."""
+    w_sql, p = where(Range(date(1970, 1, 1), date(9999, 12, 31)), f)
+    ids = [r[0] for r in conn.execute(f"SELECT w.entry_id FROM watches w WHERE {w_sql} "
+                                      f"ORDER BY w.start_epoch DESC LIMIT ? OFFSET ?", [*p, limit, offset])]
+    return [watch_info(conn, i) for i in ids]

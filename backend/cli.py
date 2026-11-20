@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -112,6 +113,8 @@ def rebuild(conn, cfg) -> None:
     tg = cfg.section("tags")
     nt, ng = build_lookups(conn, frozenset(tg.get("stopwords", [])), tg.get("min_videos", 2))
     conn.execute("ANALYZE")
+    db.set_meta(conn, "built_at", datetime.now(timezone.utc).isoformat())
+    conn.commit()
     print(f"Built {n:,} watches, {nt:,} genre and {ng:,} tag links ({time.perf_counter() - t:.1f}s)")
 
 

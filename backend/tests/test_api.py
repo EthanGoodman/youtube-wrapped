@@ -1,0 +1,96 @@
+import pytest
+from fastapi.testclient import TestClient
+
+from ytw import db
+from ytw.api import ResultCache, create_app
+from ytw.config import load_config
+
+from test_stats import populate
+
+
+@pytest.fixture(scope="module")
+def client(tmp_path_factory):
+    path = tmp_path_factory.mktemp("db") / "wrapped.db"
+    c = db.connect(path)
+    populate(c)
+    c.close()
+    static = tmp_path_factory.mktemp("dist")
+    (static / "assets").mkdir()
+    (static / "index.html").write_text("<html>app</html>")
+    return TestClient(create_app(load_config(), db_path=path, static_dir=static))
+
+
+def test_meta(client):
+    m = client.get("/api/meta").json()
+    assert m["years"] == [2023, 2024]
+    assert m["first_date"] == "2023-03-01" and m["has_search"] is True and m["has_music"] is False
+
+
+def test_overview_with_params(client):
+    o = client.get("/api/overview?range=2024").json()
+    assert o["videos"] == 9 and o["est_s"] == 3345
+    assert client.get("/api/overview?range=2024&bg=0").json()["est_s"] == 3345 + 7200
+    assert client.get("/api/overview?range=2024&buckets=short").json()["videos"] == 1
+    c = client.get("/api/overview?range=custom&start=2024-01-10&end=2024-01-10").json()
+    assert c["videos"] == 3
+
+
+@pytest.mark.parametrize("kind", ["channels", "videos", "categories", "genres", "tags", "artists", "songs"])
+def test_top_lists(client, kind):
+    r = client.get(f"/api/top/{kind}?range=2024&limit=5")
+    assert r.status_code == 200 and "items" in r.json()
+
+
+def test_top_by_time(client):
+    items = client.get("/api/top/channels?range=2024&metric=time").json()["items"]
+    assert [i["key"] for i in items] == ["UCa", "UCb", "UCc"]
+
+
+@pytest.mark.parametrize("kind", ["clock", "heatmap", "calendar", "monthly", "weekday_weekend"])
+def test_patterns(client, kind):
+    assert client.get(f"/api/patterns/{kind}?range=2024").status_code == 200
+
+
+@pytest.mark.parametrize("path", [
+    "/api/records?range=2024", "/api/milestones", "/api/recent?limit=3", "/api/ads?range=2024",
+    "/api/search", "/api/evolution/top_per_year", "/api/evolution/bar_race", "/api/evolution/discoveries",
+    "/api/evolution/loyalty", "/api/evolution/fell_off", "/api/evolution/mix?by=genre",
+    "/api/channel/UCa?range=2024", "/api/video/a1", "/api/category/20", "/api/genre/Action game",
+    "/api/year/2024",
+])
+def test_endpoints_ok(client, path):
+    r = client.get(path)
+    assert r.status_code == 200, r.text
+
+
+def test_search_all_time_by_default(client):
+    assert client.get("/api/search").json()["searches"] == 3
+    assert client.get("/api/search?range=2024").json()["searches"] == 2
+
+
+@pytest.mark.parametrize("path,code", [
+    ("/api/top/nope", 404), ("/api/patterns/nope", 404), ("/api/evolution/nope", 404),
+    ("/api/channel/UCnope", 404), ("/api/video/nope", 404), ("/api/category/999", 404),
+    ("/api/overview?range=bogus", 400), ("/api/overview?metric=likes", 400),
+    ("/api/overview?buckets=podcasts", 400), ("/api/top/channels?limit=abc", 400),
+    ("/api/evolution/mix?by=nope", 400), ("/api/overview?range=custom", 400),
+])
+def test_errors(client, path, code):
+    assert client.get(path).status_code == code
+
+
+def test_spa_fallback(client):
+    assert client.get("/channel/UCa").text == "<html>app</html>"
+    assert client.get("/api/unknown").status_code == 404
+
+
+def test_cache_clears_on_new_build():
+    cache = ResultCache(size=2)
+    calls = []
+    fn = lambda: calls.append(1) or len(calls)  # noqa: E731
+    assert cache.get_or_compute("b1", ("k",), fn) == 1
+    assert cache.get_or_compute("b1", ("k",), fn) == 1      # cached
+    assert cache.get_or_compute("b2", ("k",), fn) == 2      # rebuilt -> recomputed
+    cache.get_or_compute("b2", ("x",), fn)
+    cache.get_or_compute("b2", ("y",), fn)                  # evicts ("k",)
+    assert cache.get_or_compute("b2", ("k",), fn) == 5

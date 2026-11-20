@@ -68,9 +68,8 @@ ENTRIES = [
 ]
 
 
-@pytest.fixture(scope="module")
-def conn():
-    c = db.connect(Path(":memory:"))
+def populate(c):
+    """Fill a fresh database with the hand-built history and build derived tables."""
     db.init_db(c)
     insert_entries(c, ENTRIES)
     for vid, (ch, dur, cat, topics, title, pub, (w, h)) in VIDEOS.items():
@@ -93,7 +92,14 @@ def conn():
     c.commit()
     build_watches(c, WatchConfig(bg_keywords=("rain", "sleep")), NY)
     build_lookups(c, frozenset(), 1)
+    db.set_meta(c, "built_at", "test")
+    c.commit()
     return c
+
+
+@pytest.fixture(scope="module")
+def conn():
+    return populate(db.connect(Path(":memory:")))
 
 
 Y2024 = Range(D("2024-01-01"), D("2024-12-31"), "2024")
