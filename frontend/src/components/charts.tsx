@@ -113,6 +113,7 @@ export function WeekHeatmap({ grid: g, measure, height = 280 }: {
     yAxis: { type: "category", data: [...DOW].reverse(), axisLabel, axisLine: { show: false }, axisTick: { show: false } },
     visualMap: {
       min: 0, max, calculable: false, orient: "horizontal", left: "center", bottom: 0, itemWidth: 10, itemHeight: 120,
+      text: ["More", "Less"], showLabel: false,
       inRange: { color: redRamp }, textStyle: { color: muted, fontSize: 11 },
       formatter: (v: unknown) => (measure === "time" ? duration(Number(v)) : num(Number(v))),
       outOfRange: { color: empty },
@@ -138,21 +139,20 @@ export function WeekHeatmap({ grid: g, measure, height = 280 }: {
 export function CalendarHeat({ data, measure }: { data: DayPoint[]; measure: Measure }) {
   if (!data.length) return null;
   const years = Array.from(new Set(data.map((d) => d.date.slice(0, 4))));
-  const values = data.map((d) => val(measure, d));
-  const max = Math.max(1, ...values);
-  const ranges = years.length > 1 ? years.map((y) => {
-    const ds = data.filter((d) => d.date.startsWith(y));
-    return [ds[0].date, ds[ds.length - 1].date];
-  }) : [[data[0].date, data[data.length - 1].date]];
-  const cell = 13;
+  // Scale to the 95th-percentile day so a few extreme days don't flatten everything else;
+  // days above it simply get the brightest red.
+  const sorted = data.map((d) => val(measure, d)).filter((v) => v > 0).sort((a, b) => a - b);
+  const max = Math.max(1, sorted[Math.floor(sorted.length * 0.95)] ?? 1);
+  // whole calendar years (a partial first/last year stays aligned on the same weekly grid)
+  const ranges = years.length > 1 ? years.map((y) => [`${y}-01-01`, `${y}-12-31`]) : [[data[0].date, data[data.length - 1].date]];
+  const cell = 18;
   const option: EChartsOption = {
     visualMap: { show: false, min: 1, max, inRange: { color: redRamp }, outOfRange: { color: empty } },
     calendar: ranges.map((r, i) => ({
       range: r,
       top: 28 + i * (cell * 7 + 34),
       left: 36,
-      right: 8,
-      cellSize: ["auto", cell],
+      cellSize: years.length > 1 ? [cell, cell] : ["auto", cell],
       itemStyle: { color: empty, borderColor: "#181818", borderWidth: 3 },
       splitLine: { show: false },
       yearLabel: { show: years.length > 1, position: "left", color: muted, fontSize: 11, margin: 28 },
