@@ -10,6 +10,7 @@ import { Ads } from "./pages/Ads";
 import { Evolution } from "./pages/Evolution";
 import { CategoryPage, ChannelPage, GenrePage, VideoPage, YearPage } from "./pages/Details";
 import { Search } from "./pages/Search";
+import { WrappedPage } from "./wrapped/Wrapped";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -17,9 +18,6 @@ function ScrollToTop() {
   return null;
 }
 
-function Placeholder({ title }: { title: string }) {
-  return <PageTitle title={title} subtitle="The Wrapped story mode is coming in the next phase." />;
-}
 
 export function App() {
   return (
@@ -38,7 +36,7 @@ export function App() {
         <Route path="/category/:id" element={<Layout><CategoryPage /></Layout>} />
         <Route path="/genre/:topic" element={<Layout><GenrePage /></Layout>} />
         <Route path="/year/:year" element={<Layout showRange={false}><YearPage /></Layout>} />
-        <Route path="/wrapped" element={<Layout showRange={false}><Placeholder title="Wrapped" /></Layout>} />
+        <Route path="/wrapped" element={<WrappedPage />} />
         <Route path="*" element={<Layout><PageTitle title="Not found" /></Layout>} />
       </Routes>
     </>
