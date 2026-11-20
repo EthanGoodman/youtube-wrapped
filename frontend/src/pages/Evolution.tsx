@@ -4,7 +4,7 @@ import type { EChartsOption } from "echarts";
 import { Pause, Play } from "lucide-react";
 import { useMeta, useStats } from "../api";
 import { Chart } from "../components/Chart";
-import { Avatar, MetricToggle, PageTitle, QueryState, Section } from "../components/ui";
+import { Avatar, Carousel, MetricToggle, PageTitle, QueryState, Section } from "../components/ui";
 import { date, duration, month, num, pct } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
 import { accent, axisLabel, categorical, ink, muted, otherColor, sub } from "../theme";
@@ -34,7 +34,7 @@ export function Evolution() {
       <Section title="#1 channel of every year" subtitle="All time">
         <QueryState q={years} minHeight={170} empty={(d) => !d.length}>
           {(d) => (
-            <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:-mx-5 sm:px-5">
+            <Carousel>
               {d.map((y) => (
                 <Link key={y.year} to={`/year/${y.year}${q}`}
                       className="flex w-[124px] shrink-0 flex-col items-center rounded-card bg-raised/60 p-3 text-center hover:bg-raised">
@@ -44,7 +44,7 @@ export function Evolution() {
                   <div className="text-xs text-sub">{filters.metric === "time" ? duration(y.time_s) : `${num(y.count)} videos`}</div>
                 </Link>
               ))}
-            </div>
+            </Carousel>
           )}
         </QueryState>
       </Section>
@@ -57,7 +57,7 @@ export function Evolution() {
                  : `Channels you watched for the first time ever in ${period}`}>
         <QueryState q={disc} minHeight={160} empty={(d) => !d.length}>
           {(d) => (
-            <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:-mx-5 sm:px-5">
+            <Carousel>
               {d.map((c) => (
                 <Link key={c.channel_id} to={`/channel/${c.channel_id}${q}`} className="flex w-[104px] shrink-0 flex-col items-center text-center">
                   <Avatar src={c.avatar_url} name={c.title} size={88} />
@@ -66,7 +66,7 @@ export function Evolution() {
                   <div className="text-[11px] text-muted">since {date(c.first_watched)}</div>
                 </Link>
               ))}
-            </div>
+            </Carousel>
           )}
         </QueryState>
       </Section>

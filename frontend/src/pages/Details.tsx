@@ -6,7 +6,7 @@ import { HourPoint, MonthPoint, Overview, RankedItem, useStats } from "../api";
 import { Chart } from "../components/Chart";
 import { MeasureToggle, MonthlyBars, WatchClock, useMeasure } from "../components/charts";
 import { BarList, ChannelCarousel, RankedRows } from "../components/lists";
-import { Avatar, MetricToggle, QueryState, Section, StatTile, WatchTimeInfo } from "../components/ui";
+import { Avatar, Carousel, MetricToggle, QueryState, Section, StatTile, WatchTimeInfo } from "../components/ui";
 import { clockTime, compact, date, duration, num, pct } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
 import { accent, axisLabel, grid, sub } from "../theme";
@@ -343,7 +343,7 @@ export function YearPage() {
             </div>
           </div>
           <Section title="New discoveries" subtitle={`Channels you found in ${y.year}`}>
-            <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 sm:-mx-5 sm:px-5">
+            <Carousel>
               {y.new_discoveries.map((c) => (
                 <Link key={c.channel_id} to={`/channel/${c.channel_id}${q}`} className="flex w-[96px] shrink-0 flex-col items-center text-center">
                   <Avatar src={c.avatar_url} name={c.title} size={80} />
@@ -351,7 +351,7 @@ export function YearPage() {
                   <div className="text-xs text-sub">{num(c.count)} videos</div>
                 </Link>
               ))}
-            </div>
+            </Carousel>
           </Section>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
             <Section title="Month by month" className="lg:col-span-3" action={<MeasureToggle value={measure} onChange={setMeasure} />}>

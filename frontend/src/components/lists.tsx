@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { RankedItem, WatchInfo } from "../api";
 import { clockTime, compact, date, duration, num, pct } from "../format";
 import { useFilters, useLinkQuery } from "../filters";
-import { Avatar, RankChange, Thumb } from "./ui";
+import { Avatar, Carousel, RankChange, Thumb } from "./ui";
 
 /** The measure shown for an item, following the ranking metric. */
 function measure(item: RankedItem, metric: "count" | "time", unit = "videos") {
@@ -20,7 +20,7 @@ export function ChannelCarousel({ items }: { items: RankedItem[] }) {
   const q = useLinkQuery();
   const { filters } = useFilters();
   return (
-    <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:-mx-5 sm:px-5">
+    <Carousel>
       {items.map((c) => (
         <Link key={c.key} to={`/channel/${c.key}${q}`}
               className="group flex w-[104px] shrink-0 flex-col items-center text-center sm:w-[124px]">
@@ -38,7 +38,7 @@ export function ChannelCarousel({ items }: { items: RankedItem[] }) {
           {shortsNote(c) && <div className="text-[11px] text-muted">{shortsNote(c)}</div>}
         </Link>
       ))}
-    </div>
+    </Carousel>
   );
 }
 

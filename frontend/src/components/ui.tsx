@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowUp, Info, Minus } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Info, Minus } from "lucide-react";
 import { ApiError, useMeta } from "../api";
 import { duration } from "../format";
 import { useLinkQuery } from "../filters";
@@ -23,6 +23,47 @@ export function Section({ title, subtitle, action, children, className = "" }: {
       </div>
       {children}
     </section>
+  );
+}
+
+/** Horizontal row that scrolls. On wider screens, ‹ › buttons appear when there's more in that
+ *  direction (a mouse can't swipe, and the scrollbar is hidden), with a fade at the cut-off edge. */
+export function Carousel({ children, className = "pb-1" }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [can, setCan] = useState({ left: false, right: false });
+  const update = () => {
+    const el = ref.current;
+    if (!el) return;
+    setCan({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  };
+  useEffect(() => {
+    update();
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [children]);
+  const scroll = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: "smooth" });
+  const arrow = "absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#282828] text-ink shadow-xl ring-1 ring-line transition-colors hover:bg-[#3f3f3f] md:flex";
+  return (
+    <div className="relative -mx-4 sm:-mx-5">
+      <div ref={ref} onScroll={update} className={`no-scrollbar flex gap-3 overflow-x-auto px-4 sm:px-5 ${className}`}>
+        {children}
+      </div>
+      {can.left && (
+        <>
+          <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-16 bg-gradient-to-r from-card to-transparent md:block" />
+          <button type="button" aria-label="Scroll left" onClick={() => scroll(-1)} className={`${arrow} left-2`}><ChevronLeft size={22} /></button>
+        </>
+      )}
+      {can.right && (
+        <>
+          <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-16 bg-gradient-to-l from-card to-transparent md:block" />
+          <button type="button" aria-label="Scroll right" onClick={() => scroll(1)} className={`${arrow} right-2`}><ChevronRight size={22} /></button>
+        </>
+      )}
+    </div>
   );
 }
 
