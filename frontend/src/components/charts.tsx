@@ -82,7 +82,14 @@ export function MonthlyBars({ data, measure, height = 260 }: { data: MonthPoint[
     xAxis: {
       type: "category",
       data: data.map((m) => m.month),
-      axisLabel: { ...axisLabel, formatter: (v: string) => (data.length > 18 ? (v.endsWith("-01") ? v.slice(0, 4) : "") : month(v)), interval: 0 },
+      axisLabel: data.length > 18
+        ? { ...axisLabel, formatter: (v: string) => (v.endsWith("-01") ? v.slice(0, 4) : ""), interval: 0 }
+        // short "Jan" labels (year under January and the first bar) so a year of months fits on a phone
+        : { ...axisLabel, interval: "auto", hideOverlap: true, lineHeight: 14,
+            formatter: (v: string, i: number) => {
+              const short = new Date(`${v}-01T00:00`).toLocaleDateString(undefined, { month: "short" });
+              return i === 0 || v.endsWith("-01") ? `${short}\n${v.slice(0, 4)}` : short;
+            } },
       axisLine: { lineStyle: { color: axis } },
       axisTick: { show: false },
     },

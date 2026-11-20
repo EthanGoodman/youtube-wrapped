@@ -99,7 +99,7 @@ export function NetflixShell({ children, showRange: rangeWanted = true }: { chil
           </div>
         </div>
         {/* phone: Netflix-app style filter pills under the bar */}
-        <div className="no-scrollbar flex gap-2 overflow-x-auto px-[4%] pb-2.5 md:hidden">
+        <div className={`no-scrollbar flex gap-2 overflow-x-auto px-[4%] pb-2.5 md:hidden ${/\/top\//.test(pathname) ? "hidden" : ""}`}>
           <Link to={"/shows" + q} className={`nf-pill ${isActive(LINKS[1], pathname) ? "nf-pill-on" : ""}`}>Shows</Link>
           <Link to={"/top/movies" + q} className={`nf-pill ${isActive(LINKS[2], pathname) ? "nf-pill-on" : ""}`}>Movies</Link>
           <Link to={"/top/genres" + q} className={`nf-pill ${pathname.endsWith("/top/genres") ? "nf-pill-on" : ""}`}>Genres</Link>

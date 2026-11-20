@@ -282,7 +282,7 @@ function ProgressRow({ s }: { s: ShowProgress }) {
   const color = s.status === "finished" ? "#46d369" : s.status === "watching" ? RED : "#808080";
   return (
     <li>
-      <Link to={`/channel/${s.key}` + q} className="flex items-center gap-4 py-2.5 transition-colors hover:bg-white/[0.04]">
+      <Link to={`/channel/${s.key}` + q} className="-mx-3 flex items-center gap-4 rounded-[4px] px-3 py-2.5 transition-colors hover:bg-white/[0.06]">
         {s.avatar_url ? <img src={s.avatar_url} alt="" loading="lazy" className="h-[60px] w-10 shrink-0 rounded-[3px] object-cover" />
                       : <span className="h-[60px] w-10 shrink-0 rounded-[3px] bg-[#2f2f2f]" />}
         <div className="min-w-0 flex-1">
@@ -343,7 +343,7 @@ function MovieList({ items }: { items: HomeItem[] }) {
     <ol className="flex flex-col divide-y divide-white/[0.06]">
       {items.slice(0, 6).map((m) => (
         <li key={m.key}>
-          <Link to={`/video/${m.key}` + q} className="flex items-center gap-4 py-2 transition-colors hover:bg-white/[0.04]">
+          <Link to={`/video/${m.key}` + q} className="-mx-3 flex items-center gap-4 rounded-[4px] px-3 py-2.5 transition-colors hover:bg-white/[0.06]">
             <span className="w-7 shrink-0 text-center text-[26px] font-black leading-none text-[#595959]">{m.rank}</span>
             {m.poster ? <img src={m.poster} alt="" loading="lazy" className="h-[60px] w-10 shrink-0 rounded-[3px] object-cover" />
                       : <span className="h-[60px] w-10 shrink-0 rounded-[3px] bg-[#2f2f2f]" />}

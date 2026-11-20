@@ -130,6 +130,10 @@ body {
 }
 :root[data-theme="netflix"] .section-sub { color: #808080; }
 :root[data-theme="netflix"] main > div { row-gap: 2.6rem; }
+/* the pages that still use the shared layout (episode, genre, year) stack boxless sections:
+   give them the same breathing room as the Netflix pages */
+:root[data-theme="netflix"] main .flex-col.gap-4 { row-gap: 2.6rem; }
+:root[data-theme="netflix"] main .grid.gap-4 { gap: 2.6rem; }
 
 /* filter pills: outlined, white when on (Netflix app) */
 :root[data-theme="netflix"] .chip,

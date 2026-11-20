@@ -68,15 +68,18 @@ function SubsetTiles({ d }: { d: SubsetBase }) {
 function SubsetCharts({ d, what }: { d: SubsetBase; what: string }) {
   const [measure, setMeasure] = useMeasure();
   const { filters } = useFilters();
+  const hasTimes = useCapability("time_of_day");  // no clock for dates-only data: the chart takes the full width
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-      <Section title="Over time" subtitle={`All time, ${what}`} className="lg:col-span-3"
+      <Section title="Over time" subtitle={`All time, ${what}`} className={hasTimes ? "lg:col-span-3" : "lg:col-span-5"}
                action={<MeasureToggle value={measure} onChange={setMeasure} />}>
         {d.monthly.length ? <MonthlyBars data={fillMonths(d.monthly)} measure={measure} /> : <p className="text-sm text-muted">No watches.</p>}
       </Section>
-      <Section title="When you watch them" subtitle={rangeLabel(filters)} className="lg:col-span-2">
-        {d.clock.some((h) => h.count) ? <WatchClock data={d.clock} measure={measure} height={260} /> : <p className="text-sm text-muted">Nothing in this period.</p>}
-      </Section>
+      {hasTimes && (
+        <Section title="When you watch them" subtitle={rangeLabel(filters)} className="lg:col-span-2">
+          {d.clock.some((h) => h.count) ? <WatchClock data={d.clock} measure={measure} height={260} /> : <p className="text-sm text-muted">Nothing in this period.</p>}
+        </Section>
+      )}
     </div>
   );
 }
@@ -336,6 +339,7 @@ export function YearPage() {
   const { year = "" } = useParams();
   const platformName = usePlatform()?.name ?? "YouTube";
   const hasCategories = useCapability("categories");
+  const yearHasTimes = useCapability("time_of_day");
   const useHasSeriesUnit = useHasSeries() ? "episodes" : tr("videos");
   const { filters } = useFilters();
   const d = useStats<YearDetail>(`year/${year}`);
@@ -379,10 +383,10 @@ export function YearPage() {
             </Carousel>
           </Section>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <Section title="Month by month" className="lg:col-span-3" action={<MeasureToggle value={measure} onChange={setMeasure} />}>
+            <Section title="Month by month" className={yearHasTimes ? "lg:col-span-3" : "lg:col-span-5"} action={<MeasureToggle value={measure} onChange={setMeasure} />}>
               <MonthlyBars data={y.monthly} measure={measure} />
             </Section>
-            <Section title="Watch clock" className="lg:col-span-2"><WatchClock data={y.clock} measure={measure} height={260} /></Section>
+            {yearHasTimes && <Section title="Watch clock" className="lg:col-span-2"><WatchClock data={y.clock} measure={measure} height={260} /></Section>}
           </div>
         </div>
       )}
