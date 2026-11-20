@@ -1,3 +1,5 @@
+import { NetflixRecords } from "./NetflixRecords";
+import { useHasSeries as useHasSeriesW, usePlatform as usePlatformW } from "../platform";
 import { ReactNode } from "react";
 import { Link, tr, useCapability, useHasSeries, usePlatform } from "../platform";
 import { Binge, useShows } from "../components/shows";
@@ -22,7 +24,15 @@ interface RecordsResponse {
 }
 type Milestone = WatchInfo & { n: number };
 
+/** Netflix gets its own version of this page; everything else uses the stats.fm-style one. */
 export function Records() {
+  const platform = usePlatformW();
+  const series = useHasSeriesW();
+  if (!platform) return null;
+  return series ? <NetflixRecords /> : <StatsRecords />;
+}
+
+function StatsRecords() {
   const hasTimes = useCapability("time_of_day");
   const isYouTube = (usePlatform()?.id ?? "youtube") === "youtube";
   const hasSeries = useHasSeries();

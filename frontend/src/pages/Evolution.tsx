@@ -1,5 +1,7 @@
+import { NetflixEvolution } from "./NetflixEvolution";
+import { useHasSeries as useHasSeriesW, usePlatform as usePlatformW } from "../platform";
 import { useEffect, useMemo, useState } from "react";
-import { Link, tr, useHasSeries } from "../platform";
+import { Link, tr, useCapability, useHasSeries } from "../platform";
 import type { EChartsOption } from "echarts";
 import { Pause, Play } from "lucide-react";
 import { useMeta, useStats } from "../api";
@@ -9,15 +11,23 @@ import { date, duration, month, num, pct } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
 import { accent, axisLabel, categorical, ink, muted, otherColor, sub, surface } from "../theme";
 
-interface ChannelRef { channel_id: string; title?: string | null; avatar_url?: string | null }
-type TopYear = ChannelRef & { year: number; count: number; time_s: number };
-type Discovery = ChannelRef & { first_watched: string; count: number; time_s: number };
-type Loyal = ChannelRef & { years: number; count: number; year_list: number[] };
-type FellOff = ChannelRef & { count_before: number; count_recent: number; last_watched: string; peak_year: number };
+export interface ChannelRef { channel_id: string; title?: string | null; avatar_url?: string | null }
+export type TopYear = ChannelRef & { year: number; count: number; time_s: number };
+export type Discovery = ChannelRef & { first_watched: string; count: number; time_s: number };
+export type Loyal = ChannelRef & { years: number; count: number; year_list: number[] };
+export type FellOff = ChannelRef & { count_before: number; count_recent: number; last_watched: string; peak_year: number };
 interface Race { metric: "count" | "time"; frames: { month: string; top: { channel_id: string; value: number }[] }[]; channels: Record<string, { title: string; avatar_url: string | null }> }
 interface Mix { years: number[]; series: Record<string, number[]> }
 
+/** Netflix gets its own version of this page; everything else uses the stats.fm-style one. */
 export function Evolution() {
+  const platform = usePlatformW();
+  const series = useHasSeriesW();
+  if (!platform) return null;
+  return series ? <NetflixEvolution /> : <StatsEvolution />;
+}
+
+function StatsEvolution() {
   const { filters, update } = useFilters();
   const period = rangeLabel(filters);
   const q = useLinkQuery();
@@ -81,8 +91,9 @@ export function Evolution() {
   );
 }
 
-function BarRace() {
+export function BarRace() {
   const { filters } = useFilters();
+  const series = useHasSeries();
   const race = useStats<Race>("evolution/bar_race", { limit: 10 });
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -120,18 +131,19 @@ function BarRace() {
         itemStyle: { color: accent, borderRadius: [0, 4, 4, 0] },
         label: { show: true, position: "right", color: sub, fontSize: 11, valueAnimation: true, formatter: (p: { value: unknown }) => fmt(Number(p.value)) },
       }],
-      graphic: [{ type: "text", right: 16, bottom: 16, style: { text: month(f.month), fill: muted, font: "900 28px Roboto, sans-serif", opacity: 0.6 } }],
+      graphic: [{ type: "text", right: 16, bottom: 16, style: { text: month(f.month), fill: muted, font: `900 28px ${series ? "Inter" : "Roboto"}, sans-serif`, opacity: 0.6 } }],
       animationDuration: 0, animationDurationUpdate: 600, animationEasing: "linear", animationEasingUpdate: "linear",
     };
-  }, [race.data, frames, i]);
+  }, [race.data, frames, i, series]);
 
   return (
     <Section title="Bar chart race" subtitle={tr(`Your top channels so far, month by month (${rangeLabel(filters)})`)}
              action={frames.length > 1 && (
                <button onClick={() => { if (i >= frames.length - 1) setI(0); setPlaying((p) => !p); }}
-                       className="flex items-center gap-1.5 rounded-full bg-yt px-3 py-1.5 text-sm font-bold text-white hover:bg-yt-dark"
+                       className={series ? "nf-select" : "flex items-center gap-1.5 rounded-full bg-yt px-3 py-1.5 text-sm font-bold text-white hover:bg-yt-dark"}
                        aria-label={playing ? "Pause" : "Play"}>
-                 {playing ? <Pause size={14} /> : <Play size={14} />} {playing ? "Pause" : "Play"}
+                 {/* on Netflix a "Play" button would read as playing a show */}
+                 {playing ? <Pause size={14} /> : <Play size={14} />} {playing ? "Pause" : series ? "Run the race" : "Play"}
                </button>
              )}>
       <QueryState q={race} minHeight={360} empty={(d) => !d.frames.length}>
@@ -148,7 +160,7 @@ function BarRace() {
   );
 }
 
-function Loyalty() {
+export function Loyalty() {
   const meta = useMeta().data;
   const loyal = useStats<Loyal[]>("evolution/loyalty", { limit: 15 });
   const q = useLinkQuery();
@@ -214,17 +226,19 @@ function FellOffList() {
   );
 }
 
-function MixByYear() {
-  const [by, setBy] = useState<"category" | "genre">("category");
+export function MixByYear() {
+  const hasCategories = useCapability("categories");
+  const [pick, setBy] = useState<"category" | "genre">("category");
+  const by = hasCategories ? pick : "genre";  // platforms without categories (Netflix) only have genres
   const mix = useStats<Mix>("evolution/mix", { by });
   return (
     <Section title="Your mix, year by year" subtitle={`Share of each ${by} per year (all time)`}
-             action={
+             action={hasCategories && (
                <div className="seg" role="group" aria-label="Group by">
                  <button aria-pressed={by === "category"} onClick={() => setBy("category")}>Categories</button>
                  <button aria-pressed={by === "genre"} onClick={() => setBy("genre")}>Genres</button>
                </div>
-             }>
+             )}>
       <QueryState q={mix} minHeight={360} empty={(d) => !d.years.length}>
         {(d) => <MixChart mix={d} />}
       </QueryState>

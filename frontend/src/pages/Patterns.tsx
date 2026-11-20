@@ -1,3 +1,5 @@
+import { NetflixPatterns } from "./NetflixPatterns";
+import { useHasSeries as useHasSeriesW, usePlatform as usePlatformW } from "../platform";
 import { DayPoint, HourPoint, MonthPoint, useStats } from "../api";
 import { CalendarHeat, MeasureToggle, MonthlyBars, WatchClock, WeekHeatmap, useMeasure } from "../components/charts";
 import { PageTitle, QueryState, Section, StatTile, WatchTimeInfo } from "../components/ui";
@@ -13,7 +15,15 @@ interface WW {
   avg_time_s_per_day: number;
 }
 
+/** Netflix gets its own version of this page; everything else uses the stats.fm-style one. */
 export function Patterns() {
+  const platform = usePlatformW();
+  const series = useHasSeriesW();
+  if (!platform) return null;
+  return series ? <NetflixPatterns /> : <StatsPatterns />;
+}
+
+function StatsPatterns() {
   const hasTimes = useCapability("time_of_day");
   const { filters } = useFilters();
   const [measure, setMeasure] = useMeasure();
