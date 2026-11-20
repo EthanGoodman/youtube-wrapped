@@ -151,7 +151,10 @@ def video_age(conn, r: Range, f: Filters) -> dict:
 
 
 def odd_counts(conn, r: Range) -> dict:
-    """Things that aren't watches: ads, unavailable videos, surveys (from raw entries)."""
+    """Things that aren't watches: ads, unavailable videos, surveys (from raw entries).
+    Only YouTube logs these; other platforms have no `entries` table and get zeros."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'entries'").fetchone():
+        return {"ads": 0, "ad_impressions": 0, "ad_clicks": 0, "unavailable": 0, "surveys": 0, "posts": 0}
     counts = dict(conn.execute("SELECT kind, COUNT(*) FROM entries WHERE local_date BETWEEN ? AND ? "
                                "GROUP BY kind", r.params()).fetchall())
     return {"ads": counts.get("ad", 0), "ad_impressions": counts.get("ad_impression", 0),

@@ -95,3 +95,29 @@ def test_cache_clears_on_new_build():
     cache.get_or_compute("b2", ("x",), fn)
     cache.get_or_compute("b2", ("y",), fn)                  # evicts ("k",)
     assert cache.get_or_compute("b2", ("k",), fn) == 5
+
+
+# ------------------------------------------------------------------ platforms
+
+def test_platforms_list(client):
+    ps = {p["id"]: p for p in client.get("/api/platforms").json()}
+    assert {"youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll"} <= set(ps)
+    assert ps["youtube"]["implemented"] and ps["youtube"]["has_data"] and ps["youtube"]["items"] == 13
+    assert ps["netflix"]["implemented"] is False and ps["netflix"]["has_data"] is False
+    assert ps["netflix"]["issue"] == 2 and ps["netflix"]["export_steps"]
+
+
+def test_platform_param(client):
+    assert client.get("/api/overview?range=2024&platform=youtube").json()["videos"] == 9
+    assert client.get("/api/meta").json()["platform"]["vocab"]["creator"] == "channel"
+    assert client.get("/api/overview?platform=netflix").status_code == 404     # not supported yet
+    assert "#2" in client.get("/api/overview?platform=netflix").json()["detail"]
+    assert client.get("/api/overview?platform=myspace").status_code == 404     # unknown
+
+
+def test_capability_gating():
+    from ytw.platforms import PLATFORMS
+    yt, nf = PLATFORMS["youtube"], PLATFORMS["netflix"]
+    assert yt.has("ads") and yt.has("search") and yt.has("shorts")
+    assert not nf.has("ads") and not nf.has("shorts")
+    assert PLATFORMS["spotify"].vocab["verb"] == "listen"

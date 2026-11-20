@@ -23,7 +23,7 @@ import tomllib
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import db, images
+from . import db, images, platforms
 from .config import Config
 from .stats import ads, details, evolution, overview, patterns, records, search, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, data_bounds, resolve_range
@@ -64,21 +64,49 @@ class ResultCache:
         return value
 
 
-def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None = None) -> FastAPI:
-    db_path = db_path or cfg.db_path
+def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None = None,
+               db_paths: dict[str, Path] | None = None) -> FastAPI:
+    """db_path / db_paths override where a platform's database is (tests); default data/<platform>.db."""
+    overrides = dict(db_paths or {})
+    if db_path:
+        overrides.setdefault(platforms.DEFAULT, db_path)
     app = FastAPI(title="YouTube Wrapped", docs_url="/api/docs", openapi_url="/api/openapi.json")
-    cache = ResultCache()
+    caches: dict[str, ResultCache] = {}
     local = threading.local()
 
-    def conn() -> sqlite3.Connection:
-        c = getattr(local, "conn", None)
+    def path_for(platform_id: str) -> Path:
+        return overrides.get(platform_id, cfg.platform_db(platform_id))
+
+    def platform_of(request: Request) -> platforms.Platform:
+        """?platform=<id> (default youtube). Unknown -> 404; not built yet -> 404 with a hint."""
+        pid = request.query_params.get("platform", platforms.DEFAULT)
+        p = platforms.get(pid)
+        if p is None:
+            raise HTTPException(404, f"unknown platform: {pid}")
+        if not p.implemented:
+            raise HTTPException(404, f"{p.name} isn't supported yet" + (f" (issue #{p.issue})" if p.issue else ""))
+        return p
+
+    def conn(request: Request) -> sqlite3.Connection:
+        """Read-only connection to the request's platform database (one per thread per platform)."""
+        p = platform_of(request)
+        conns = getattr(local, "conns", None)
+        if conns is None:
+            conns = local.conns = {}
+        c = conns.get(p.id)
         if c is None:
-            if not db_path.exists():
-                raise HTTPException(503, "No database yet. Run `python backend/cli.py ingest` first.")
-            c = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)
+            path = path_for(p.id)
+            if not path.exists():
+                raise HTTPException(503, f"No {p.name} data yet. Run `python backend/cli.py ingest --platform {p.id}`.")
+            c = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
             c.row_factory = sqlite3.Row
-            local.conn = c
+            conns[p.id] = c
         return c
+
+    def require(request: Request, capability: str) -> None:
+        p = platform_of(request)
+        if not p.has(capability):
+            raise HTTPException(404, f"{p.name} has no {capability} data")
 
     def today() -> date:
         return datetime.now(cfg.tz).date()
@@ -86,7 +114,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     def parse(request: Request) -> tuple[Range, Filters]:
         q = request.query_params
         try:
-            r = resolve_range(conn(), q.get("range", "all"), q.get("start"), q.get("end"), today())
+            r = resolve_range(conn(request), q.get("range", "all"), q.get("start"), q.get("end"), today())
             buckets = tuple(b for b in q.get("buckets", ",".join(ALL_BUCKETS)).split(",") if b)
             f = Filters(buckets=buckets, exclude_bg_time=q.get("bg", "1") != "0",
                         metric=q.get("metric", "count"))
@@ -94,10 +122,13 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             raise HTTPException(400, str(e)) from None
         return r, f
 
+    def cache_for(request: Request) -> ResultCache:
+        return caches.setdefault(platform_of(request).id, ResultCache())
+
     def cached(request: Request, fn: Callable):
-        stamp = db.get_meta(conn(), "built_at")
+        stamp = db.get_meta(conn(request), "built_at")
         key = (request.url.path, tuple(sorted(request.query_params.multi_items())))
-        return cache.get_or_compute(stamp, key, fn)
+        return cache_for(request).get_or_compute(stamp, key, fn)
 
     def limit(request: Request, default: int = 50) -> int:
         try:
@@ -107,9 +138,34 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
 
     # ------------------------------------------------------------------ meta
 
+    @app.get("/api/platforms")
+    def get_platforms():
+        """Every platform, with a headline for the ones that have data (for the hub page)."""
+        out = []
+        for p in platforms.PLATFORMS.values():
+            d = p.to_dict()
+            d["has_data"] = False
+            path = path_for(p.id)
+            if p.implemented and path.exists():
+                try:
+                    c = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+                    try:
+                        n, est, first, last = c.execute(
+                            "SELECT COUNT(*), SUM(CASE WHEN is_background = 1 THEN 0 ELSE est_s END), "
+                            "MIN(local_date), MAX(local_date) FROM watches").fetchone()
+                    finally:
+                        c.close()
+                    d.update(has_data=bool(n), items=n, est_s=est or 0, first_date=first, last_date=last)
+                except sqlite3.Error:
+                    pass
+            out.append(d)
+        return out
+
     @app.get("/api/meta")
-    def meta():
-        c = conn()
+    def meta(request: Request):
+        c = conn(request)
+        p = platform_of(request)
+        has_table = lambda t: c.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (t,)).fetchone()  # noqa: E731
         bounds = data_bounds(c)
         q = lambda sql: c.execute(sql).fetchone()[0]  # noqa: E731
         w = cfg.section("watchtime")
@@ -120,10 +176,12 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             "last_date": bounds[1].isoformat() if bounds else None,
             "years": [r[0] for r in c.execute("SELECT DISTINCT year FROM watches ORDER BY 1")],
             "watches": q("SELECT COUNT(*) FROM watches"),
-            "enriched": q("SELECT COUNT(*) FROM videos WHERE status='ok'") > 0,
+            "platform": p.to_dict(),
+            "enriched": q("SELECT COUNT(*) FROM items WHERE status='ok'") > 0,
             "has_music": q("SELECT COUNT(*) FROM watches WHERE bucket='music'") > 0,
             "by_bucket": dict(c.execute("SELECT bucket, COUNT(*) FROM watches GROUP BY bucket").fetchall()),
-            "has_search": q("SELECT COUNT(*) FROM searches WHERE kind='search'") > 0,
+            "has_search": p.has("search") and bool(has_table("searches"))
+                          and q("SELECT COUNT(*) FROM searches WHERE kind='search'") > 0,
             "built_at": db.get_meta(c, "built_at"),
             "watchtime": {
                 "session_gap_minutes": w.get("session_gap_minutes", 30),
@@ -138,13 +196,13 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     @app.get("/api/overview")
     def get_overview(request: Request):
         r, f = parse(request)
-        return cached(request, lambda: overview.overview(conn(), r, f))
+        return cached(request, lambda: overview.overview(conn(request), r, f))
 
     @app.get("/api/recent")
     def get_recent(request: Request):
         _, f = parse(request)
         off = int(request.query_params.get("offset", 0))
-        return cached(request, lambda: overview.recent(conn(), f, limit(request, 20), off))
+        return cached(request, lambda: overview.recent(conn(request), f, limit(request, 20), off))
 
     @app.get("/api/top/{kind}")
     def get_top(kind: str, request: Request):
@@ -152,29 +210,29 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             raise HTTPException(404, f"unknown list: {kind}")
         r, f = parse(request)
         return cached(request, lambda: {"range": r.to_dict(), "metric": f.metric,
-                                        "items": TOP_KINDS[kind](conn(), r, f, limit(request))})
+                                        "items": TOP_KINDS[kind](conn(request), r, f, limit(request))})
 
     @app.get("/api/patterns/{kind}")
     def get_pattern(kind: str, request: Request):
         if kind not in PATTERN_KINDS:
             raise HTTPException(404, f"unknown pattern: {kind}")
         r, f = parse(request)
-        return cached(request, lambda: {"range": r.to_dict(), "data": PATTERN_KINDS[kind](conn(), r, f)})
+        return cached(request, lambda: {"range": r.to_dict(), "data": PATTERN_KINDS[kind](conn(request), r, f)})
 
     @app.get("/api/records")
     def get_records(request: Request):
         r, f = parse(request)
-        return cached(request, lambda: {"range": r.to_dict(), **records.records(conn(), r, f, today())})
+        return cached(request, lambda: {"range": r.to_dict(), **records.records(conn(request), r, f, today())})
 
     @app.get("/api/milestones")
     def get_milestones(request: Request):
         _, f = parse(request)
-        return cached(request, lambda: records.milestones(conn(), f))
+        return cached(request, lambda: records.milestones(conn(request), f))
 
     @app.get("/api/evolution/{kind}")
     def get_evolution(kind: str, request: Request):
         r, f = parse(request)
-        c = conn()
+        c = conn(request)
         fns = {
             "top_per_year": lambda: evolution.top_channel_per_year(c, f),
             "bar_race": lambda: evolution.bar_race(c, r, f, limit(request, 10)),
@@ -192,15 +250,17 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
 
     @app.get("/api/ads")
     def get_ads(request: Request):
+        require(request, "ads")
         r, _ = parse(request)
-        return cached(request, lambda: {"range": r.to_dict(), **ads.ads(conn(), r)})
+        return cached(request, lambda: {"range": r.to_dict(), **ads.ads(conn(request), r)})
 
     @app.get("/api/search")
     def get_search(request: Request):
+        require(request, "search")
         r, _ = parse(request)
         all_time = request.query_params.get("range", "all") == "all"
         return cached(request, lambda: {"range": r.to_dict(),
-                                        **search.search_stats(conn(), r, limit(request, 30), all_time)})
+                                        **search.search_stats(conn(request), r, limit(request, 30), all_time)})
 
     # ------------------------------------------------------------------ details
 
@@ -212,26 +272,26 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     @app.get("/api/channel/{channel_id}")
     def get_channel(channel_id: str, request: Request):
         r, f = parse(request)
-        return _or_404(cached(request, lambda: details.channel(conn(), channel_id, r, f)), "channel")
+        return _or_404(cached(request, lambda: details.channel(conn(request), channel_id, r, f)), "channel")
 
     @app.get("/api/video/{video_id}")
     def get_video(video_id: str, request: Request):
-        return _or_404(cached(request, lambda: details.video(conn(), video_id)), "video")
+        return _or_404(cached(request, lambda: details.video(conn(request), video_id)), "video")
 
     @app.get("/api/category/{category_id}")
     def get_category(category_id: str, request: Request):
         r, f = parse(request)
-        return _or_404(cached(request, lambda: details.category(conn(), category_id, r, f)), "category")
+        return _or_404(cached(request, lambda: details.category(conn(request), category_id, r, f)), "category")
 
     @app.get("/api/genre/{topic:path}")
     def get_genre(topic: str, request: Request):
         r, f = parse(request)
-        return _or_404(cached(request, lambda: details.genre(conn(), topic, r, f)), "genre")
+        return _or_404(cached(request, lambda: details.genre(conn(request), topic, r, f)), "genre")
 
     @app.get("/api/year/{year}")
     def get_year(year: int, request: Request):
         _, f = parse(request)
-        return cached(request, lambda: details.year(conn(), year, f, today()))
+        return cached(request, lambda: details.year(conn(request), year, f, today()))
 
     # ------------------------------------------------------------------ wrapped
 
@@ -247,12 +307,12 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             mtime, pcfg = 0, {}
         except (ValueError, tomllib.TOMLDecodeError) as e:
             raise HTTPException(500, f"personalities.toml: {e}") from None
-        stamp = db.get_meta(conn(), "built_at")
+        stamp = db.get_meta(conn(request), "built_at")
         key = (request.url.path, tuple(sorted(request.query_params.multi_items())), mtime)
         mode = request.query_params.get("mode", "all")
         if mode not in WRAPPED_MODES:
             raise HTTPException(400, f"mode must be one of {', '.join(WRAPPED_MODES)}")
-        return cache.get_or_compute(stamp, key, lambda: wrapped_data(conn(), year, f, pcfg, today(), mode))
+        return cache_for(request).get_or_compute(stamp, key, lambda: wrapped_data(conn(request), year, f, pcfg, today(), mode))
 
     @app.get("/api/img")
     def get_image(u: str):

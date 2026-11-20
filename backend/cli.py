@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ytw import db  # noqa: E402
+from ytw import db, platforms  # noqa: E402
 from ytw.config import force_utf8_stdout, load_config, migrate_legacy_layout  # noqa: E402
 from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
 from ytw import enrich  # noqa: E402
@@ -152,7 +152,16 @@ def main() -> None:
     p.add_argument("--min-gap-hours", type=float, default=1.0)
     p.set_defaults(func=cmd_investigate_delay)
 
+    for name, sp in sub.choices.items():
+        if name != "investigate-delay":
+            sp.add_argument("--platform", default=platforms.DEFAULT, choices=sorted(platforms.PLATFORMS),
+                            help="which platform (default: youtube)")
+
     args = ap.parse_args()
+    p = platforms.get(getattr(args, "platform", platforms.DEFAULT))
+    if not p.implemented:
+        sys.exit(f"{p.name} isn't supported yet - see issue #{p.issue}.\n"
+                 f"How to get the data when it is: " + "; ".join(p.export_steps))
     cfg = load_config()
     for m in migrate_legacy_layout(cfg):
         print(f"Moved {m}")
