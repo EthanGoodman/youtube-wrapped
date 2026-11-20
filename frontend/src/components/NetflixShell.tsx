@@ -75,10 +75,11 @@ export function NetflixShell({ children, showRange = true }: { children: ReactNo
     <div className="nf flex min-h-screen flex-col">
       <header className={`fixed inset-x-0 top-0 z-40 transition-colors duration-[400ms] ${scrolled ? "bg-[#141414]" : "bg-gradient-to-b from-black/70 to-transparent"}`}>
         <div className="flex h-[56px] items-center gap-5 px-[4%] md:h-[68px]">
-          <Link to={"/" + q} aria-label="Home" className="flex items-center gap-2">
+          {/* the app's name: back to all platforms (this platform's home is the "Home" link) */}
+          <HubLink to="/" aria-label="Wrapped: all platforms" title="All platforms" className="flex items-center gap-2">
             <WrappedMark size={26} />
             <span className="text-[19px] font-extrabold tracking-tight">Wrapped</span>
-          </Link>
+          </HubLink>
           {/* full links on wide screens, a "Browse" menu between phone and desktop */}
           <nav className="hidden items-center gap-5 xl:flex" aria-label="Main">
             {LINKS.map((n) => (
