@@ -7,7 +7,7 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 | Platform | Status |
 |---|---|
 | YouTube | ✅ Supported |
-| Netflix | In progress ([#2](https://github.com/EthanGoodman/youtube-wrapped/issues/2)) - import + TMDB enrichment work |
+| Netflix | ✅ Supported (see [Netflix](#netflix)) |
 | Spotify | Planned ([#3](https://github.com/EthanGoodman/youtube-wrapped/issues/3)) |
 | Prime Video | Planned ([#4](https://github.com/EthanGoodman/youtube-wrapped/issues/4)) |
 | TikTok | Planned ([#5](https://github.com/EthanGoodman/youtube-wrapped/issues/5)) |
@@ -112,7 +112,7 @@ To export cards with thumbnails, the server relays YouTube images through `/api/
 1. Get your history, either or both:
    - **Quick (instant):** netflix.com/viewingactivity → *Download all* → `NetflixViewingHistory.csv`. Titles and dates only, so watch time is estimated and there are no times of day.
    - **Full (takes a few days):** netflix.com/account → *Download your personal information* → `CONTENT_INTERACTION/ViewingActivity.csv`. Adds exact start times and durations. If it has several profiles, set `[netflix] profile = "Your Name"` in `config.toml` (or pass `--profile`).
-2. Put the file in `data/netflix/` (the full export wins if both are there).
+2. Put the file(s) in `data/netflix/`. Every `NetflixViewingHistory*.csv` and `ViewingActivity.csv` there is read and merged into one timeline, so you can add several accounts (e.g. `NetflixViewingHistory-account2.csv`). A viewing that appears in two files (same title, same day) counts once, and full-export rows win over quick-download rows.
 3. Get a free TMDB token for posters, genres and runtimes: sign up at [themoviedb.org](https://www.themoviedb.org) → Settings → API → create a *Developer* key, then add the **API Read Access Token** to `.env`:
    ```
    TMDB_TOKEN=eyJ...
@@ -130,6 +130,17 @@ TMDB matches are cached; if one is wrong, fix it in `data/netflix/overrides.toml
 [movies]
 "Some Title" = 0           # 0 = don't match
 ```
+
+What the Netflix pages add:
+- **Shows** page: how far you got into each show (episodes and seasons, against TMDB's episode list), marked *Finished* (watched up to the latest episode), *Watching* (watched in the last 30 days) or *Dropped*; your fastest seasons; rewatches; your movies.
+- **Home** shows episodes vs movies and your show progress; **Top** has a Movies tab; **Records** has your fastest season.
+- **Wrapped** has its own Netflix story (posters, Top 5, fastest binge, finished vs dropped, shows vs movies) and its own personalities in `personalities-netflix.toml`, edited the same way as YouTube's `personalities.toml`.
+
+Notes on the data:
+- The quick download has dates only: watch time comes from TMDB runtimes (or `fallback_episode_minutes` / `fallback_movie_minutes` in `config.toml`), and the watch clock, heatmap and night/morning records stay hidden until you add the full export.
+- The quick download lists each title once per account, so rewatches only show up across accounts or with the full export.
+- Some anime and reality titles name a season after its arc ("One Piece: East Blue"). When that name has no TMDB match but the shorter one does, it's folded into the show with the arc as the season.
+- Netflix sometimes writes an episode without its show (": Episode 5"). Those count in your totals as **Unknown show** but are left out of show rankings and progress.
 
 *This product uses the TMDB API but is not endorsed or certified by TMDB.*
 
