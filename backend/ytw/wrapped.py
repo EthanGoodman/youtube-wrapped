@@ -1,6 +1,7 @@
 """Everything the Wrapped story needs for one year, in one call, plus the viewer personality."""
 from __future__ import annotations
 
+import json
 import sqlite3
 import tomllib
 from datetime import date
@@ -12,7 +13,10 @@ from .stats.common import Filters, Range, time_expr, where
 METRICS = ("night_share", "early_share", "weekend_share", "shorts_share", "music_share", "gaming_share",
            "background_share", "top5_share", "explorer_ratio", "avg_session_min")
 NETFLIX_METRICS = ("binge_day_share", "finish_rate", "drop_rate", "top_show_share", "anime_share", "movie_share",
-                   "weekend_share", "night_share", "shows_count", "episodes_per_day")
+                   "weekend_share", "night_share", "shows_count", "episodes_per_day",
+                   # anime (Crunchyroll): audio language, simulcast, and what kind of anime (AniList tags / genres)
+                   "dub_share", "sub_share", "simulcast_share", "shounen_share", "isekai_share", "romance_share",
+                   "slice_of_life_share", "sports_share", "psychological_share")
 # metrics that need real start times (quick Netflix downloads put every view at midnight)
 TIME_METRICS = frozenset({"night_share", "early_share"})
 
@@ -175,12 +179,44 @@ def netflix_metrics(conn: sqlite3.Connection, r: Range, f: Filters, progress: di
         "night_share": night / n,
         "shows_count": float(started),
         "episodes_per_day": episodes / days if days else 0.0,
+        **anime_metrics(conn, r, f, n),
+    }
+
+
+def anime_metrics(conn: sqlite3.Connection, r: Range, f: Filters, n: int) -> dict[str, float]:
+    """Shares of episodes: dubbed / subbed, watched within a week of airing, and by kind of anime
+    (a series counts as "shounen" etc. when AniList tags or genres say so). Zero where unknown."""
+    w_sql, p = where(r, f)
+    rows = conn.execute(
+        f"""SELECT json_extract(i.extra, '$.dubbed'), w.start_epoch, w.published_epoch, c.extra,
+                   (SELECT group_concat(g.genre, '|') FROM item_genres g WHERE g.item_id = w.video_id)
+            FROM watches w LEFT JOIN items i ON i.item_id = w.video_id
+            LEFT JOIN creators c ON c.creator_id = w.channel_id WHERE {w_sql}""", p).fetchall()
+    known_audio = [d for d, *_ in rows if d is not None]
+    kinds = {"shounen_share": ("shounen",), "isekai_share": ("isekai",), "romance_share": ("romance",),
+             "slice_of_life_share": ("slice of life", "iyashikei"), "sports_share": ("sports",),
+             "psychological_share": ("psychological",)}
+    counts = dict.fromkeys(kinds, 0)
+    simul = 0
+    for dubbed, start, aired, extra, genres in rows:
+        if start and aired and 0 <= start - aired <= 7 * 86400:
+            simul += 1
+        e = json.loads(extra or "{}")
+        words = {t.lower() for t in (e.get("tags") or []) + (e.get("topics") or [])} | {g.lower() for g in (genres or "").split("|") if g}
+        for k, names in kinds.items():
+            counts[k] += any(w in words for w in names)
+    return {
+        "dub_share": sum(1 for d in known_audio if d) / len(known_audio) if known_audio else 0.0,
+        "sub_share": sum(1 for d in known_audio if not d) / len(known_audio) if known_audio else 0.0,
+        "simulcast_share": simul / n if n else 0.0,
+        **{k: v / n if n else 0.0 for k, v in counts.items()},
     }
 
 
 def netflix_wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict,
-                    today: date | None = None, has_times: bool = False) -> dict:
-    """The Netflix Wrapped story: shows instead of channels, posters instead of avatars."""
+                    today: date | None = None, has_times: bool = False, anime: bool = False) -> dict:
+    """The shows Wrapped story (Netflix, Crunchyroll): shows instead of channels, posters instead of avatars.
+    With `anime`, adds sub vs dub, simulcast and top studio."""
     r = Range(date(year, 1, 1), date(year, 12, 31), str(year))
     base = Filters(exclude_bg_time=f.exclude_bg_time, metric=f.metric)
     ov = overview.overview(conn, r, base)
@@ -217,4 +253,16 @@ def netflix_wrapped(conn: sqlite3.Connection, year: int, f: Filters, personaliti
         "peak_hour": max(clock, key=lambda h: h["count"])["hour"] if clock else None,
         "metrics": metrics,
         "personality": pick_personality(metrics, personalities, frozenset() if has_times else TIME_METRICS),
+        "anime": _anime_card(conn, r, base) if anime else None,
     }
+
+
+def _anime_card(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
+    a = shows.anime_page(conn, r, f)
+    return {"sub": a["sub_dub"]["sub"], "dub": a["sub_dub"]["dub"], "simulcast": a["simulcast"]["episodes"],
+            "simulcast_series": [{k: s[k] for k in ("key", "title", "poster")} for s in a["simulcast"]["series"][:3]],
+            "studio": ({k: a["studios"][0][k] for k in ("name", "count")} | {"series": a["studios"][0]["series"][:4]})
+                      if a["studios"] else None,
+            "season": ({"season": a["seasons"][0]["season"], "series": a["seasons"][0]["series"][:4]}
+                       if a["seasons"] else None),
+            "score": a["scores"]["average"]}

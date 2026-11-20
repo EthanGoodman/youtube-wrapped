@@ -338,3 +338,36 @@ def test_show_detail_episode_progress(tmp_path):
     assert round(eps[1]["pct"], 2) == 0.49                          # 700 of 1440 seconds
     assert eps[2]["pct"] is None and not eps[2]["watched"]
     assert d["dub_share"] == 0.0
+
+
+def test_crunchyroll_wrapped(tmp_path):
+    from pathlib import Path as _P
+    from ytw.wrapped import NETFLIX_METRICS, load_personalities, netflix_wrapped
+    conn, _ = _cr_db(tmp_path)
+    client = Client(COOKIE, transport=FakeCatalog(), pause_s=0, sleep=lambda s: None)
+    catalog.fetch_catalog(conn, client, ["S1"])
+    anilist.enrich(conn, [("S1", "Frieren")], post=fake_anilist, pause_s=0, sleep=lambda s: None)
+    cr.build(conn, tmp_path / "crunchyroll", NY)
+    cfg = load_personalities(_P(__file__).parents[2] / "personalities-crunchyroll.toml", NETFLIX_METRICS)
+    d = netflix_wrapped(conn, 2026, Filters(), cfg, has_times=True, anime=True)
+    assert d["anime"]["sub"] == 2 and d["anime"]["dub"] == 1 and d["anime"]["studio"]["name"] == "Madhouse"
+    m = d["metrics"]
+    assert round(m["dub_share"], 2) == 0.33 and round(m["simulcast_share"], 2) == 0.33
+    assert d["personality"]["name"]
+
+
+def test_image_relay_allows_crunchyroll_images_only():
+    from ytw.images import NotAllowed, check_url
+    check_url("https://www.crunchyroll.com/imgsrv/display/thumbnail/480x720/catalog/crunchyroll/x.png")
+    for bad in ("https://www.crunchyroll.com/account", "https://evil.example/imgsrv/x.png"):
+        with pytest.raises(NotAllowed):
+            check_url(bad)
+
+
+def test_wrapped_uses_stored_capabilities(tmp_path):
+    conn, _ = _cr_db(tmp_path)
+    conn.close()
+    client = TestClient(create_app(load_config(), db_paths={"crunchyroll": tmp_path / "crunchyroll.db"},
+                                   static_dir=tmp_path / "nodist"))
+    w = client.get("/api/wrapped/2026?platform=crunchyroll").json()
+    assert w["has_times"] is True and w["clock"] and w["anime"]["sub"] == 2

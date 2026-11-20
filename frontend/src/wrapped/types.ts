@@ -74,6 +74,12 @@ export interface NetflixWrappedData {
   peak_hour: number | null;
   metrics: Record<string, number>;
   personality: Personality;
+  anime?: {
+    sub: number; dub: number; simulcast: number; score: number | null;
+    simulcast_series: { key: string; title: string; poster: string | null }[];
+    studio: { name: string; count: number; series: { key: string; title: string; poster: string | null }[] } | null;
+    season: { season: string; series: { key: string; title: string; poster: string | null }[] } | null;
+  } | null;
 }
 
 export type AnyWrapped = (WrappedData & { platform?: undefined }) | NetflixWrappedData;

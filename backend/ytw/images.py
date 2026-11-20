@@ -15,6 +15,8 @@ from urllib.parse import urlparse
 ALLOWED_HOSTS = ("i.ytimg.com", "i1.ytimg.com", "i2.ytimg.com", "i3.ytimg.com", "i4.ytimg.com",
                  "i9.ytimg.com", "yt3.ggpht.com", "yt3.googleusercontent.com",
                  "image.tmdb.org")  # TMDB posters (Netflix)
+# hosts allowed only under one path (Crunchyroll serves images from its main site)
+ALLOWED_PATHS = {"www.crunchyroll.com": "/imgsrv/"}
 MAX_BYTES = 5 * 1024 * 1024
 _CACHE_SIZE = 300
 
@@ -34,8 +36,9 @@ def check_url(url: str) -> None:
         raise NotAllowed("not a URL") from None
     if u.scheme != "https":
         raise NotAllowed("only https image URLs are allowed")
-    if u.hostname not in ALLOWED_HOSTS or u.username or u.password or (u.port not in (None, 443)):
-        raise NotAllowed("only YouTube image hosts are allowed")
+    host_ok = u.hostname in ALLOWED_HOSTS or (u.hostname in ALLOWED_PATHS and u.path.startswith(ALLOWED_PATHS[u.hostname]))
+    if not host_ok or u.username or u.password or (u.port not in (None, 443)):
+        raise NotAllowed("only the platforms' image hosts are allowed")
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):

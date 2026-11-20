@@ -1,0 +1,125 @@
+# Viewer personalities for the Crunchyroll Wrapped story. Edit freely; reload the Wrapped page to see changes.
+#
+# Same rules as personalities.toml: each personality looks at one metric for the year, its score is
+# value / threshold, and the highest score wins if it reaches 1. Otherwise the fallback is used.
+#
+# Metrics (all for the chosen year; shares are 0..1, of episodes):
+#   sub_share / dub_share   watched in Japanese with subtitles / in another language
+#   simulcast_share         watched within a week of the episode airing
+#   shounen_share, isekai_share, romance_share, slice_of_life_share, sports_share, psychological_share
+#                           episodes of series AniList tags (or genres) that way
+#   binge_day_share         share of your days with 5+ episodes of one series
+#   finish_rate / drop_rate series finished / dropped, of those you watched
+#   top_show_share          episodes from your #1 series
+#   night_share             episodes started between midnight and 5am
+#   weekend_share           episodes on Saturday or Sunday
+#
+# In `reason`, {pct} is the value as a percentage, {value} the number rounded, {value1} with one decimal.
+
+[[personality]]
+id = "simulcast_chaser"
+name = "The Simulcast Chaser"
+emoji = "⏱️"
+color = "#ff640a"
+metric = "simulcast_share"
+threshold = 0.25
+tagline = "New episode drops? You're already watching."
+reason = "{pct} of your episodes were watched within a week of airing."
+
+[[personality]]
+id = "shonen_fan"
+name = "The Shonen Fan"
+emoji = "🔥"
+color = "#ff640a"
+metric = "shounen_share"
+threshold = 0.45
+tagline = "Power of friendship, every single time."
+reason = "{pct} of your episodes were shonen."
+
+[[personality]]
+id = "isekai_addict"
+name = "The Isekai Addict"
+emoji = "🌀"
+color = "#7c5cff"
+metric = "isekai_share"
+threshold = 0.3
+tagline = "Hit by a truck, reborn as a binge watcher."
+reason = "{pct} of your episodes were isekai."
+
+[[personality]]
+id = "slice_of_life_soul"
+name = "The Slice-of-Life Soul"
+emoji = "🍵"
+color = "#2abdbb"
+metric = "slice_of_life_share"
+threshold = 0.25
+tagline = "No world-ending threats, just vibes."
+reason = "{pct} of your episodes were slice of life."
+
+[[personality]]
+id = "romance_watcher"
+name = "The Hopeless Romantic"
+emoji = "💌"
+color = "#ff6f91"
+metric = "romance_share"
+threshold = 0.3
+tagline = "Just confess already!"
+reason = "{pct} of your episodes were romance."
+
+[[personality]]
+id = "mind_gamer"
+name = "The Mind Gamer"
+emoji = "🧠"
+color = "#213944"
+metric = "psychological_share"
+threshold = 0.3
+tagline = "Everything is going according to plan."
+reason = "{pct} of your episodes were psychological thrillers."
+
+[[personality]]
+id = "dub_devotee"
+name = "The Dub Devotee"
+emoji = "🎙️"
+color = "#2abdbb"
+metric = "dub_share"
+threshold = 0.6
+tagline = "Reading is for the manga."
+reason = "{pct} of your episodes were dubbed."
+
+[[personality]]
+id = "sub_purist"
+name = "The Sub Purist"
+emoji = "📜"
+color = "#ff640a"
+metric = "sub_share"
+threshold = 0.95
+tagline = "Original audio or nothing."
+reason = "{pct} of your episodes were subbed."
+
+[[personality]]
+id = "binger"
+name = "The Arc Binger"
+emoji = "🍜"
+color = "#ff640a"
+metric = "binge_day_share"
+threshold = 0.3
+tagline = "One more episode. Then the whole arc."
+reason = "On {pct} of your anime days you watched 5+ episodes of one series."
+
+[[personality]]
+id = "night_owl"
+name = "The Midnight Otaku"
+emoji = "🌙"
+color = "#3b1c8c"
+metric = "night_share"
+threshold = 0.2
+tagline = "Sleep is a filler arc."
+reason = "{pct} of your episodes started between midnight and 5am."
+
+[fallback]
+id = "explorer"
+name = "The Anime Explorer"
+emoji = "🧭"
+color = "#ff640a"
+tagline = "A bit of every genre, every season."
+reason = "No single habit took over your year."

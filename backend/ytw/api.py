@@ -342,9 +342,11 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         mode = request.query_params.get("mode", "all")
         if mode not in WRAPPED_MODES:
             raise HTTPException(400, f"mode must be one of {', '.join(WRAPPED_MODES)}")
+        # what this platform's data can show (e.g. real times of day) is stored with the data
+        p = p.with_extra(db.get_meta(conn(request), "extra_capabilities"))
         if p.has("series"):
             return cache_for(request).get_or_compute(stamp, key, lambda: {**netflix_wrapped(
-                conn(request), year, f, pcfg, today(), p.has("time_of_day")), "platform": p.id})
+                conn(request), year, f, pcfg, today(), p.has("time_of_day"), p.has("anime")), "platform": p.id})
         return cache_for(request).get_or_compute(stamp, key, lambda: wrapped_data(conn(request), year, f, pcfg, today(), mode))
 
     @app.get("/api/img")

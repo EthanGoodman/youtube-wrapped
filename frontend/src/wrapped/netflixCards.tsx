@@ -11,7 +11,7 @@ const RED = "rgb(var(--c-accent))";  // the platform accent (Netflix red, Crunch
 const DISPLAY = "Inter, system-ui, sans-serif";
 /** Inter is much wider than the condensed face these sizes were set for: scale headlines to fit. */
 const FIT = 0.74;
-const heavy = { fontFamily: DISPLAY, fontWeight: 900, letterSpacing: "-0.035em" } as const;
+const heavy = { fontFamily: `var(--font-display), ${DISPLAY}`, fontWeight: 900, letterSpacing: "-0.035em" } as const;
 const hrs = (s: number) => Math.round(s / 3600);
 const days = (n: number) => (n === 1 ? "1 day" : `${num(n)} days`);
 /** TMDB posters: ask for a bigger size when shown big. */
@@ -32,8 +32,8 @@ function Card({ children, footer = true, year, glow = "top" }: {
 }) {
   const glowAt = { top: "50% -10%", bottom: "50% 115%", center: "50% 45%", none: "" }[glow];
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden text-white"
-         style={{ background: "#0b0b0b", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="story-card relative flex h-full w-full flex-col overflow-hidden text-white"
+         style={{ background: "rgb(var(--c-bg))", fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
       {glow !== "none" && (
         <div className="pointer-events-none absolute inset-0"
              style={{ background: `radial-gradient(ellipse 120% 70% at ${glowAt}, rgb(var(--c-accent) / 0.55), rgb(var(--c-accent) / 0.08) 55%, transparent 75%)` }} />
@@ -278,6 +278,40 @@ export const NETFLIX_CARDS: NCard[] = [
     },
   },
   {
+    id: "anime", label: "Sub, dub and studio",
+    when: (d) => !!d.anime && d.anime.sub + d.anime.dub > 0,
+    render: (d) => {
+      const a = d.anime!;
+      const total = a.sub + a.dub;
+      const sub = Math.round((a.sub / total) * 100);
+      return (
+        <Card year={d.year}>
+          <Kicker>Sub or dub?</Kicker>
+          <Display size={120} delay={0.3} color={RED}><CountUp to={sub} format={(n) => `${Math.round(n)}%`} /></Display>
+          <Kicker delay={0.5}>{sub >= 50 ? "of your episodes were subbed" : "of your episodes were subbed. Team dub!"}</Kicker>
+          <div className="mt-5 flex h-3 gap-0.5">
+            <motion.div style={{ background: RED }} initial={{ width: 0 }} animate={{ width: `${sub}%` }} transition={{ delay: 0.8, duration: 1 }} />
+            <motion.div style={{ background: "#2abdbb" }} initial={{ width: 0 }} animate={{ width: `${100 - sub}%` }} transition={{ delay: 1, duration: 1 }} />
+          </div>
+          <div className="mt-2 flex justify-between text-[13px] text-white/70"><span>{num(a.sub)} sub</span><span>{num(a.dub)} dub</span></div>
+          {a.studio && (
+            <motion.div {...rise(1.4)} className="mt-8">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Your studio</p>
+              <p style={heavy} className="mt-1 text-[30px] leading-none">{a.studio.name}</p>
+              <p className="mt-1 text-[13px] text-white/70">{num(a.studio.count)} episodes</p>
+              <div className="mt-3 flex gap-2">{a.studio.series.map((s) => <Poster key={s.key} src={s.poster} name={s.title} w={58} />)}</div>
+            </motion.div>
+          )}
+          {a.simulcast > 0 && (
+            <motion.p {...rise(1.9)} className="mt-auto rounded-xl bg-white/[0.07] px-4 py-3 text-[14px]">
+              ⏱️ <b>{num(a.simulcast)} episodes</b> watched within a week of airing{a.simulcast_series[0] ? <>, mostly {a.simulcast_series[0].title}</> : null}.
+            </motion.p>
+          )}
+        </Card>
+      );
+    },
+  },
+  {
     id: "genres", label: "Top genres",
     when: (d) => d.top_genres.length > 0,
     render: (d) => (
@@ -317,7 +351,7 @@ export const NETFLIX_CARDS: NCard[] = [
         <Display size={58} delay={0.3}>{date(d.biggest_day!.date)}</Display>
         <div className="flex flex-1 flex-col justify-center">
           <Display size={150} delay={0.7} color={RED}><CountUp to={d.biggest_day!.count} /></Display>
-          <Kicker delay={0.9}>titles in a single day</Kicker>
+          <Kicker delay={0.9}>{platformName() === "Crunchyroll" ? "episodes" : "titles"} in a single day</Kicker>
           {d.streak && d.streak.days > 1 && (
             <motion.p {...rise(1.4)} className="mt-10 rounded-xl bg-white/[0.07] px-4 py-3 text-[16px]">
               🔥 Longest streak: <b>{days(d.streak.days)}</b> in a row, {date(d.streak.start)} – {date(d.streak.end)}.

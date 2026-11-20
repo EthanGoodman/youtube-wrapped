@@ -301,3 +301,8 @@ body {
 :root[data-theme="crunchyroll"] main .h-\[3px\] { height: 4px; }
 :root[data-theme="crunchyroll"] main .group:hover .group-hover\:scale-\[1\.04\] { transform: none; opacity: 0.85; }
 
+/* Crunchyroll Wrapped story: square corners like the dashboard */
+:root[data-theme="crunchyroll"] .story-card .rounded-md,
+:root[data-theme="crunchyroll"] .story-card .rounded-xl,
+:root[data-theme="crunchyroll"] .story-card .rounded-\[3px\] { border-radius: 0; }
+
