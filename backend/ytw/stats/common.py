@@ -43,9 +43,11 @@ def data_bounds(conn: sqlite3.Connection) -> tuple[date, date] | None:
 
 def resolve_range(conn: sqlite3.Connection, preset: str = "all", start: str | None = None,
                   end: str | None = None, today: date | None = None) -> Range:
-    """Presets: 4w, 6m, this_year, all, custom, or a year like '2021'."""
+    """Presets: 4w, 6m, 12m, this_year, all, custom, or a year like '2021'."""
     today = today or date.today()
     bounds = data_bounds(conn) or (today, today)
+    if preset == "12m":
+        return Range(today - timedelta(days=364), today, "Last 12 months")
     if preset == "4w":
         return Range(today - timedelta(days=27), today, "Last 4 weeks")
     if preset == "6m":

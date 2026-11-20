@@ -15,7 +15,7 @@ export interface Filters {
 
 export const ALL_BUCKETS: Bucket[] = ["long", "short", "music", "unknown"];
 const ALL = ALL_BUCKETS;
-export const DEFAULTS: Filters = { range: "4w", buckets: ALL, bg: true, metric: "count" };
+export const DEFAULTS: Filters = { range: "12m", buckets: ALL, bg: true, metric: "count" };
 
 /** Filters live in the URL so every view can be bookmarked or shared. */
 export function useFilters() {
@@ -85,6 +85,8 @@ export function rangeLabel(f: Filters): string {
   switch (f.range) {
     case "4w":
       return "the past 4 weeks";
+    case "12m":
+      return "the past year";
     case "6m":
       return "the past 6 months";
     case "this_year":

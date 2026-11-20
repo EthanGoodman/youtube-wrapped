@@ -142,6 +142,7 @@ def test_range_previous():
 def test_resolve_range(conn):
     today = D("2024-06-15")
     assert resolve_range(conn, "4w", today=today).days == 28
+    assert resolve_range(conn, "12m", today=today).days == 365
     assert resolve_range(conn, "4w", today=today).end == today
     assert resolve_range(conn, "this_year", today=today).start == D("2024-01-01")
     y = resolve_range(conn, "2023", today=today)
