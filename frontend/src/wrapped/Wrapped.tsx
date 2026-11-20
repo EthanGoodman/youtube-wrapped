@@ -12,15 +12,15 @@ import { NETFLIX_CARDS, NMark } from "./netflixCards";
 import { AnyWrapped, WrappedData, WrappedMode } from "./types";
 
 /** Look of the picker and player around the cards, per platform. */
-const BRAND: Record<string, { mark: (size: number) => React.ReactNode; file: string; pickerBg: string; tiles: string[]; backdrop: string; tileFont?: string }> = {
+const BRAND: Record<string, { name: string; mark: (size: number) => React.ReactNode; file: string; pickerBg: string; tiles: string[]; backdrop: string; tileFont?: string }> = {
   youtube: {
-    mark: (size) => <YtMark size={size} />, file: "youtube-wrapped",
+    name: "YouTube", mark: (size) => <YtMark size={size} />, file: "youtube-wrapped",
     pickerBg: "radial-gradient(ellipse at top,#4a0012,#0f0f0f 60%)",
     tiles: ["#ff0033", "#7c3aed", "#f97316", "#0ea5e9", "#db2777", "#10b981"],
     backdrop: "radial-gradient(circle at 30% 30%, #ff0033, transparent 55%), radial-gradient(circle at 70% 70%, #7c3aed, transparent 55%)",
   },
   netflix: {
-    mark: (size) => <NMark size={size} />, file: "netflix-wrapped",
+    name: "Netflix", mark: (size) => <NMark size={size} />, file: "netflix-wrapped",
     pickerBg: "radial-gradient(ellipse at top,#5c0a0f,#0b0b0b 60%)",
     tiles: ["#e50914", "#b20710", "#831010", "#5c0a0f", "#e50914", "#b20710"],
     backdrop: "radial-gradient(circle at 30% 30%, #e50914, transparent 55%), radial-gradient(circle at 70% 70%, #5c0a0f, transparent 55%)",
@@ -88,7 +88,7 @@ function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: Wrapped
   return (
     <div className="flex min-h-[100dvh] flex-col items-center px-5 py-10" style={{ background: brand.pickerBg }}>
       <Link to="/" className="self-start text-sm text-sub hover:text-ink">‹ Back to dashboard</Link>
-      <div className="mt-10 flex items-center gap-2">{brand.mark(40)}<span className="font-display text-3xl font-black">Wrapped</span></div>
+      <div className="mt-10 flex items-center gap-2">{brand.mark(40)}<span className="font-display text-3xl font-black">{brand.name} Wrapped</span></div>
       <p className="mt-2 text-center text-sub">Pick a year for your story</p>
       <div className="mt-4"><ModeSwitch mode={mode} onChange={setMode} /></div>
       <div className="mt-8 grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3">

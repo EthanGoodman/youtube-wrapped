@@ -38,8 +38,7 @@ function Card({ children, footer = true, year, glow = "top" }: {
       {footer && (
         <div className="relative z-10 flex items-center justify-between px-7 pb-6">
           <span className="flex items-center gap-2"><NMark size={18} />
-            <span className="text-[15px] font-extrabold tracking-tight">Wrapped</span>
-            <span className="text-[13px] text-white/50">· Netflix</span>
+            <span className="text-[15px] font-extrabold tracking-tight">Netflix Wrapped</span>
           </span>
           {year && <span className="text-[15px] font-extrabold text-white/70">{year}</span>}
         </div>
@@ -381,8 +380,7 @@ function NetflixSummary({ d }: { d: NetflixWrappedData }) {
     <Card footer={false}>
       <div className="-mt-4 flex items-center justify-between">
         <span className="flex items-center gap-2"><NMark size={26} />
-          <span className="text-[20px] font-extrabold tracking-tight">Wrapped</span>
-          <span className="text-[14px] text-white/50">· Netflix</span>
+          <span className="text-[20px] font-extrabold tracking-tight">Netflix Wrapped</span>
         </span>
         <span style={heavy} className="text-[32px] leading-none">{d.year}</span>
       </div>
