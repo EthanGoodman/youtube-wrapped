@@ -207,9 +207,15 @@ def test_top_channels_count_and_rank_change(conn):
     t = tops.top_channels(conn, Y2024, F)
     assert [(i["key"], i["count"]) for i in t] == [("UCa", 3), ("UCb", 3), ("UCc", 2)]
     # 2023: UCa #1 (3), UCb #2 (1). Tie in 2024 broken by key -> UCa #1, UCb #2.
-    assert [i["rank_change"] for i in t] == [0, 0, None]   # UCc is new
+    assert [i["rank_change"] for i in t] == [0, 0, None]
+    assert [i["is_new"] for i in t] == [False, False, True]   # UCc is new
     assert t[0]["share"] == pytest.approx(3 / 9)
     assert t[0]["title"] == "Chan UCa" and t[0]["first_watched"] == "2023-03-01"
+
+
+def test_no_new_badges_without_previous_data(conn):
+    t = tops.top_channels(conn, Range(D("2023-01-01"), D("2024-12-31")), F)  # previous period is empty
+    assert not any(i["is_new"] for i in t) and not any(i["comparable"] for i in t)
 
 
 def test_top_channels_by_time(conn):

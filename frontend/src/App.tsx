@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { PageTitle } from "./components/ui";
 import { Home } from "./pages/Home";
+import { Top } from "./pages/Top";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -20,7 +21,7 @@ export function App() {
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
-        <Route path="/top/:kind" element={<Layout><Placeholder title="Top" /></Layout>} />
+        <Route path="/top/:kind" element={<Layout><Top /></Layout>} />
         <Route path="/patterns" element={<Layout><Placeholder title="Patterns" /></Layout>} />
         <Route path="/records" element={<Layout><Placeholder title="Records" /></Layout>} />
         <Route path="/evolution" element={<Layout><Placeholder title="Evolution" /></Layout>} />

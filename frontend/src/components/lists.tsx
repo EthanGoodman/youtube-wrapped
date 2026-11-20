@@ -27,7 +27,7 @@ export function ChannelCarousel({ items }: { items: RankedItem[] }) {
           </div>
           <div className="mt-2 line-clamp-1 w-full text-sm font-medium">{c.title ?? "Unknown channel"}</div>
           <div className="flex items-center gap-1.5 text-xs text-sub">
-            {measure(c, filters.metric)} <RankChange change={c.rank_change} />
+            {measure(c, filters.metric)} <RankChange item={c} />
           </div>
         </Link>
       ))}
@@ -76,7 +76,7 @@ export function RankedRows({ items, kind, showShare = false, compactRows = false
                 </span>
                 <span className="flex items-center gap-2 text-xs text-sub">
                   {showShare && <span className="tabular">{pct(it.share, 1)}</span>}
-                  <RankChange change={it.rank_change} />
+                  <RankChange item={it} />
                 </span>
               </div>
             </Link>
@@ -107,7 +107,7 @@ export function BarList({ items, linkTo, metric }: {
             <span className="relative min-w-0 flex-1 truncate text-sm font-medium">{it.title ?? it.key}</span>
             <span className="relative flex shrink-0 items-center gap-2 px-3 text-xs text-sub tabular">
               {metric === "time" ? duration(it.time_s) : num(it.count)}
-              <RankChange change={it.rank_change} />
+              <RankChange item={it} />
             </span>
           </div>
         );

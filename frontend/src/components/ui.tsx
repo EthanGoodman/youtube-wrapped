@@ -76,9 +76,12 @@ export function Delta({ value, suffix = "vs previous period" }: { value: number 
   );
 }
 
-/** stats.fm-style rank movement: green up, red down, NEW for unranked before. */
-export function RankChange({ change }: { change: number | null | undefined }) {
-  if (change == null)
+/** stats.fm-style rank movement: green up, red down, NEW for unranked before.
+ *  Pass the ranked item; nothing is shown when there's no earlier period to compare with. */
+export function RankChange({ item }: { item: { rank_change: number | null; comparable?: boolean; is_new?: boolean } }) {
+  if (!item.comparable) return null;
+  const change = item.rank_change;
+  if (item.is_new || change == null)
     return <span className="rounded bg-yt/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-yt-soft">NEW</span>;
   if (change === 0) return <Minus size={14} className="text-muted" aria-label="same rank" />;
   const up = change > 0;

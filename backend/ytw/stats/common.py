@@ -102,9 +102,10 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
            compare: bool = True, pre_aggregate_by_video: bool = False) -> list[dict]:
     """Rank `key_sql` values by count or estimated time within a range.
 
-    Returns [{key, count, time_s, share, rank, prev_rank, rank_change}], where share is
-    the fraction of the range total for the chosen metric and rank_change is positive
-    when the item moved up (None if it wasn't ranked in the previous period: "new").
+    Returns [{key, count, time_s, share, rank, prev_rank, rank_change, comparable, is_new}]:
+    share is the fraction of the range total for the chosen metric; rank_change is positive
+    when the item moved up; is_new marks items unranked in the previous period, and
+    comparable is False when the previous period has no data (nothing is "new" then).
     With pre_aggregate_by_video, watches are first summed per video (much faster when
     `joins` fans out to many rows per video, e.g. tags).
     """
@@ -136,9 +137,11 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
 
     cur, total = run(r, limit)
     prev_rank = {}
+    comparable = False  # False when the previous period has no data at all (e.g. "all time")
     if compare:
         prev, _ = run(r.previous(), max(limit * 4, 200))
         prev_rank = {p["key"]: i + 1 for i, p in enumerate(prev)}
+        comparable = bool(prev)
     for i, item in enumerate(cur):
         val = item["time_s"] if f.metric == "time" else item["count"]
         item["share"] = (val / total) if total else 0
@@ -146,6 +149,8 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
         pr = prev_rank.get(item["key"])
         item["prev_rank"] = pr
         item["rank_change"] = (pr - item["rank"]) if pr else None
+        item["comparable"] = comparable
+        item["is_new"] = comparable and pr is None
     return cur
 
 

@@ -114,6 +114,8 @@ export interface RankedItem {
   rank: number;
   prev_rank: number | null;
   rank_change: number | null;
+  comparable: boolean;
+  is_new: boolean;
   title?: string | null;
   // channels
   avatar_url?: string | null;
