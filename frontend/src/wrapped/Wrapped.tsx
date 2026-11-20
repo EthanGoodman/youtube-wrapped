@@ -7,21 +7,60 @@ import { useQuery } from "@tanstack/react-query";
 import { getJson, useMeta } from "../api";
 import { num } from "../format";
 import { CARDS, CARD_H, CARD_W, CardDef, YtMark } from "./cards";
-import { WrappedData } from "./types";
+import { WrappedData, WrappedMode } from "./types";
 
 const SECONDS_PER_CARD = 7;
+
+const MODES: [WrappedMode, string][] = [["all", "All"], ["videos", "Videos"], ["shorts", "Shorts"]];
+
+/** Mode from ?mode=, else from the dashboard's content switch (?buckets=) so Wrapped opens the way you were browsing. */
+function useMode(): [WrappedMode, (m: WrappedMode) => void] {
+  const [params, setParams] = useSearchParams();
+  const explicit = params.get("mode");
+  let mode: WrappedMode = "all";
+  if (explicit === "videos" || explicit === "shorts") mode = explicit;
+  else if (!explicit) {
+    const b = (params.get("buckets") ?? "").split(",").filter(Boolean).sort().join(",");
+    if (b === "short") mode = "shorts";
+    else if (b === "long,music") mode = "videos";
+  }
+  const set = (m: WrappedMode) =>
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("buckets");
+      next.delete("card");
+      if (m === "all") next.set("mode", "all"); else next.set("mode", m);
+      return next;
+    }, { replace: true });
+  return [mode, set];
+}
+
+function ModeSwitch({ mode, onChange }: { mode: WrappedMode; onChange: (m: WrappedMode) => void }) {
+  return (
+    <div className="inline-flex rounded-full bg-white/10 p-0.5 text-sm font-medium backdrop-blur" role="group" aria-label="Wrapped content"
+         onPointerDown={(e) => e.stopPropagation()}>
+      {MODES.map(([m, label]) => (
+        <button key={m} aria-pressed={mode === m} onClick={() => onChange(m)}
+                className={`rounded-full px-3.5 py-1 transition-colors ${mode === m ? "bg-white text-[#0f0f0f]" : "text-white/80 hover:text-white"}`}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function WrappedPage() {
   const [params] = useSearchParams();
   const year = Number(params.get("year")) || null;
+  const [mode, setMode] = useMode();
   // ?still: show every card in its final state, no entrance animations
   MotionGlobalConfig.skipAnimations = params.has("still");
-  return year ? <Story year={year} /> : <YearPicker />;
+  return year ? <Story key={mode} year={year} mode={mode} setMode={setMode} /> : <YearPicker mode={mode} setMode={setMode} />;
 }
 
 // ------------------------------------------------------------------ year picker
 
-function YearPicker() {
+function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: WrappedMode) => void }) {
   const meta = useMeta().data;
   const years = [...(meta?.years ?? [])].reverse();
   return (
@@ -29,10 +68,11 @@ function YearPicker() {
       <Link to="/" className="self-start text-sm text-sub hover:text-ink">‹ Back to dashboard</Link>
       <div className="mt-10 flex items-center gap-2"><YtMark size={40} /><span className="text-3xl font-black">Wrapped</span></div>
       <p className="mt-2 text-center text-sub">Pick a year for your story</p>
+      <div className="mt-4"><ModeSwitch mode={mode} onChange={setMode} /></div>
       <div className="mt-8 grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3">
         {years.map((y, i) => (
           <motion.div key={y} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-            <Link to={`/wrapped?year=${y}`}
+            <Link to={`/wrapped?year=${y}&mode=${mode}`}
                   className="flex aspect-[4/5] flex-col justify-between rounded-2xl p-4 transition-transform hover:scale-[1.03]"
                   style={{ background: `linear-gradient(160deg, ${["#ff0033", "#7c3aed", "#f97316", "#0ea5e9", "#db2777", "#10b981"][i % 6]}, #1a1a1a 130%)` }}>
               <YtMark size={26} />
@@ -56,23 +96,31 @@ function available(card: CardDef, d: WrappedData): boolean {
     case "discovery": return !!d.discovery;
     case "category": return d.top_categories.length > 0;
     case "shorts-channels": return d.top_shorts_channels.length > 0;
+    case "shorts": return d.mode === "all";  // the Shorts vs long-form split only means something with both
     default: return true;
   }
 }
 
-function Story({ year }: { year: number }) {
-  const q = useQuery<WrappedData>({ queryKey: ["wrapped", year], queryFn: () => getJson(`/api/wrapped/${year}`) });
+function Story({ year, mode, setMode }: { year: number; mode: WrappedMode; setMode: (m: WrappedMode) => void }) {
+  const q = useQuery<WrappedData>({ queryKey: ["wrapped", year, mode], queryFn: () => getJson(`/api/wrapped/${year}?mode=${mode}`) });
   if (q.error) return <Fullscreen><p className="text-sub">Couldn't load your {year}: {(q.error as Error).message}</p></Fullscreen>;
   if (!q.data) return <Fullscreen><Loader2 className="animate-spin text-sub" size={32} /></Fullscreen>;
-  if (q.data.empty) return <Fullscreen><p className="text-sub">No watch history in {year}.</p><Link to="/wrapped" className="mt-4 underline">Pick another year</Link></Fullscreen>;
-  return <Player data={q.data} />;
+  if (q.data.empty)
+    return (
+      <Fullscreen>
+        <p className="text-sub">No {mode === "all" ? "watch history" : mode === "shorts" ? "Shorts" : "videos"} in {year}.</p>
+        <div className="mt-4"><ModeSwitch mode={mode} onChange={setMode} /></div>
+        <Link to="/wrapped" className="mt-4 underline">Pick another year</Link>
+      </Fullscreen>
+    );
+  return <Player data={q.data} setMode={setMode} />;
 }
 
 function Fullscreen({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-bg p-6 text-center">{children}</div>;
 }
 
-function Player({ data }: { data: WrappedData }) {
+function Player({ data, setMode }: { data: WrappedData; setMode: (m: WrappedMode) => void }) {
   const cards = useMemo(() => CARDS.filter((c) => available(c, data)), [data]);
   // ?card=<id> opens the story on that card, paused (handy for linking to one card)
   const [params] = useSearchParams();
@@ -168,8 +216,9 @@ function Player({ data }: { data: WrappedData }) {
           </div>
         )}
       </Stage>
-      {/* bar under the card: share button on the last card, otherwise hints */}
-      <div className="relative z-10 flex h-14 items-center justify-center">
+      {/* bar under the card: content switch, then the share button on the last card, otherwise hints */}
+      <div className="relative z-10 flex h-24 flex-col items-center justify-center gap-2">
+        <ModeSwitch mode={data.mode} onChange={setMode} />
         {last ? (
           <button onClick={exportCard} disabled={exporting}
                   className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#0f0f0f] shadow-xl hover:bg-white/90">
@@ -203,7 +252,7 @@ function Stage({ children }: { children: (scale: number) => React.ReactNode }) {
     const fit = () => {
       const phone = window.innerWidth < 640;
       const w = phone ? window.innerWidth : window.innerWidth - 48;
-      const h = (phone ? window.innerHeight : window.innerHeight - 32) - 56; // 56 = bar under the card
+      const h = (phone ? window.innerHeight : window.innerHeight - 32) - 96; // 96 = bar under the card
       setScale(Math.min(w / CARD_W, h / CARD_H, phone ? Infinity : 1.45));
     };
     fit();

@@ -16,7 +16,7 @@ export interface CardDef {
 
 // ------------------------------------------------------------------ building blocks
 
-function Card({ bg, children, footer = true, year }: { bg: string; children: ReactNode; footer?: boolean; year?: number }) {
+function Card({ bg, children, footer = true, year }: { bg: string; children: ReactNode; footer?: boolean; year?: string }) {
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden text-white" style={{ background: bg, fontFamily: "Roboto, system-ui, sans-serif" }}>
       <Blobs />
@@ -104,6 +104,11 @@ function Avatar({ src, name, size }: { src?: string | null; name?: string | null
 }
 
 const hrs = (s: number) => Math.round(s / 3600);
+export const MODE_LABEL: Record<WrappedData["mode"], string> = { all: "", videos: "Videos only", shorts: "Shorts only" };
+/** Footer tag: "2024", or "2024 · Shorts only" so a filtered card can't pass for the full year. */
+const tag = (d: WrappedData) => (d.mode === "all" ? String(d.year) : `${d.year} · ${MODE_LABEL[d.mode]}`);
+const unit = (d: WrappedData) => (d.mode === "shorts" ? "Shorts" : "videos");
+const what = (d: WrappedData) => (d.mode === "shorts" ? "Shorts" : d.mode === "videos" ? "videos" : "YouTube");
 const title = (t?: string | null) => (t && !t.startsWith("http") ? t : "An unavailable video");
 
 // ------------------------------------------------------------------ cards
@@ -127,7 +132,10 @@ export const CARDS: CardDef[] = [
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           <motion.div {...pop(0.1)}><YtMark size={88} /></motion.div>
           <motion.div {...rise(0.4)} className="mt-6 text-[120px] font-black leading-none tracking-tighter">{d.year}</motion.div>
-          <motion.p {...rise(0.7)} className="mt-3 text-[22px] font-bold">Your year on YouTube</motion.p>
+          <motion.p {...rise(0.7)} className="mt-3 text-[22px] font-bold">
+            {d.mode === "shorts" ? "Your year in Shorts" : d.mode === "videos" ? "Your year in videos" : "Your year on YouTube"}
+          </motion.p>
+          {d.mode !== "all" && <motion.p {...rise(0.9)} className="mt-2 text-sm text-white/70">{MODE_LABEL[d.mode]}</motion.p>}
           <motion.p {...rise(1.1)} className="mt-10 text-sm text-white/70">Tap to start ▸</motion.p>
         </div>
       </Card>
@@ -138,10 +146,10 @@ export const CARDS: CardDef[] = [
     render: (d) => {
       const days = d.overview.est_s / 86400;
       return (
-        <Card bg={G.sunset} year={d.year}>
+        <Card bg={G.sunset} year={tag(d)}>
           <Kicker>In {d.year} you watched about</Kicker>
           <Big size={92} delay={0.3}><CountUp to={hrs(d.overview.est_s)} /></Big>
-          <Big size={40} delay={0.4}>hours of YouTube</Big>
+          <Big size={40} delay={0.4}>hours of {what(d)}</Big>
           <motion.div {...rise(1.2)} className="mt-8 space-y-3 text-[17px]">
             <p>That's <b>{days >= 1 ? `${days.toFixed(1)} full days` : `${Math.round(d.overview.est_s / 60)} minutes`}</b>.</p>
             <p>Across <b>{num(d.overview.videos)} videos</b> from <b>{num(d.overview.unique_channels)} channels</b>.</p>
@@ -159,7 +167,7 @@ export const CARDS: CardDef[] = [
     render: (d) => {
       const c = d.top_channels[0];
       return (
-        <Card bg={G.dark} year={d.year}>
+        <Card bg={G.dark} year={tag(d)}>
           <Kicker>Your #1 channel of {d.year} was…</Kicker>
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <motion.div initial={{ opacity: 0, scale: 0.2, rotate: -20 }} animate={{ opacity: 1, scale: 1, rotate: 0 }}
@@ -168,8 +176,8 @@ export const CARDS: CardDef[] = [
               <Avatar src={c?.avatar_url} name={c?.title} size={190} />
             </motion.div>
             <motion.div {...rise(1.5)} className="mt-6 text-[36px] font-black leading-tight">{c?.title}</motion.div>
-            <motion.div {...rise(1.8)} className="mt-2 text-[17px] text-white/80">{num(c?.count ?? 0)} videos</motion.div>
-            <motion.div {...rise(2.1)} className="mt-1 text-[12px] text-white/50">not counting Shorts</motion.div>
+            <motion.div {...rise(1.8)} className="mt-2 text-[17px] text-white/80">{num(c?.count ?? 0)} {unit(d)}</motion.div>
+            {d.mode === "all" && <motion.div {...rise(2.1)} className="mt-1 text-[12px] text-white/50">not counting Shorts</motion.div>}
           </div>
         </Card>
       );
@@ -178,8 +186,8 @@ export const CARDS: CardDef[] = [
   {
     id: "top-5", label: "Top 5 channels",
     render: (d) => (
-      <Card bg={G.pink} year={d.year}>
-        <Kicker>Your top channels <span className="text-white/60">(long-form)</span></Kicker>
+      <Card bg={G.pink} year={tag(d)}>
+        <Kicker>Your top {d.mode === "shorts" ? "Shorts " : ""}channels{d.mode === "all" && <span className="text-white/60"> (long-form)</span>}</Kicker>
         <div className="mt-6 flex flex-col gap-4">
           {d.top_channels.slice(0, 5).map((c, i) => (
             <motion.div key={c.key} {...rise(0.3 + i * 0.18)} className="flex items-center gap-4">
@@ -187,7 +195,7 @@ export const CARDS: CardDef[] = [
               <Avatar src={c.avatar_url} name={c.title} size={60} />
               <div className="min-w-0">
                 <div className="truncate text-[19px] font-bold">{c.title}</div>
-                <div className="text-sm text-white/75">{num(c.count)} videos</div>
+                <div className="text-sm text-white/75">{num(c.count)} {unit(d)}</div>
               </div>
             </motion.div>
           ))}
@@ -201,7 +209,7 @@ export const CARDS: CardDef[] = [
       const v = d.top_videos[0];
       if (!v) return null;
       return (
-        <Card bg={G.blue} year={d.year}>
+        <Card bg={G.blue} year={tag(d)}>
           <Kicker>The video you kept coming back to</Kicker>
           <motion.img {...pop(0.4)} src={thumbOf(v.key, v.thumb)} alt=""
                       className="mt-8 aspect-video w-full rounded-2xl object-cover shadow-2xl" />
@@ -219,7 +227,7 @@ export const CARDS: CardDef[] = [
       const cat = d.top_categories[0];
       const genres = d.top_genres.slice(0, 3);
       return (
-        <Card bg={G.teal} year={d.year}>
+        <Card bg={G.teal} year={tag(d)}>
           <Kicker>You were all about</Kicker>
           <Big size={58} delay={0.3}>{cat?.title ?? "Everything"}</Big>
           {cat && <Kicker delay={0.6}>{Math.round(cat.share * 100)}% of your videos</Kicker>}
@@ -243,7 +251,7 @@ export const CARDS: CardDef[] = [
       const total = s.long.videos + s.short.videos + s.music.videos || 1;
       const sp = Math.round((s.short.videos / total) * 100);
       return (
-        <Card bg={G.red} year={d.year}>
+        <Card bg={G.red} year={tag(d)}>
           <Kicker>Shorts or long-form?</Kicker>
           <Big size={110} delay={0.3}><CountUp to={sp} format={(n) => `${Math.round(n)}%`} /></Big>
           <Kicker delay={0.5}>of your videos were Shorts</Kicker>
@@ -269,7 +277,7 @@ export const CARDS: CardDef[] = [
       const [first, ...rest] = d.top_shorts_channels;
       if (!first) return null;
       return (
-        <Card bg={G.night} year={d.year}>
+        <Card bg={G.night} year={tag(d)}>
           <Kicker>Your Shorts rabbit hole</Kicker>
           <div className="mt-8 flex flex-col items-center text-center">
             <motion.div {...pop(0.4)} className="rounded-full p-1.5" style={{ background: "linear-gradient(135deg,#ff0033,#7c5cff)" }}>
@@ -295,7 +303,7 @@ export const CARDS: CardDef[] = [
   {
     id: "clock", label: "Watch clock",
     render: (d) => (
-      <Card bg={G.night} year={d.year}>
+      <Card bg={G.night} year={tag(d)}>
         <Kicker>Your watch clock</Kicker>
         <Big size={40} delay={0.2}>Peak hour: {hourLabel(d.peak_hour)}</Big>
         <div className="flex flex-1 items-center justify-center">
@@ -307,7 +315,7 @@ export const CARDS: CardDef[] = [
   {
     id: "biggest-day", label: "Biggest day",
     render: (d) => d.biggest_day && (
-      <Card bg={G.gold} year={d.year}>
+      <Card bg={G.gold} year={tag(d)}>
         <Kicker>Your biggest day was</Kicker>
         <Big size={46} delay={0.3}>{date(d.biggest_day.date)}</Big>
         <div className="flex flex-1 flex-col justify-center">
@@ -325,7 +333,7 @@ export const CARDS: CardDef[] = [
   {
     id: "streak", label: "Streak",
     render: (d) => d.streak && (
-      <Card bg={G.sunset} year={d.year}>
+      <Card bg={G.sunset} year={tag(d)}>
         <Kicker>Your longest streak</Kicker>
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           <motion.div {...pop(0.3)} className="text-[90px] leading-none">🔥</motion.div>
@@ -339,7 +347,7 @@ export const CARDS: CardDef[] = [
   {
     id: "night", label: "Latest night",
     render: (d) => d.latest_night && (
-      <Card bg={G.night} year={d.year}>
+      <Card bg={G.night} year={tag(d)}>
         <Kicker>Your latest night</Kicker>
         <Big size={66} delay={0.3}><span className="whitespace-nowrap">{clockTime(d.latest_night.local_iso)}</span></Big>
         <Kicker delay={0.5}>{date(d.latest_night.local_iso)}. Go to sleep. 🌙</Kicker>
@@ -354,7 +362,7 @@ export const CARDS: CardDef[] = [
   {
     id: "discovery", label: "Discovery",
     render: (d) => d.discovery && (
-      <Card bg={G.teal} year={d.year}>
+      <Card bg={G.teal} year={tag(d)}>
         <Kicker>Your discovery of the year</Kicker>
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           <motion.div {...pop(0.5)} className="rounded-full bg-white/20 p-2"><Avatar src={d.discovery.avatar_url} name={d.discovery.title} size={170} /></motion.div>
@@ -372,7 +380,7 @@ export const CARDS: CardDef[] = [
       const p = d.personality;
       const c = p.color ?? "#ff0033";
       return (
-        <Card bg={`linear-gradient(165deg, ${c} 0%, #0f0f0f 115%)`} year={d.year}>
+        <Card bg={`linear-gradient(165deg, ${c} 0%, #0f0f0f 115%)`} year={tag(d)}>
           <Kicker>Your viewer personality is</Kicker>
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }}
@@ -401,12 +409,15 @@ export function SummaryCard({ d }: { d: WrappedData }) {
     <Card bg={G.red} footer={false}>
       <div className="-mt-3 flex items-center justify-between">
         <span className="flex items-center gap-2 text-[15px] font-black"><YtMark size={24} /> YouTube Wrapped</span>
-        <span className="text-[34px] font-black leading-none">{d.year}</span>
+        <span className="text-right">
+          <span className="block text-[34px] font-black leading-none">{d.year}</span>
+          {d.mode !== "all" && <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/80">{MODE_LABEL[d.mode]}</span>}
+        </span>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-x-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/70">Top channels</p>
-          <p className="text-[9px] text-white/50">not counting Shorts</p>
+          {d.mode === "all" && <p className="text-[9px] text-white/50">not counting Shorts</p>}
           <ol className="mt-2 space-y-1.5">
             {d.top_channels.slice(0, 5).map((c, i) => (
               <li key={c.key} className="flex items-center gap-2">
@@ -442,7 +453,9 @@ export function SummaryCard({ d }: { d: WrappedData }) {
         <Stat label="Hours watched" value={num(hrs(d.overview.est_s))} sub="estimated" />
         <Stat label="Videos" value={compact(d.overview.videos)} sub={`${num(d.overview.unique_channels)} channels`} />
         <Stat label="Longest streak" value={d.streak ? `${d.streak.days} days` : "–"} />
-        <Stat label="Top Shorts" value={d.top_shorts_channels[0]?.title ?? "–"} small />
+        {d.mode === "all"
+          ? <Stat label="Top Shorts" value={d.top_shorts_channels[0]?.title ?? "–"} small />
+          : <Stat label="Peak hour" value={hourLabel(d.peak_hour)} />}
       </div>
       <div className="mt-auto flex items-center gap-3 rounded-2xl bg-white px-4 py-2.5 text-[#0f0f0f]">
         <span className="text-[38px] leading-none">{p.emoji}</span>

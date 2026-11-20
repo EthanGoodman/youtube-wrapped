@@ -84,6 +84,7 @@ Click **Wrapped** in the top bar, pick a year, and get a Spotify-Wrapped-style s
 
 - Tap/click the right side or press → to go forward, left side or ← to go back, hold or press Space to pause.
 - The ⬇ button saves the current card as a **1080×1920 PNG** (phone story size). On the last card, **Save share image** saves the summary.
+- The **All · Videos · Shorts** switch under the story makes the whole Wrapped about everything, long-form videos only, or Shorts only (it starts on whatever the dashboard switch was set to). Cards made in Videos or Shorts mode are labelled "Videos only" / "Shorts only", including in saved images.
 - Add `&still` to the URL to skip the animations.
 
 **Viewer personality.** `personalities.toml` defines the personalities (Night Owl, Binger, Loyalist, Explorer, Shorts Scroller, Gamer, Sleep Streamer, ...). Each one looks at one metric for the year (for example `night_share`, the share of videos started between midnight and 5am) and has a threshold. The one that beats its threshold by the most wins, and the card says why. Edit the thresholds, wording or emoji and reload the page; the file lists every available metric.

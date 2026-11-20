@@ -12,8 +12,11 @@ export interface Personality {
   also: { id: string; name: string; emoji: string }[];
 }
 
+export type WrappedMode = "all" | "videos" | "shorts";
+
 export interface WrappedData {
   year: number;
+  mode: WrappedMode;
   empty: boolean;
   overview: {
     videos: number;
