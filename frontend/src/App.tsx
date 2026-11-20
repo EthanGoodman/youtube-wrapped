@@ -8,6 +8,7 @@ import { Patterns } from "./pages/Patterns";
 import { Records } from "./pages/Records";
 import { Ads } from "./pages/Ads";
 import { Evolution } from "./pages/Evolution";
+import { CategoryPage, ChannelPage, GenrePage, VideoPage, YearPage } from "./pages/Details";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -31,11 +32,11 @@ export function App() {
         <Route path="/evolution" element={<Layout><Evolution /></Layout>} />
         <Route path="/ads" element={<Layout><Ads /></Layout>} />
         <Route path="/search" element={<Layout><Placeholder title="Search" /></Layout>} />
-        <Route path="/channel/:id" element={<Layout><Placeholder title="Channel" /></Layout>} />
-        <Route path="/video/:id" element={<Layout showRange={false}><Placeholder title="Video" /></Layout>} />
-        <Route path="/category/:id" element={<Layout><Placeholder title="Category" /></Layout>} />
-        <Route path="/genre/:topic" element={<Layout><Placeholder title="Genre" /></Layout>} />
-        <Route path="/year/:year" element={<Layout showRange={false}><Placeholder title="Year" /></Layout>} />
+        <Route path="/channel/:id" element={<Layout><ChannelPage /></Layout>} />
+        <Route path="/video/:id" element={<Layout showRange={false}><VideoPage /></Layout>} />
+        <Route path="/category/:id" element={<Layout><CategoryPage /></Layout>} />
+        <Route path="/genre/:topic" element={<Layout><GenrePage /></Layout>} />
+        <Route path="/year/:year" element={<Layout showRange={false}><YearPage /></Layout>} />
         <Route path="/wrapped" element={<Layout showRange={false}><Placeholder title="Wrapped (Phase 5)" /></Layout>} />
         <Route path="*" element={<Layout><PageTitle title="Not found" /></Layout>} />
       </Routes>
