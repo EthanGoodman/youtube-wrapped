@@ -21,8 +21,8 @@ const CHART_THEMES: Record<string, ChartTheme> = {
     ramp: ["#3b1416", "#5f1519", "#8a141c", "#b5111d", "#e50914", "#f6404a", "#ff858b"],
   },
   crunchyroll: {
-    accent: "#f47521", accentHi: "#ffb27a", surface: "#141519", empty: "#23252b",
-    ramp: ["#3a1f0e", "#5c2f12", "#874114", "#b45515", "#e06a17", "#f78b3d", "#ffb27a"],
+    accent: "#ff640a", accentHi: "#ffa36b", surface: "#151515", empty: "#272727",
+    ramp: ["#3d1a05", "#632707", "#8f3708", "#be4a08", "#ff640a", "#ff8a45", "#ffb98a"],
   },
 };
 

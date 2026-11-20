@@ -8,6 +8,12 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import "@fontsource/roboto/900.css";
+// Crunchyroll theme: DM Sans for text, Bricolage Grotesque for headlines (free stand-ins for its fonts)
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/700.css";
+import "@fontsource/bricolage-grotesque/700.css";
+import "@fontsource/bricolage-grotesque/800.css";
 // Netflix theme: Inter
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";

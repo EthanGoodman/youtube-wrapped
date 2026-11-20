@@ -13,7 +13,7 @@ const BRAND: Record<string, { bg: string; fg?: string }> = {
   prime_video: { bg: "linear-gradient(140deg,#00a8e1,#0b2a4a)" },
   tiktok: { bg: "linear-gradient(140deg,#25f4ee 0%,#111 45%,#fe2c55 100%)" },
   instagram: { bg: "linear-gradient(140deg,#f58529,#dd2a7b 50%,#8134af)" },
-  crunchyroll: { bg: "linear-gradient(140deg,#f47521,#7a3510)" },
+  crunchyroll: { bg: "linear-gradient(140deg,#ff640a,#7a2a05)" },
 };
 
 export function Hub() {

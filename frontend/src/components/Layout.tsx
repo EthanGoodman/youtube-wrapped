@@ -6,6 +6,7 @@ import { useLinkQuery } from "../filters";
 import { useMeta } from "../api";
 import { RangeBar } from "./RangeBar";
 import { NetflixShell } from "./NetflixShell";
+import { CrunchyrollShell } from "./CrunchyrollShell";
 
 interface NavItem { to: string; label: string; icon: typeof Home; end?: boolean; match?: string; cap?: string }
 const ALL_NAV: NavItem[] = [
@@ -45,7 +46,9 @@ export function Logo() {
 
 export function Layout({ children, showRange = true }: { children: ReactNode; showRange?: boolean }) {
   // Netflix gets its own frame (top bar, menus, phone tabs) so it feels like Netflix, not a recolored YouTube
-  if (["netflix", "crunchyroll"].includes(usePlatform()?.theme ?? "")) return <NetflixShell showRange={showRange}>{children}</NetflixShell>;
+  const theme = usePlatform()?.theme;
+  if (theme === "crunchyroll") return <CrunchyrollShell showRange={showRange}>{children}</CrunchyrollShell>;
+  if (theme === "netflix") return <NetflixShell showRange={showRange}>{children}</NetflixShell>;
   return <DefaultLayout showRange={showRange}>{children}</DefaultLayout>;
 }
 

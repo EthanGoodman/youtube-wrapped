@@ -59,22 +59,22 @@
 }
 
 :root[data-theme="crunchyroll"] {
-  /* interim Crunchyroll palette: black and Crunchyroll orange (its full look comes later) */
-  --font-sans: Inter;
-  --font-display: Inter;
+  /* Crunchyroll's current palette (2024 rebrand): black, dark grays, orange #ff640a */
+  --font-sans: "DM Sans";
+  --font-display: "Bricolage Grotesque";
   --c-bg: 0 0 0;             /* #000 */
-  --c-card: 20 21 25;        /* #141519 */
-  --c-raised: 35 37 43;      /* #23252b */
-  --c-line: 59 62 69;        /* #3b3e45 */
+  --c-card: 21 21 21;        /* #151515 */
+  --c-raised: 39 39 39;      /* #272727 */
+  --c-line: 65 65 65;        /* #414141 */
   --c-ink: 255 255 255;
-  --c-sub: 160 160 160;
-  --c-muted: 113 113 113;
-  --c-accent: 244 117 33;    /* #f47521 Crunchyroll orange */
-  --c-accent-dark: 210 92 18;
-  --c-accent-soft: 255 140 64;
-  --c-up: 46 204 113;
-  --c-down: 255 99 71;
-  --radius-card: 4px;
+  --c-sub: 187 187 187;      /* #bbb */
+  --c-muted: 140 140 140;    /* #8c8c8c */
+  --c-accent: 255 100 10;    /* #ff640a */
+  --c-accent-dark: 224 82 0; /* #e05200 */
+  --c-accent-soft: 255 123 46; /* #ff7b2e */
+  --c-up: 42 189 187;        /* teal #2abdbb */
+  --c-down: 193 57 55;       /* #c13937 */
+  --radius-card: 0px;
 }
 
 html,
@@ -231,3 +231,58 @@ body {
   color: #fff;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
 }
+
+/* ---------------------------------------------------------------- Crunchyroll look
+   (on top of the shared rules above): square corners, uppercase labels, dark-teal chips,
+   orange underlines, quick fades */
+:root[data-theme="crunchyroll"] body { font-family: "DM Sans", "Helvetica Neue", Helvetica, sans-serif; }
+:root[data-theme="crunchyroll"] .cr-display,
+:root[data-theme="crunchyroll"] h1,
+:root[data-theme="crunchyroll"] .section-title { font-family: "Bricolage Grotesque", "DM Sans", sans-serif; letter-spacing: -0.02em; }
+:root[data-theme="crunchyroll"] .section-title { font-size: clamp(20px, 1.7vw, 26px); font-weight: 800; color: #fff; }
+:root[data-theme="crunchyroll"] .section-sub { color: #8c8c8c; }
+/* square corners everywhere except avatars */
+:root[data-theme="crunchyroll"] main .rounded-\[4px\],
+:root[data-theme="crunchyroll"] main .rounded-\[3px\],
+:root[data-theme="crunchyroll"] main .rounded-\[2px\],
+:root[data-theme="crunchyroll"] main .rounded-sm,
+:root[data-theme="crunchyroll"] main .rounded-md { border-radius: 0; }
+/* filter chips: dark teal, uppercase; orange when on */
+:root[data-theme="crunchyroll"] .nf-pill {
+  border: 0; border-radius: 0; background: #213944; color: #bbb;
+  padding: 0.45rem 0.85rem; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+:root[data-theme="crunchyroll"] .nf-pill:hover { background: #2f5161; color: #fff; }
+:root[data-theme="crunchyroll"] .nf-pill-on,
+:root[data-theme="crunchyroll"] .nf-pill-on:hover { background: #ff640a !important; color: #000; }
+/* toggles: text tabs with an orange underline */
+:root[data-theme="crunchyroll"] .seg { gap: 0.75rem; }
+:root[data-theme="crunchyroll"] .seg > button {
+  border-radius: 0; padding: 0.3rem 0.1rem; background: transparent; color: #8c8c8c;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  box-shadow: inset 0 -2px 0 transparent; transition: color 0.15s ease, box-shadow 0.15s ease;
+}
+:root[data-theme="crunchyroll"] .seg > button:hover { color: #fff; }
+:root[data-theme="crunchyroll"] .seg > button[aria-pressed="true"] { background: transparent; color: #fff; box-shadow: inset 0 -3px 0 #ff640a; }
+/* buttons: 40px, uppercase, square; orange fill or orange outline */
+:root[data-theme="crunchyroll"] .btn-primary,
+:root[data-theme="crunchyroll"] .btn-secondary {
+  height: 40px; min-width: 120px; border-radius: 0; padding: 0 16px; font-size: 14px; font-weight: 700;
+  letter-spacing: 0.03em; text-transform: uppercase; transition: background-color 0.2s ease, color 0.2s ease;
+}
+:root[data-theme="crunchyroll"] .btn-primary { background: #ff640a; color: #000; }
+:root[data-theme="crunchyroll"] .btn-primary:hover { background: #ff7b2e; }
+:root[data-theme="crunchyroll"] .btn-secondary { background: transparent; color: #ff640a; box-shadow: inset 0 0 0 2px currentColor; }
+:root[data-theme="crunchyroll"] .btn-secondary:hover { color: #ff7b2e; background: rgba(255, 255, 255, 0.04); }
+/* select trigger and menus */
+:root[data-theme="crunchyroll"] .nf-select {
+  border: 0; background: transparent; color: #fff; font-weight: 700; font-size: 13px;
+  letter-spacing: 0.04em; text-transform: uppercase; padding: 0.4rem 0.2rem;
+}
+:root[data-theme="crunchyroll"] .nf-select:hover,
+:root[data-theme="crunchyroll"] .nf-select[aria-expanded="true"] { color: #2abdbb; background: transparent; }
+:root[data-theme="crunchyroll"] .nf-menu { border: 0; border-radius: 0; background: #272727; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); }
+:root[data-theme="crunchyroll"] .link-row:hover { background: #151515; }
+:root[data-theme="crunchyroll"] .lucide { stroke-width: 2.25; }
+

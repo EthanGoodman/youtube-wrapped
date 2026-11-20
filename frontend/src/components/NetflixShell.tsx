@@ -19,8 +19,8 @@ export function WrappedMark({ size = 24 }: { size?: number }) {
   );
 }
 
-interface NavItem { to: string; label: string; end?: boolean; match?: string }
-const LINKS: NavItem[] = [
+export interface NavItem { to: string; label: string; end?: boolean; match?: string }
+export const LINKS: NavItem[] = [
   { to: "/", label: "Home", end: true },
   { to: "/shows", label: "Shows" },
   { to: "/top/movies", label: "Movies", match: "/top/movies" },
@@ -43,7 +43,7 @@ function useScrolled() {
 }
 
 /** Click-outside / Escape to close a menu. */
-function useDismiss(open: boolean, close: () => void) {
+export function useDismiss(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -56,7 +56,7 @@ function useDismiss(open: boolean, close: () => void) {
   return ref;
 }
 
-function isActive(n: NavItem, pathname: string) {
+export function isActive(n: NavItem, pathname: string) {
   const rest = pathname.replace(/^\/[^/]+/, "") || "/";
   if (n.match) return n.match === "/top/" ? rest.startsWith("/top/") && !rest.startsWith("/top/movies") : rest.startsWith(n.match);
   return n.end ? rest === "/" : rest.startsWith(n.to);
@@ -196,7 +196,7 @@ function BrowseMenu({ pathname }: { pathname: string }) {
 const PRESETS: [string, string][] = [["4w", "Last 4 weeks"], ["6m", "Last 6 months"], ["this_year", "This year"], ["all", "Lifetime"]];
 
 /** The period picker as a Netflix dropdown ("Lifetime ▾"), like its season picker. */
-function RangeMenu({ pill = false }: { pill?: boolean }) {
+export function RangeMenu({ pill = false }: { pill?: boolean }) {
   const { filters, update } = useFilters();
   const meta = useMeta().data;
   const [open, setOpen] = useState(false);
@@ -247,14 +247,14 @@ function MenuItem({ on, onClick, children }: { on: boolean; onClick: () => void;
 }
 
 /** Profile square with a dropdown, like Netflix's account menu. */
-function ProfileMenu() {
+export function ProfileMenu({ round = false }: { round?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
   const q = useLinkQuery();
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Menu" className="flex items-center gap-1.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-[4px] bg-gradient-to-br from-[#2c6cdb] to-[#1b3f9c]">
+        <span className={`flex h-8 w-8 items-center justify-center bg-gradient-to-br from-[#2c6cdb] to-[#1b3f9c] ${round ? "rounded-full" : "rounded-[4px]"}`}>
           <Smile size={20} strokeWidth={2.5} />
         </span>
         <ChevronDown size={16} className={`hidden transition-transform duration-200 md:block ${open ? "rotate-180" : ""}`} />
@@ -272,7 +272,7 @@ function ProfileMenu() {
 }
 
 /** Search your shows and movies (everything you've watched), Netflix-style expanding box. */
-function TitleSearch({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
+export function TitleSearch({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
   const [text, setText] = useState("");
   const ref = useDismiss(open, () => setOpen(false));
   const q = useLinkQuery();
