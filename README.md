@@ -2,11 +2,11 @@
 
 A local, private stats dashboard for your YouTube watch history (think stats.fm, but for YouTube), built from a Google Takeout export. Everything runs on your machine. The only thing that leaves it is video/channel ID lookups to the YouTube Data API.
 
-> Status: data pipeline (ingest + API enrichment) is done. Stats engine, dashboard and Wrapped story mode are in progress.
+> Status: data pipeline, stats engine and dashboard are done. The Wrapped story mode is in progress.
 
 ## Setup
 
-Requires Python 3.11+ (and Node 20+ once the frontend lands).
+Requires Python 3.11+ and Node.js 20+.
 
 ```bash
 python -m venv .venv
@@ -57,9 +57,33 @@ python backend/cli.py enrich   # fetch video/channel details from the API
 - **Resumable.** If `enrich` stops (quota, Ctrl+C, network), run it again and it continues where it left off. Quota resets at midnight Pacific time.
 - Useful flags: `enrich --budget 500` (cap units used today), `--skip-ads` (don't look up ad videos), `--retry-missing` (re-ask for videos the API didn't return before).
 
+## 4. Open the dashboard
+
+```bash
+python run.py
+```
+
+That's the one command: it builds the frontend the first time (needs Node.js), then serves everything at **http://localhost:8000** and opens your browser. It only listens on your own machine (`127.0.0.1`), never on your network. Options: `--port 9000`, `--no-browser`, `--rebuild`.
+
+What's in it (every page follows the time-range chips at the top: 4 weeks, 6 months, this year, any year, lifetime, or a custom range, and compares against the previous equal period):
+
+- **Home**: overview tiles, long-form/Shorts/Music split, top channels, top videos, top genres, watch clock, recent watches
+- **Top**: ranked channels, videos, categories, genres and tags, by video count or estimated time, with rank changes
+- **Patterns**: watch clock, day × hour heatmap, calendar, month by month, weekdays vs weekends
+- **Records**: biggest days, longest binge, streaks, latest night, early-bird watches, milestones
+- **Evolution**: #1 channel per year, a bar chart race, new discoveries, loyalty, channels you fell off, category/genre mix by year
+- **Ads** and **Search history**
+- Click any channel, video, category, genre or year for its own page
+
+The ⚙ button sets which videos count (long-form, Shorts, Music) and whether sleep/background audio adds to watch time. Filters live in the URL, so any view can be bookmarked.
+
+Thumbnails and channel avatars load straight from YouTube's image servers, so your browser requests those images from Google.
+
+**Developing the frontend:** run `python run.py --no-browser` in one terminal and `npm run dev` in `frontend/` in another, then open http://localhost:5173 (hot reload; API calls are forwarded to port 8000).
+
 ## Configuration
 
-`config.toml` holds your timezone (default `America/New_York`), watch-time estimation settings, Shorts detection and the background/sleep-audio keyword list. If you change the timezone, rerun `ingest` and it will rebuild.
+`config.toml` holds your timezone (default `America/New_York`), watch-time estimation settings, Shorts detection, tag filtering and the background/sleep-audio keyword list. After editing it, run `python backend/cli.py build` (or `ingest` if you changed the timezone) and restart `run.py`.
 
 ## How the data is interpreted
 
