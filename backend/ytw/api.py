@@ -150,6 +150,8 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
                 try:
                     c = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
                     try:
+                        extra = c.execute("SELECT value FROM meta WHERE key = 'extra_capabilities'").fetchone()
+                        d.update(p.with_extra(extra[0] if extra else None).to_dict())
                         n, est, first, last = c.execute(
                             "SELECT COUNT(*), SUM(CASE WHEN is_background = 1 THEN 0 ELSE est_s END), "
                             "MIN(local_date), MAX(local_date) FROM watches").fetchone()
@@ -164,7 +166,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     @app.get("/api/meta")
     def meta(request: Request):
         c = conn(request)
-        p = platform_of(request)
+        p = platform_of(request).with_extra(db.get_meta(c, "extra_capabilities"))
         has_table = lambda t: c.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (t,)).fetchone()  # noqa: E731
         bounds = data_bounds(c)
         q = lambda sql: c.execute(sql).fetchone()[0]  # noqa: E731

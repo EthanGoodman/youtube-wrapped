@@ -13,7 +13,8 @@ CAPABILITIES = {
     "music",           # a separate music bucket (YouTube Music)
     "ads",             # an ads section (ads are logged in the export)
     "search",          # search history
-    "estimated_time",  # watch time is estimated from start times (else exact durations)
+    "estimated_time",  # watch time is estimated (else exact durations)
+    "time_of_day",     # real start times (watch clock, heatmap, latest night…)
     "background",      # sleep/background audio detection
     "categories",      # platform categories (YouTube's Gaming, Music, …)
     "genres",
@@ -36,6 +37,12 @@ class Platform:
     def has(self, capability: str) -> bool:
         return capability in self.capabilities
 
+    def with_extra(self, extra: str | None) -> "Platform":
+        """Add capabilities the imported data turned out to have (recorded by the build)."""
+        more = {c for c in (extra or "").split(",") if c in CAPABILITIES}
+        return Platform(self.id, self.name, self.implemented, self.theme, self.vocab, self.capabilities | more,
+                        self.export_steps, self.export_wait, self.issue) if more else self
+
     def to_dict(self) -> dict:
         return {"id": self.id, "name": self.name, "implemented": self.implemented, "theme": self.theme,
                 "vocab": self.vocab, "capabilities": sorted(self.capabilities),
@@ -51,18 +58,20 @@ def _vocab(creator: str, creators: str, item: str, items: str, verb: str = "watc
 PLATFORMS: dict[str, Platform] = {p.id: p for p in (
     Platform(
         "youtube", "YouTube", True, "youtube", _vocab("channel", "channels", "video", "videos"),
-        frozenset({"shorts", "music", "ads", "search", "estimated_time", "background", "categories",
-                   "genres", "tags"}),
+        frozenset({"shorts", "music", "ads", "search", "estimated_time", "time_of_day", "background",
+                   "categories", "genres", "tags"}),
         ("takeout.google.com → Deselect all → YouTube and YouTube Music",
          "All YouTube data included → only history; Multiple formats → History: JSON",
          "Put watch-history.json (and search-history.json) in data/youtube/"),
         "minutes to hours"),
     Platform(
-        "netflix", "Netflix", False, "netflix", _vocab("show", "shows", "episode", "episodes"),
+        "netflix", "Netflix", True, "netflix", _vocab("show", "shows", "episode", "episodes"),
         frozenset({"genres"}),
-        ("netflix.com/account → Download your personal information",
-         "Put CONTENT_INTERACTION/ViewingActivity.csv in data/netflix/"),
-        "usually within a day", issue=2),
+        ("Quick: netflix.com/viewingactivity → Download all → NetflixViewingHistory.csv (dates only)",
+         "Full (adds times and durations): netflix.com/account → Download your personal information "
+         "→ CONTENT_INTERACTION/ViewingActivity.csv",
+         "Put either file in data/netflix/, then: python backend/cli.py ingest --platform netflix"),
+        "instant (quick) or a few days (full)", issue=2),
     Platform(
         "spotify", "Spotify", False, "spotify",
         _vocab("artist", "artists", "track", "tracks", "listen", "listened", "listening time"),

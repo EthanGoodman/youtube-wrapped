@@ -17,7 +17,10 @@ def client(tmp_path_factory):
     static = tmp_path_factory.mktemp("dist")
     (static / "assets").mkdir()
     (static / "index.html").write_text("<html>app</html>")
-    return TestClient(create_app(load_config(), db_path=path, static_dir=static))
+    # other platforms point at files that don't exist, so tests never read real data
+    others = {p: path.parent / f"no-{p}.db" for p in ("netflix", "spotify", "prime_video", "tiktok", "instagram",
+                                                       "crunchyroll")}
+    return TestClient(create_app(load_config(), db_path=path, static_dir=static, db_paths=others))
 
 
 def test_meta(client):
@@ -103,15 +106,16 @@ def test_platforms_list(client):
     ps = {p["id"]: p for p in client.get("/api/platforms").json()}
     assert {"youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll"} <= set(ps)
     assert ps["youtube"]["implemented"] and ps["youtube"]["has_data"] and ps["youtube"]["items"] == 13
-    assert ps["netflix"]["implemented"] is False and ps["netflix"]["has_data"] is False
-    assert ps["netflix"]["issue"] == 2 and ps["netflix"]["export_steps"]
+    assert ps["netflix"]["implemented"] is True and ps["netflix"]["has_data"] is False
+    assert ps["spotify"]["implemented"] is False and ps["spotify"]["issue"] == 3 and ps["spotify"]["export_steps"]
 
 
 def test_platform_param(client):
     assert client.get("/api/overview?range=2024&platform=youtube").json()["videos"] == 9
     assert client.get("/api/meta").json()["platform"]["vocab"]["creator"] == "channel"
-    assert client.get("/api/overview?platform=netflix").status_code == 404     # not supported yet
-    assert "#2" in client.get("/api/overview?platform=netflix").json()["detail"]
+    assert client.get("/api/overview?platform=spotify").status_code == 404     # not supported yet
+    assert "#3" in client.get("/api/overview?platform=spotify").json()["detail"]
+    assert client.get("/api/overview?platform=netflix").status_code == 503     # supported, no data imported
     assert client.get("/api/overview?platform=myspace").status_code == 404     # unknown
 
 

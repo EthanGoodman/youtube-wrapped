@@ -22,7 +22,34 @@ from ytw.lookups import build_lookups  # noqa: E402
 from ytw.watchtime import WatchConfig, build_watches  # noqa: E402
 
 
+def netflix_ingest(args, cfg) -> None:
+    from ytw.netflix import ingest as nf
+    folder = cfg.platform_dir("netflix")
+    conn = db.connect(cfg.platform_db("netflix"))
+    nf.init(conn)
+    profile = getattr(args, "profile", None) or cfg.section("netflix").get("profile") or None
+    try:
+        res = nf.ingest(conn, folder, cfg.tz, profile)
+    except (FileNotFoundError, ValueError) as e:
+        sys.exit(str(e))
+    kind = "full export (times + durations)" if res["format"] == "full" else "quick download (dates only)"
+    print(f"Netflix: read {res['file']} - {kind}: {res['rows']:,} rows, "
+          f"{res['supplemental']:,} trailers/previews skipped")
+    netflix_build(conn, cfg)
+
+
+def netflix_build(conn, cfg) -> None:
+    from ytw.netflix import ingest as nf
+    n = nf.build(conn, cfg.tz, cfg.section("netflix"), cfg.section("watchtime").get("session_gap_minutes", 30) * 60)
+    r = conn.execute("SELECT COUNT(DISTINCT channel_id), SUM(kind='episode'), SUM(kind='movie'), SUM(est_s)/3600.0, "
+                     "MIN(local_date), MAX(local_date) FROM watches").fetchone()
+    print(f"Built {n:,} views: {r[1]:,} episodes of {r[0]:,} shows, {r[2]:,} movies, "
+          f"{r[3]:,.0f} h ({r[4]} -> {r[5]})")
+
+
 def cmd_ingest(args, cfg) -> None:
+    if args.platform == "netflix":
+        return netflix_ingest(args, cfg)
     conn = db.connect(cfg.db_path)
     db.init_db(conn)
     if cfg.tz.key != (db.get_meta(conn, "timezone") or cfg.tz.key):
@@ -64,6 +91,8 @@ def cmd_investigate_delay(args, cfg) -> None:
 
 
 def cmd_enrich(args, cfg) -> None:
+    if args.platform == "netflix":
+        sys.exit("Netflix enrichment (TMDB posters, genres, runtimes) is coming next.")
     conn = db.connect(cfg.db_path)
     db.init_db(conn)
     if not conn.execute("SELECT 1 FROM entries LIMIT 1").fetchone():
@@ -119,6 +148,9 @@ def rebuild(conn, cfg) -> None:
 
 
 def cmd_build(args, cfg) -> None:
+    if args.platform == "netflix":
+        conn = db.connect(cfg.platform_db("netflix"))
+        return netflix_build(conn, cfg)
     conn = db.connect(cfg.db_path)
     db.init_db(conn)
     rebuild(conn, cfg)
@@ -137,6 +169,7 @@ def main() -> None:
     p = sub.add_parser("ingest", help="Load Takeout JSON into the database")
     p.add_argument("--watch", help="path to watch-history.json (default: data/youtube/)")
     p.add_argument("--search", help="path to search-history.json (default: data/youtube/)")
+    p.add_argument("--profile", help="Netflix: which profile to import from a full export")
     p.set_defaults(func=cmd_ingest)
 
     p = sub.add_parser("enrich", help="Fetch video/channel details from the YouTube Data API")
