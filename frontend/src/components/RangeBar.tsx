@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CalendarRange, Check, ChevronDown, Settings2 } from "lucide-react";
 import { useMeta } from "../api";
 import { ALL_BUCKETS, Bucket, useFilters } from "../filters";
+import { useCapability } from "../platform";
 
 const PRESETS: [string, string][] = [
   ["4w", "4 weeks"],
@@ -13,6 +14,7 @@ const PRESETS: [string, string][] = [
 /** stats.fm-style time-range chips + year picker + custom range + filter settings. One row, above content. */
 export function RangeBar() {
   const { filters, update } = useFilters();
+  const hasShorts = useCapability("shorts");
   const meta = useMeta().data;
   const years = [...(meta?.years ?? [])].reverse();
   const isYear = /^\d{4}$/.test(filters.range);
@@ -53,7 +55,7 @@ export function RangeBar() {
         {(close) => <CustomRange onDone={close} min={meta?.first_date} max={meta?.today} />}
       </Popover>
       <div className="ml-auto flex items-center gap-2 pl-2">
-        <ContentSwitch />
+        {hasShorts && <ContentSwitch />}
         <Popover align="right" label={<span className="chip" aria-label="Filters"><Settings2 size={16} /></span>}>
           {() => <SettingsPanel />}
         </Popover>
@@ -113,6 +115,8 @@ function SettingsPanel() {
     const next = has ? filters.buckets.filter((x) => x !== b) : [...filters.buckets, b];
     if (next.length) update({ buckets: next });
   };
+  const hasShorts = useCapability("shorts");
+  const hasBackground = useCapability("background");
   const rows: [Bucket, string, string][] = [
     ["long", "Long-form videos", "Regular videos"],
     ["short", "Shorts", "Detected from vertical video ≤ 3 min (approximate)"],
@@ -122,14 +126,16 @@ function SettingsPanel() {
   return (
     <div className="w-72 p-1">
       <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-muted">Include</div>
-      {rows.map(([b, label, hint]) => (
+      {rows.filter(([b]) => b === "long" || hasShorts).map(([b, label, hint]) => (
         <CheckRow key={b} checked={filters.buckets.includes(b)} onClick={() => toggle(b)} label={label} hint={hint} />
       ))}
       <div className="my-1 border-t border-line" />
+      {hasBackground && <>
       <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-muted">Watch time</div>
       <CheckRow checked={filters.bg} onClick={() => update({ bg: !filters.bg })}
                 label="Leave out sleep / background audio"
                 hint="Long rain, sleep and ambient videos still count as watches, but add no time" />
+      </>}
     </div>
   );
 }

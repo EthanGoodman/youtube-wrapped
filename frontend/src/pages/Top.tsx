@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, NavLink, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { Link, NavLink } from "../platform";
 import { LayoutGrid, List } from "lucide-react";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { BarList, RankedRows, shortsNote } from "../components/lists";

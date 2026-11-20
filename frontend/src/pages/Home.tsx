@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useVocab } from "../platform";
 import { HourPoint, Overview, TopResponse, WatchInfo, useMeta, useStats } from "../api";
 import { BarList, ChannelCarousel, RankedRows, WatchRows } from "../components/lists";
 import { MeasureToggle, WatchClock, useMeasure } from "../components/charts";
@@ -18,6 +18,7 @@ export function Home() {
   const clock = useStats<{ data: HourPoint[] }>("patterns/clock");
   const [measure, setMeasure] = useMeasure();
   const period = rangeLabel(filters);
+  const { v } = useVocab();
   const q = useLinkQuery();
 
   return (
@@ -44,7 +45,7 @@ export function Home() {
         </QueryState>
       </Section>
 
-      <Section title="Top channels" subtitle={`Your top channels from ${period}`}
+      <Section title={`Top ${v.creators}`} subtitle={`Your top ${v.creators} from ${period}`}
                action={<><MetricToggle value={filters.metric} onChange={(m) => update({ metric: m })} /><SeeAll to="/top/channels" /></>}>
         <QueryState q={channels} minHeight={150} empty={(d) => !d.items.length}>
           {(d) => <ChannelCarousel items={d.items} />}
@@ -52,7 +53,7 @@ export function Home() {
       </Section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Section title="Top videos" subtitle={`Your most rewatched videos from ${period}`} action={<SeeAll to="/top/videos" />}>
+        <Section title={`Top ${v.items}`} subtitle={`Your most rewatched ${v.items} from ${period}`} action={<SeeAll to="/top/videos" />}>
           <QueryState q={videos} minHeight={300} empty={(d) => !d.items.length}>
             {(d) => <RankedRows items={d.items} kind="video" />}
           </QueryState>

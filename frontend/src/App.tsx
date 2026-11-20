@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { PageTitle } from "./components/ui";
 import { Home } from "./pages/Home";
+import { Hub } from "./pages/Hub";
 import { Top } from "./pages/Top";
 import { Patterns } from "./pages/Patterns";
 import { Records } from "./pages/Records";
@@ -11,6 +12,12 @@ import { Evolution } from "./pages/Evolution";
 import { CategoryPage, ChannelPage, GenrePage, VideoPage, YearPage } from "./pages/Details";
 import { Search } from "./pages/Search";
 import { WrappedPage } from "./wrapped/Wrapped";
+import { usePlatforms } from "./api";
+import { HubLink, PLATFORM_IDS, useCapability } from "./platform";
+
+/** Sections of a platform. Old single-platform links (/top/channels, …) redirect to /youtube/… */
+const SECTIONS = ["top", "patterns", "records", "evolution", "ads", "search", "channel", "video", "category",
+                  "genre", "year", "wrapped"];
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -20,27 +27,86 @@ function ScrollToTop() {
   return null;
 }
 
-
 export function App() {
   return (
     <>
       <ScrollToTop />
       <Routes>
-        <Route path="/" element={<Layout><Home /></Layout>} />
-        <Route path="/top/:kind" element={<Layout><Top /></Layout>} />
-        <Route path="/patterns" element={<Layout><Patterns /></Layout>} />
-        <Route path="/records" element={<Layout><Records /></Layout>} />
-        <Route path="/evolution" element={<Layout><Evolution /></Layout>} />
-        <Route path="/ads" element={<Layout><Ads /></Layout>} />
-        <Route path="/search" element={<Layout><Search /></Layout>} />
-        <Route path="/channel/:id" element={<Layout><ChannelPage /></Layout>} />
-        <Route path="/video/:id" element={<Layout showRange={false}><VideoPage /></Layout>} />
-        <Route path="/category/:id" element={<Layout><CategoryPage /></Layout>} />
-        <Route path="/genre/:topic" element={<Layout><GenrePage /></Layout>} />
-        <Route path="/year/:year" element={<Layout showRange={false}><YearPage /></Layout>} />
-        <Route path="/wrapped" element={<WrappedPage />} />
-        <Route path="*" element={<Layout><PageTitle title="Not found" /></Layout>} />
+        <Route path="/" element={<HubPage />} />
+        <Route path="/:platform/*" element={<PlatformApp />} />
       </Routes>
     </>
+  );
+}
+
+function HubPage() {
+  useEffect(() => {
+    document.documentElement.removeAttribute("data-theme");
+  }, []);
+  return <Hub />;
+}
+
+/** Everything under /<platform>/: checks the platform, applies its theme, routes its pages. */
+function PlatformApp() {
+  const { platform = "" } = useParams();
+  const { pathname, search } = useLocation();
+  const platforms = usePlatforms().data;
+  const info = platforms?.find((p) => p.id === platform);
+
+  useEffect(() => {
+    if (info) document.documentElement.setAttribute("data-theme", info.theme);
+  }, [info]);
+
+  if (!PLATFORM_IDS.includes(platform)) {
+    if (SECTIONS.includes(platform)) return <Navigate to={`/youtube${pathname}${search}`} replace />;
+    return <NotFound />;
+  }
+  if (info && !info.implemented) return <NotSupported name={info.name} issue={info.issue} />;
+  if (info && !info.has_data) return <Navigate to="/" replace />;
+
+  return (
+    <Routes>
+      <Route index element={<Layout><Home /></Layout>} />
+      <Route path="top/:kind" element={<Layout><Top /></Layout>} />
+      <Route path="patterns" element={<Layout><Patterns /></Layout>} />
+      <Route path="records" element={<Layout><Records /></Layout>} />
+      <Route path="evolution" element={<Layout><Evolution /></Layout>} />
+      <Route path="ads" element={<Gate capability="ads"><Layout><Ads /></Layout></Gate>} />
+      <Route path="search" element={<Gate capability="search"><Layout><Search /></Layout></Gate>} />
+      <Route path="channel/:id" element={<Layout><ChannelPage /></Layout>} />
+      <Route path="video/:id" element={<Layout showRange={false}><VideoPage /></Layout>} />
+      <Route path="category/:id" element={<Layout><CategoryPage /></Layout>} />
+      <Route path="genre/:topic" element={<Layout><GenrePage /></Layout>} />
+      <Route path="year/:year" element={<Layout showRange={false}><YearPage /></Layout>} />
+      <Route path="wrapped" element={<WrappedPage />} />
+      <Route path="*" element={<Layout><PageTitle title="Not found" /></Layout>} />
+    </Routes>
+  );
+}
+
+/** Pages that only exist on platforms with that data (e.g. ads on YouTube). */
+function Gate({ capability, children }: { capability: string; children: React.ReactNode }) {
+  return useCapability(capability) ? <>{children}</> : <Navigate to=".." replace />;
+}
+
+function NotSupported({ name, issue }: { name: string; issue: number | null }) {
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 p-6 text-center">
+      <h1 className="text-2xl font-black">{name} isn't supported yet</h1>
+      {issue && (
+        <a className="text-sub underline" href={`https://github.com/EthanGoodman/youtube-wrapped/issues/${issue}`}
+           target="_blank" rel="noreferrer">Track it in issue #{issue}</a>
+      )}
+      <HubLink to="/" className="mt-2 rounded-full bg-raised px-4 py-2 text-sm font-medium">‹ All platforms</HubLink>
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center">
+      <h1 className="text-2xl font-black">Not found</h1>
+      <HubLink to="/" className="rounded-full bg-raised px-4 py-2 text-sm font-medium">‹ All platforms</HubLink>
+    </div>
   );
 }

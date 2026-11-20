@@ -1,30 +1,36 @@
 import { ReactNode, useState } from "react";
-import { NavLink, Link, useLocation } from "react-router-dom";
-import { BarChart3, Clock, Home, Megaphone, MoreHorizontal, Search, Sparkles, TrendingUp, Trophy } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { HubLink, Link, NavLink, usePlatform } from "../platform";
+import { BarChart3, Clock, Home, LayoutGrid, Megaphone, MoreHorizontal, Search, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import { useLinkQuery } from "../filters";
 import { useMeta } from "../api";
 import { RangeBar } from "./RangeBar";
 
-const NAV = [
+interface NavItem { to: string; label: string; icon: typeof Home; end?: boolean; match?: string; cap?: string }
+const ALL_NAV: NavItem[] = [
   { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/top/channels", label: "Top", icon: BarChart3, match: "/top" },
+  { to: "/top/channels", label: "Top", icon: BarChart3, match: "/top/" },
   { to: "/patterns", label: "Patterns", icon: Clock },
   { to: "/records", label: "Records", icon: Trophy },
   { to: "/evolution", label: "Evolution", icon: TrendingUp },
-  { to: "/ads", label: "Ads", icon: Megaphone },
-  { to: "/search", label: "Search", icon: Search },
+  { to: "/ads", label: "Ads", icon: Megaphone, cap: "ads" },
+  { to: "/search", label: "Search", icon: Search, cap: "search" },
 ];
-const MOBILE_MAIN = NAV.slice(0, 4);
-const MOBILE_MORE = NAV.slice(4);
 
 export function Logo() {
+  const p = usePlatform();
+  const name = p?.name ?? "YouTube";
   return (
     <span className="flex items-center gap-1.5 font-bold tracking-tight">
-      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden>
-        <rect x="2" y="7" width="28" height="18" rx="6" fill="#ff0033" />
-        <path d="M13 11.5v9l8-4.5z" fill="#fff" />
-      </svg>
-      <span className="text-lg">YouTube <span className="font-black">Wrapped</span></span>
+      {(p?.id ?? "youtube") === "youtube" ? (
+        <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden>
+          <rect x="2" y="7" width="28" height="18" rx="6" fill="#ff0033" />
+          <path d="M13 11.5v9l8-4.5z" fill="#fff" />
+        </svg>
+      ) : (
+        <span className="h-6 w-6 rounded-md bg-yt" aria-hidden />
+      )}
+      <span className="text-lg">{name} <span className="font-black">Wrapped</span></span>
     </span>
   );
 }
@@ -34,18 +40,27 @@ export function Layout({ children, showRange = true }: { children: ReactNode; sh
   const meta = useMeta();
   const { pathname } = useLocation();
   const [more, setMore] = useState(false);
+  const caps = meta.data?.platform.capabilities;
+  // until meta loads, show everything (YouTube) so the bar doesn't jump
+  const NAV = ALL_NAV.filter((n) => !n.cap || !caps || caps.includes(n.cap));
+  const MOBILE_MAIN = NAV.slice(0, 4);
+  const MOBILE_MORE = NAV.slice(4);
 
   return (
     <div className="min-h-screen pb-24 sm:pb-10">
       <header className="sticky top-0 z-40 border-b border-line/60 bg-bg/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
+          <HubLink to="/" aria-label="All platforms" title="All platforms"
+                   className="-ml-1 rounded-lg p-1.5 text-sub transition-colors hover:bg-raised hover:text-ink">
+            <LayoutGrid size={20} />
+          </HubLink>
           <Link to={"/" + q} aria-label="Home"><Logo /></Link>
           <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to + q} end={n.end}
                        className={({ isActive }) =>
                          `rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                           isActive || (n.match && pathname.startsWith(n.match)) ? "bg-raised text-ink" : "text-sub hover:text-ink"
+                           isActive || (n.match && pathname.includes(n.match)) ? "bg-raised text-ink" : "text-sub hover:text-ink"
                          }`}>
                 {n.label}
               </NavLink>
@@ -82,7 +97,7 @@ export function Layout({ children, showRange = true }: { children: ReactNode; sh
             <NavLink key={n.to} to={n.to + q} end={n.end} onClick={() => setMore(false)}
                      className={({ isActive }) =>
                        `flex flex-col items-center gap-0.5 py-2 text-[11px] ${
-                         isActive || (n.match && pathname.startsWith(n.match)) ? "text-ink" : "text-muted"
+                         isActive || (n.match && pathname.includes(n.match)) ? "text-ink" : "text-muted"
                        }`}>
               <n.icon size={22} />
               {n.label}

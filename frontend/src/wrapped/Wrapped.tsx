@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { DEFAULT_PLATFORM, Link, useCapability, usePlatformId } from "../platform";
 import { AnimatePresence, MotionGlobalConfig, motion } from "framer-motion";
 import { Download, Loader2, Pause, Play, Share2, X } from "lucide-react";
 import { toPng } from "html-to-image";
@@ -36,6 +37,7 @@ function useMode(): [WrappedMode, (m: WrappedMode) => void] {
 }
 
 function ModeSwitch({ mode, onChange }: { mode: WrappedMode; onChange: (m: WrappedMode) => void }) {
+  if (!useCapability("shorts")) return null;
   return (
     <div className="inline-flex rounded-full bg-white/10 p-0.5 text-sm font-medium backdrop-blur" role="group" aria-label="Wrapped content"
          onPointerDown={(e) => e.stopPropagation()}>
@@ -102,7 +104,11 @@ function available(card: CardDef, d: WrappedData): boolean {
 }
 
 function Story({ year, mode, setMode }: { year: number; mode: WrappedMode; setMode: (m: WrappedMode) => void }) {
-  const q = useQuery<WrappedData>({ queryKey: ["wrapped", year, mode], queryFn: () => getJson(`/api/wrapped/${year}?mode=${mode}`) });
+  const platform = usePlatformId() ?? DEFAULT_PLATFORM;
+  const q = useQuery<WrappedData>({
+    queryKey: ["wrapped", platform, year, mode],
+    queryFn: () => getJson(`/api/wrapped/${year}?mode=${mode}&platform=${platform}`),
+  });
   if (q.error) return <Fullscreen><p className="text-sub">Couldn't load your {year}: {(q.error as Error).message}</p></Fullscreen>;
   if (!q.data) return <Fullscreen><Loader2 className="animate-spin text-sub" size={32} /></Fullscreen>;
   if (q.data.empty)

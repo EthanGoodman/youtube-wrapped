@@ -2,14 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme colors as "R G B" (Tailwind adds the alpha). The hub uses :root;
+   each platform sets data-theme on <html>. YouTube is the original look. */
 :root {
   color-scheme: dark;
+  --font-sans: Roboto;
+  --c-bg: 12 12 14;
+  --c-card: 24 24 27;
+  --c-raised: 34 34 38;
+  --c-line: 48 48 54;
+  --c-ink: 244 244 245;
+  --c-sub: 170 170 178;
+  --c-muted: 113 113 122;
+  --c-accent: 255 255 255;
+  --c-accent-dark: 212 212 216;
+  --c-accent-soft: 228 228 231;
+  --c-up: 43 166 64;
+  --c-down: 255 78 69;
+}
+
+:root[data-theme="youtube"] {
+  --font-sans: Roboto;
+  --c-bg: 15 15 15;          /* #0f0f0f */
+  --c-card: 24 24 24;        /* #181818 */
+  --c-raised: 33 33 33;      /* #212121 */
+  --c-line: 48 48 48;        /* #303030 */
+  --c-ink: 241 241 241;      /* #f1f1f1 */
+  --c-sub: 170 170 170;      /* #aaaaaa */
+  --c-muted: 113 113 113;    /* #717171 */
+  --c-accent: 255 0 51;      /* #ff0033 YouTube red */
+  --c-accent-dark: 204 0 41;
+  --c-accent-soft: 255 51 85;
+  --c-up: 43 166 64;
+  --c-down: 255 78 69;
 }
 
 html,
 body {
-  background: #0f0f0f;
-  color: #f1f1f1;
+  background: rgb(var(--c-bg));
+  color: rgb(var(--c-ink));
   -webkit-tap-highlight-color: transparent;
 }
 

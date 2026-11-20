@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Filters, toQuery, useFilters } from "./filters";
+import { DEFAULT_PLATFORM, PlatformInfo, usePlatformId } from "./platform";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -25,8 +26,9 @@ export async function getJson<T>(path: string): Promise<T> {
 export function useStats<T>(path: string, extra: Record<string, string | number | undefined> = {},
                             opts: { enabled?: boolean; filters?: Filters } = {}) {
   const { filters: urlFilters } = useFilters();
+  const platform = usePlatformId() ?? DEFAULT_PLATFORM;
   const f = opts.filters ?? urlFilters;
-  const url = `/api/${path}?${toQuery(f, extra)}`;
+  const url = `/api/${path}?${toQuery(f, { platform, ...extra })}`;
   return useQuery<T, ApiError>({
     queryKey: [url],
     queryFn: () => getJson<T>(url),
@@ -36,12 +38,31 @@ export function useStats<T>(path: string, extra: Record<string, string | number 
 }
 
 export function useMeta() {
-  return useQuery<Meta, ApiError>({ queryKey: ["meta"], queryFn: () => getJson<Meta>("/api/meta"), staleTime: 60_000 });
+  const platform = usePlatformId() ?? DEFAULT_PLATFORM;
+  return useQuery<Meta, ApiError>({
+    queryKey: ["meta", platform],
+    queryFn: () => getJson<Meta>(`/api/meta?platform=${platform}`),
+    staleTime: 60_000,
+  });
+}
+
+export interface PlatformSummary extends PlatformInfo {
+  has_data: boolean;
+  items?: number;
+  est_s?: number;
+  first_date?: string | null;
+  last_date?: string | null;
+}
+
+/** All platforms, with a headline for the ones that have data (the hub page). */
+export function usePlatforms() {
+  return useQuery<PlatformSummary[], ApiError>({ queryKey: ["platforms"], queryFn: () => getJson("/api/platforms") });
 }
 
 // ------------------------------------------------------------------ types
 
 export interface Meta {
+  platform: PlatformInfo;
   timezone: string;
   today: string;
   first_date: string | null;

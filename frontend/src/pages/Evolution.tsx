@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "../platform";
 import type { EChartsOption } from "echarts";
 import { Pause, Play } from "lucide-react";
 import { useMeta, useStats } from "../api";

@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "../platform";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Info, Minus } from "lucide-react";
 import { ApiError, useMeta } from "../api";
 import { duration } from "../format";

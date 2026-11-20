@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "../platform";
 import { CalendarDays, Clock3, Flame, Hourglass, Moon, Rocket, Sunrise, Tv, Zap } from "lucide-react";
 import { WatchInfo, useStats } from "../api";
 import { PageTitle, QueryState, Section, Thumb, WatchTimeInfo } from "../components/ui";

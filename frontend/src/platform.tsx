@@ -1,0 +1,71 @@
+/* The current platform (from the URL: /youtube/..., /netflix/...) and helpers built on it. */
+import { forwardRef } from "react";
+import {
+  Link as RouterLink, LinkProps, NavLink as RouterNavLink, NavLinkProps, To, useParams,
+} from "react-router-dom";
+import { useMeta } from "./api";
+
+/** Mirrors backend/ytw/platforms.py (ids only; everything else comes from /api/platforms and /api/meta). */
+export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll"];
+export const DEFAULT_PLATFORM = "youtube";
+
+export interface PlatformInfo {
+  id: string;
+  name: string;
+  implemented: boolean;
+  theme: string;
+  vocab: { creator: string; creators: string; item: string; items: string; verb: string; verbed: string; time: string };
+  capabilities: string[];
+  export_steps: string[];
+  export_wait: string;
+  issue: number | null;
+}
+
+/** Platform id from the URL, or null outside a platform (the hub). */
+export function usePlatformId(): string | null {
+  const { platform } = useParams();
+  return platform && PLATFORM_IDS.includes(platform) ? platform : null;
+}
+
+/** Full platform info (wording, capabilities) for the current page. */
+export function usePlatform(): PlatformInfo | undefined {
+  return useMeta().data?.platform;
+}
+
+export function useCapability(capability: string): boolean {
+  // until meta loads, assume yes so YouTube's layout doesn't jump
+  const p = usePlatform();
+  return p ? p.capabilities.includes(capability) : true;
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Wording for the current platform: v.creators -> "channels", V.creators -> "Channels". */
+export function useVocab() {
+  const v = usePlatform()?.vocab ?? {
+    creator: "channel", creators: "channels", item: "video", items: "videos",
+    verb: "watch", verbed: "watched", time: "watch time",
+  };
+  const V = Object.fromEntries(Object.entries(v).map(([k, s]) => [k, cap(s)])) as typeof v;
+  return { v, V };
+}
+
+/** "/top/channels?x" -> "/youtube/top/channels?x" inside a platform; untouched elsewhere. */
+export function withPlatform(to: To, platform: string | null): To {
+  if (!platform || typeof to !== "string" || !to.startsWith("/")) return to;
+  const first = to.split(/[/?#]/)[1];
+  if (PLATFORM_IDS.includes(first)) return to;  // already has a platform
+  return `/${platform}${to === "/" ? "" : to}`;
+}
+
+/** Drop-in for react-router's Link: internal paths stay inside the current platform. */
+export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link({ to, ...rest }, ref) {
+  return <RouterLink ref={ref} to={withPlatform(to, usePlatformId())} {...rest} />;
+});
+
+export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(function NavLink({ to, ...rest }, ref) {
+  return <RouterNavLink ref={ref} to={withPlatform(to, usePlatformId())} {...rest} />;
+});
+
+/** Link that always leaves the platform (e.g. back to the hub). */
+export { RouterLink as HubLink };

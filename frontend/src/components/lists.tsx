@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "../platform";
 import { RankedItem, WatchInfo } from "../api";
 import { clockTime, compact, date, duration, num, pct } from "../format";
 import { useFilters, useLinkQuery } from "../filters";

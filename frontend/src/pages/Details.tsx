@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { Link } from "../platform";
 import type { EChartsOption } from "echarts";
 import { ExternalLink, Sparkles } from "lucide-react";
 import { HourPoint, MonthPoint, Overview, RankedItem, useStats } from "../api";
