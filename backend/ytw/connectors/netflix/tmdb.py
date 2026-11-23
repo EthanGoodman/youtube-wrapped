@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from .. import net
+from ... import net
 from .parser import UNKNOWN_SHOW
 
 API = "https://api.themoviedb.org/3/"

@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .. import db
+from ... import db
 from .fetch import HISTORY_FILE
 
 MIN_PLAY_S = 30          # a tap that played for a few seconds isn't a watch

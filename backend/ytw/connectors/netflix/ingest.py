@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
-from .. import db
+from ... import db
 from . import tmdb
 from .parser import find_files, parse_files, profiles_in
 

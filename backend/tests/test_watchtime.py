@@ -2,7 +2,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ytw import db
-from ytw.watchtime import Raw, WatchConfig, build_watches, compute
+from ytw.connectors.youtube.watchtime import Raw, WatchConfig, build_watches, compute
 
 C = WatchConfig(bg_keywords=("sleep", "rain"))
 H = 3600
@@ -164,6 +164,6 @@ def test_build_writes_local_fields():
 
 
 def test_clean_tags():
-    from ytw.lookups import clean_tags
+    from ytw.connectors.youtube.lookups import clean_tags
     tags = ["FIFA 19", "fifa 19", " #Ultimate  Team ", "W2S", "w2s", "2019", "a", "video", "pack opening"]
     assert clean_tags(tags, "W2S", frozenset({"video"})) == ["fifa 19", "ultimate team", "pack opening"]

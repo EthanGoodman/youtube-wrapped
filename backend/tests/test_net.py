@@ -150,8 +150,8 @@ def test_logs_are_redacted(caplog):
 
 
 def test_api_errors_mapped(monkeypatch):
-    from ytw import enrich
-    from ytw.netflix import tmdb
+    from ytw.connectors.youtube import enrich
+    from ytw.connectors.netflix import tmdb
     yt_quota = b'{"error": {"message": "quota", "errors": [{"reason": "quotaExceeded"}]}}'
     yt_key = b'{"error": {"message": "API key not valid", "errors": [{"reason": "keyInvalid"}]}}'
     fake = Fake(ok(b'{"items": []}'), ok(yt_quota, status=403), ok(yt_key, status=400),

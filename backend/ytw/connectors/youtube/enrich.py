@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Callable, Iterable
 from zoneinfo import ZoneInfo
 
-from . import net
+from ... import net
 from .parser import clean_text
 
 API_BASE = "https://www.googleapis.com/youtube/v3/"

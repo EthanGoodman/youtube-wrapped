@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import db
+from ... import db
 from .parser import Entry, Search, parse_search_history, parse_watch_history
 
 _ENTRY_COLS = [f.name for f in fields(Entry)]

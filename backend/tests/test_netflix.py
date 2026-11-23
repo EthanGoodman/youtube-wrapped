@@ -7,8 +7,8 @@ import pytest
 from ytw import db
 from ytw.api import create_app
 from ytw.config import load_config
-from ytw.netflix import ingest as nf
-from ytw.netflix.parser import (FULL, SIMPLE, date_order, detect_format, parse_date, parse_history,
+from ytw.connectors.netflix import ingest as nf
+from ytw.connectors.netflix.parser import (FULL, SIMPLE, date_order, detect_format, parse_date, parse_history,
                                 parse_hms, split_titles)
 
 NY = ZoneInfo("America/New_York")
@@ -167,7 +167,7 @@ def test_api_on_netflix(tmp_path):
 
 # ------------------------------------------------------------------ TMDB enrichment (fake TMDB)
 
-from ytw.netflix import tmdb  # noqa: E402
+from ytw.connectors.netflix import tmdb  # noqa: E402
 
 TV = {"Cyberpunk: Edgerunners": 105248, "Peaky Blinders": 60574, "Money Heist": 71446, "Broadchurch": 1427,
       "HIS & HERS": 9001, "My Little Pony: Friendship Is Magic": 33765, "Stranger Things": 66732}

@@ -21,16 +21,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ytw import db, platforms, secrets  # noqa: E402
 from ytw.config import force_utf8_stdout, load_config, migrate_legacy_layout  # noqa: E402
-from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
-from ytw import enrich  # noqa: E402
-from ytw.investigate import report as delay_report  # noqa: E402
-from ytw.preroll import link_prerolls  # noqa: E402
-from ytw.lookups import build_lookups  # noqa: E402
-from ytw.watchtime import WatchConfig, build_watches  # noqa: E402
+from ytw.connectors.youtube.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
+from ytw.connectors.youtube import enrich  # noqa: E402
+from ytw.connectors.youtube.investigate import report as delay_report  # noqa: E402
+from ytw.connectors.youtube.preroll import link_prerolls  # noqa: E402
+from ytw.connectors.youtube.lookups import build_lookups  # noqa: E402
+from ytw.connectors.youtube.watchtime import WatchConfig, build_watches  # noqa: E402
 
 
 def netflix_ingest(args, cfg) -> None:
-    from ytw.netflix import ingest as nf
+    from ytw.connectors.netflix import ingest as nf
     folder = cfg.platform_dir("netflix")
     conn = db.connect(cfg.platform_db("netflix"))
     nf.init(conn)
@@ -48,7 +48,7 @@ def netflix_ingest(args, cfg) -> None:
 
 
 def netflix_build(conn, cfg) -> None:
-    from ytw.netflix import ingest as nf
+    from ytw.connectors.netflix import ingest as nf
     n = nf.build(conn, cfg.tz, cfg.section("netflix"), cfg.section("watchtime").get("session_gap_minutes", 30) * 60)
     r = conn.execute("SELECT COUNT(DISTINCT channel_id), SUM(kind='episode'), SUM(kind='movie'), SUM(est_s)/3600.0, "
                      "MIN(local_date), MAX(local_date) FROM watches").fetchone()
@@ -57,7 +57,7 @@ def netflix_build(conn, cfg) -> None:
 
 
 def netflix_enrich(args, cfg) -> None:
-    from ytw.netflix import tmdb
+    from ytw.connectors.netflix import tmdb
     token = secrets.get("TMDB_TOKEN")
     if not token:
         sys.exit("No TMDB_TOKEN saved. Get a free API Read Access Token at themoviedb.org "
@@ -79,7 +79,7 @@ def netflix_enrich(args, cfg) -> None:
 
 
 def crunchyroll_build(cfg) -> None:
-    from ytw.crunchyroll import ingest as cr
+    from ytw.connectors.crunchyroll import ingest as cr
     conn = db.connect(cfg.platform_db("crunchyroll"))
     try:
         r = cr.build(conn, cfg.platform_dir("crunchyroll"), cfg.tz)
@@ -91,8 +91,8 @@ def crunchyroll_build(cfg) -> None:
 
 def crunchyroll_enrich(args, cfg) -> None:
     """Posters + episode lists from Crunchyroll's catalog, then studios / season / tags from AniList."""
-    from ytw.crunchyroll import anilist, catalog
-    from ytw.crunchyroll.fetch import WEB_CLIENT_ID, Client, CrunchyrollError
+    from ytw.connectors.crunchyroll import anilist, catalog
+    from ytw.connectors.crunchyroll.fetch import WEB_CLIENT_ID, Client, CrunchyrollError
     conn = db.connect(cfg.platform_db("crunchyroll"))
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'watches'").fetchone() or \
             not conn.execute("SELECT 1 FROM watches LIMIT 1").fetchone():
@@ -246,7 +246,7 @@ def cmd_fetch(args, cfg) -> None:
     """Download history straight from the platform (only Crunchyroll, which has no data export)."""
     if args.platform != "crunchyroll":
         sys.exit("fetch is only for Crunchyroll (other platforms have their own data exports).")
-    from ytw.crunchyroll.fetch import WEB_CLIENT_ID, CrunchyrollError, fetch_history
+    from ytw.connectors.crunchyroll.fetch import WEB_CLIENT_ID, CrunchyrollError, fetch_history
     sec = cfg.section("crunchyroll")
     cookie = secrets.get("CRUNCHYROLL_ETP_RT") or ""
     if not cookie:
