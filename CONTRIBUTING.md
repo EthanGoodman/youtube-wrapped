@@ -15,7 +15,7 @@ cd frontend && npm ci
 ```bash
 pytest -q
 pre-commit run --all-files
-cd frontend && npm run build && npm audit --audit-level=high
+cd frontend && npm run build && npm test && npm audit --audit-level=high
 ```
 
 ## Adding a platform

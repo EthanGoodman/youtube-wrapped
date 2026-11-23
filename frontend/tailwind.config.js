@@ -23,6 +23,10 @@ export default {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
         display: ["var(--font-display)", "var(--font-sans)", "system-ui", "sans-serif"],
+        // hub shelf only (other pages keep their own themed fonts)
+        "shelf-display": ["Bebas Neue", "Impact", "sans-serif"],
+        "shelf-mono": ["DM Mono", "ui-monospace", "monospace"],
+        "shelf-sans": ["DM Sans", "system-ui", "sans-serif"],
       },
       borderRadius: { card: "var(--radius-card, 12px)" },
     },

@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, ChevronDown, FileUp, KeyRound, Loader2, RefreshCw, Search, Trash2, X } from "lucide-react";
-import { ApiError, DataSource, Job, sendJson, uploadFile, useSources } from "../api";
+import { useSearchParams } from "react-router-dom";
+import { ApiError, DataSource, Job, PlatformSummary, sendJson, uploadFile, usePlatforms, useSources } from "../api";
 import { compact, date } from "../format";
 import { HubLink } from "../platform";
 import { tileOf } from "../themes";
@@ -33,6 +34,13 @@ export function Sources() {
   const q = useSources();
   const qc = useQueryClient();
   const running = useRef<Set<string>>(new Set());
+  // ?add=<id> (from the hub's empty slots): bring that app's card into view and mark it
+  const add = useSearchParams()[0].get("add");
+  const planned = (usePlatforms().data ?? []).filter((p) => !p.implemented);
+  useEffect(() => {
+    if (!add || !q.data) return;
+    document.getElementById(`source-${add}`)?.scrollIntoView({ block: "center" });
+  }, [add, q.data, planned.length]);
 
   // when a job finishes, everything that reads that platform's data is stale
   useEffect(() => {
@@ -54,14 +62,15 @@ export function Sources() {
       </header>
       {q.error && <p className="text-down">Couldn't reach the server: {q.error.message}</p>}
       <div className="space-y-4">
-        {q.data?.sources.map((s) => <SourceCard key={s.id} s={s} keychain={q.data.keychain} />)}
+        {q.data?.sources.map((s) => <SourceCard key={s.id} s={s} keychain={q.data.keychain} highlight={add === s.id} />)}
       </div>
+      {q.data && planned.length > 0 && <ComingSoon planned={planned} highlight={add} />}
       {q.data && <DeleteEverything />}
     </div>
   );
 }
 
-function SourceCard({ s, keychain }: { s: DataSource; keychain: string }) {
+function SourceCard({ s, keychain, highlight = false }: { s: DataSource; keychain: string; highlight?: boolean }) {
   const qc = useQueryClient();
   const brand = tileOf(s.id);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +101,7 @@ function SourceCard({ s, keychain }: { s: DataSource; keychain: string }) {
   const run = (step: Job["step"]) => act(() => sendJson("POST", `/api/sources/${s.id}/run/${step}`));
 
   return (
-    <section className="rounded-2xl bg-card p-5 ring-1 ring-line">
+    <section id={`source-${s.id}`} className={`scroll-mt-6 rounded-2xl bg-card p-5 ring-1 ${highlight ? "ring-2 ring-ink" : "ring-line"}`}>
       <div className="flex items-start gap-3">
         <span className="mt-0.5 h-10 w-10 shrink-0 rounded-xl" style={{ background: brand.bg }} />
         <div className="min-w-0 flex-1">
@@ -187,6 +196,37 @@ function SyncLine({ s, busy, onChange, onRun }: { s: DataSource; busy: boolean; 
       {sync.last_error && <p className="mt-1.5 text-xs text-down">Last error: {sync.last_error}</p>}
       {sync.last_ok && !sync.auto_paused && <p className="mt-1 text-xs text-muted">Last synced {ago(new Date(sync.last_ok * 1000).toISOString())}</p>}
     </div>
+  );
+}
+
+/** Apps on the roadmap: how to request their data now (some exports take weeks), and their ticket. */
+function ComingSoon({ planned, highlight }: { planned: PlatformSummary[]; highlight: string | null }) {
+  return (
+    <section aria-labelledby="soon-h" className="mt-10">
+      <h2 id="soon-h" className="text-lg font-bold">Coming soon</h2>
+      <p className="mt-1 text-sm text-sub">
+        Not supported yet. Some exports take weeks to arrive, so you can request yours now and add it when its connector lands.
+      </p>
+      <div className="mt-4 space-y-3">
+        {planned.map((p) => (
+          <div key={p.id} id={`source-${p.id}`}
+               className={`scroll-mt-6 rounded-2xl bg-card p-4 ring-1 ${highlight === p.id ? "ring-2 ring-ink" : "ring-line"}`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="h-8 w-8 shrink-0 rounded-lg" style={{ background: tileOf(p.id).bg }} aria-hidden />
+              <h3 className="font-bold">{p.name}</h3>
+              {p.export_wait && <span className="text-xs text-muted">Export takes {p.export_wait}</span>}
+              {p.issue && (
+                <a href={`https://github.com/EthanGoodman/youtube-wrapped/issues/${p.issue}`} target="_blank" rel="noreferrer noopener"
+                   className="ml-auto text-xs text-sub underline hover:text-ink">Track it (#{p.issue})</a>
+              )}
+            </div>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-sub">
+              {p.export_steps.map((step) => <li key={step}>{step}</li>)}
+            </ol>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

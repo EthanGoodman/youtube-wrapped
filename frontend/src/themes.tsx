@@ -232,3 +232,23 @@ export function themeOf(p: Pick<PlatformInfo, "id" | "theme" | "capabilities"> |
 export function tileOf(id: string): PlatformTheme["tile"] {
   return THEMES[id]?.tile ?? { bg: "rgb(var(--c-raised))" };
 }
+
+/* Hub shelf: our own spine colors (not the companies' brand colors). Unlisted platforms take the next
+   unused fallback, in order of hours. Every pair passes 4.5:1. */
+const SHELF: Record<string, [string, string]> = {
+  youtube: ["#EDE7DC", "#141312"],
+  netflix: ["#B8322A", "#FFFFFF"],
+  crunchyroll: ["#E58A2E", "#141312"],
+  spotify: ["#3E8E5E", "#FFFFFF"],
+  prime_video: ["#2F5D8A", "#FFFFFF"],
+};
+const SHELF_FALLBACK: [string, string][] = [["#7A5C99", "#FFFFFF"], ["#C9A227", "#141312"], ["#4F7F7A", "#FFFFFF"], ["#9C4F6B", "#FFFFFF"]];
+
+/** Spine colors for platforms in shelf order (biggest first): { id: { bg, fg } }. */
+export function shelfColors(ids: string[]): Record<string, { bg: string; fg: string }> {
+  let next = 0;
+  return Object.fromEntries(ids.map((id) => {
+    const [bg, fg] = SHELF[id] ?? SHELF_FALLBACK[next++ % SHELF_FALLBACK.length];
+    return [id, { bg, fg }];
+  }));
+}
