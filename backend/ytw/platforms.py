@@ -103,7 +103,7 @@ PLATFORMS: dict[str, Platform] = {p.id: p for p in (
         "crunchyroll", "Crunchyroll", True, "crunchyroll", _vocab("series", "series", "episode", "episodes"),
         frozenset({"genres", "series", "anime"}),
         ("No official export. Log in at crunchyroll.com, open DevTools (F12) > Application > Cookies and copy etp_rt",
-         "Add it to .env as CRUNCHYROLL_ETP_RT=... (treat it like a password)",
+         "Save it with: python backend/cli.py secrets set CRUNCHYROLL_ETP_RT (treat it like a password)",
          "Run: python backend/cli.py fetch --platform crunchyroll (unofficial: reads your own history from Crunchyroll's site)"),
         "a minute (unofficial)", issue=7),
 )}

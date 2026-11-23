@@ -1,6 +1,6 @@
 """Match Netflix shows and movies to TMDB (The Movie Database) for posters, genres and runtimes.
 
-Uses a free TMDB API Read Access Token (TMDB_TOKEN in .env). Every result is cached in
+Uses a free TMDB API Read Access Token (TMDB_TOKEN, kept in the OS keychain). Every result is cached in
 netflix.db, so each title is looked up once. Wrong matches can be fixed in
 data/netflix/overrides.toml:
 
@@ -87,7 +87,7 @@ def http_fetcher(token: str) -> Fetcher:
                     return json.loads(r.read())
             except urllib.error.HTTPError as e:
                 if e.code == 401:
-                    raise TmdbError("TMDB rejected the token - check TMDB_TOKEN in .env "
+                    raise TmdbError("TMDB rejected the token - save it again with python backend/cli.py secrets set TMDB_TOKEN "
                                     "(use the API Read Access Token)") from None
                 if e.code == 404:
                     return {}

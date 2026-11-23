@@ -47,7 +47,8 @@ class Config:
 
     @property
     def api_key(self) -> str | None:
-        return os.environ.get("YOUTUBE_API_KEY") or None
+        from . import secrets
+        return secrets.get("YOUTUBE_API_KEY")
 
 
 def load_config(path: Path | None = None) -> Config:

@@ -10,8 +10,8 @@ cookie. It is the same approach open-source tools such as CrunchyExporter use:
   3. GET  /content/v2/{account}/watch-history?page_size=100, following meta.next_page
 
 Everything Crunchyroll returns is saved as-is to data/crunchyroll/watch-history.json, so no field
-is lost before we know which ones matter. The cookie stays in .env; tokens are never written to
-disk. Requests are spaced out (one a second) and this is meant for reading your own history only.
+is lost before we know which ones matter. The cookie stays in the OS keychain; tokens are never
+written to disk. Requests are spaced out (one a second) and this is meant for reading your own history only.
 """
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ class Client:
     def __init__(self, etp_rt: str, transport: Transport = http_transport, client_id: str = WEB_CLIENT_ID,
                  pause_s: float = PAUSE_S, sleep: Callable[[float], None] = time.sleep):
         if not etp_rt:
-            raise CookieExpired("No CRUNCHYROLL_ETP_RT in .env")
+            raise CookieExpired("No CRUNCHYROLL_ETP_RT saved. Run: python backend/cli.py secrets set CRUNCHYROLL_ETP_RT")
         self.etp_rt = etp_rt.strip()
         self.transport = transport
         self.client_id = client_id.rstrip(":")
@@ -100,7 +100,7 @@ class Client:
         if status in (400, 401, 403) or not body or "access_token" not in body:
             raise CookieExpired(
                 f"Crunchyroll didn't accept the cookie (HTTP {status}). Copy a fresh etp_rt from your logged-in browser "
-                "(DevTools > Application > Cookies > crunchyroll.com) into CRUNCHYROLL_ETP_RT in .env.")
+                "(DevTools > Application > Cookies > crunchyroll.com), then run: python backend/cli.py secrets set CRUNCHYROLL_ETP_RT")
         self.token = body["access_token"]
 
     def get(self, url: str) -> dict:
@@ -163,7 +163,7 @@ def fetch_history(folder: Path, etp_rt: str, transport: Transport = http_transpo
     if profile and (current or "").casefold() != profile.casefold():
         raise WrongProfile(
             f"This Crunchyroll session is on the profile {current or '(none)'!r}, not {profile!r}. On crunchyroll.com pick "
-            f"the {profile} profile, then copy etp_rt again into CRUNCHYROLL_ETP_RT. (Profiles on the account: {', '.join(names)})")
+            f"the {profile} profile, then copy etp_rt again and run: python backend/cli.py secrets set CRUNCHYROLL_ETP_RT. (Profiles on the account: {', '.join(names)})")
     account = client.account_id()
     items = client.history(account, locale, progress)
     folder.mkdir(parents=True, exist_ok=True)

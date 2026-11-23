@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ytw import db, platforms  # noqa: E402
+from ytw import db, platforms, secrets  # noqa: E402
 from ytw.config import force_utf8_stdout, load_config, migrate_legacy_layout  # noqa: E402
 from ytw.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
 from ytw import enrich  # noqa: E402
@@ -53,10 +53,10 @@ def netflix_build(conn, cfg) -> None:
 def netflix_enrich(args, cfg) -> None:
     import os
     from ytw.netflix import tmdb
-    token = os.environ.get("TMDB_TOKEN")
+    token = secrets.get("TMDB_TOKEN")
     if not token:
-        sys.exit("No TMDB_TOKEN in .env. Get a free API Read Access Token at themoviedb.org "
-                 "(Settings -> API) - see the README.")
+        sys.exit("No TMDB_TOKEN saved. Get a free API Read Access Token at themoviedb.org "
+                 "(Settings -> API), then run: python backend/cli.py secrets set TMDB_TOKEN")
     conn = db.connect(cfg.platform_db("netflix"))
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'views'").fetchone():
         sys.exit("No Netflix data yet. Run `python backend/cli.py ingest --platform netflix` first.")
@@ -96,7 +96,7 @@ def crunchyroll_enrich(args, cfg) -> None:
     series = [(cid.split(":", 1)[1], title) for cid, title in conn.execute(
         "SELECT creator_id, title FROM creators WHERE creator_id LIKE 'series:%' ORDER BY title")]
     sec = cfg.section("crunchyroll")
-    cookie = os.environ.get("CRUNCHYROLL_ETP_RT", "")
+    cookie = secrets.get("CRUNCHYROLL_ETP_RT") or ""
     refresh = getattr(args, "retry_missing", False)
     try:
         client = Client(cookie, client_id=sec.get("client_id", WEB_CLIENT_ID))
@@ -172,7 +172,7 @@ def cmd_enrich(args, cfg) -> None:
     if not conn.execute("SELECT 1 FROM entries LIMIT 1").fetchone():
         sys.exit("No data yet. Run `python backend/cli.py ingest` first.")
     if not cfg.api_key:
-        print("No YOUTUBE_API_KEY in .env, skipping enrichment. The app still works with "
+        print("No YOUTUBE_API_KEY saved (python backend/cli.py secrets set YOUTUBE_API_KEY), skipping enrichment. The app still works with "
               "reduced stats (no durations, categories, genres or thumbnails).")
         return
     from tqdm import tqdm
@@ -189,7 +189,7 @@ def cmd_enrich(args, cfg) -> None:
                   retry_missing=args.retry_missing,
                   shorts_max_duration=cfg.section("shorts").get("max_duration_seconds", 180))
     except enrich.ApiKeyError as err:
-        sys.exit(f"The API rejected your key: {err}\nCheck YOUTUBE_API_KEY in .env and that "
+        sys.exit(f"The API rejected your key: {err}\nSave it again (python backend/cli.py secrets set YOUTUBE_API_KEY) and check that "
                  "'YouTube Data API v3' is enabled for the key's project.")
     except enrich.ApiError as err:
         sys.exit(f"API error: {err}\nProgress so far is saved; rerun to continue.")
@@ -244,11 +244,11 @@ def cmd_fetch(args, cfg) -> None:
         sys.exit("fetch is only for Crunchyroll (other platforms have their own data exports).")
     from ytw.crunchyroll.fetch import WEB_CLIENT_ID, CrunchyrollError, fetch_history
     sec = cfg.section("crunchyroll")
-    cookie = os.environ.get("CRUNCHYROLL_ETP_RT", "")
+    cookie = secrets.get("CRUNCHYROLL_ETP_RT") or ""
     if not cookie:
-        sys.exit("No CRUNCHYROLL_ETP_RT in .env. Log in at crunchyroll.com, open DevTools (F12) > Application > "
-                 "Cookies > https://www.crunchyroll.com, copy the value of etp_rt and add\n"
-                 "  CRUNCHYROLL_ETP_RT=...\nto .env. Treat it like a password.")
+        sys.exit("No CRUNCHYROLL_ETP_RT saved. Log in at crunchyroll.com, open DevTools (F12) > Application > "
+                 "Cookies > https://www.crunchyroll.com, copy the value of etp_rt, then run:\n"
+                 "  python backend/cli.py secrets set CRUNCHYROLL_ETP_RT\nTreat it like a password.")
     try:
         res = fetch_history(cfg.platform_dir("crunchyroll"), cookie, client_id=sec.get("client_id", WEB_CLIENT_ID),
                             locale=sec.get("locale", "en-US"), profile=sec.get("profile") or None,
@@ -260,8 +260,41 @@ def cmd_fetch(args, cfg) -> None:
     crunchyroll_build(cfg)  # import it straight away
 
 
+def cmd_secrets(args, _cfg) -> None:
+    """Keys, tokens and cookies live in the OS keychain. Values are typed at a hidden prompt,
+    so they never land in shell history, and are never printed."""
+    import getpass
+    from ytw.config import ROOT
+    st = secrets.store()
+    if args.action == "list":
+        found = st.names()
+        print(f"Secrets are kept in {st.where}.")
+        for name, desc in secrets.KNOWN.items():
+            print(f"  {name:<20} {found.get(name, 'not set'):<20} {desc}")
+        for name in sorted(set(found) - set(secrets.KNOWN)):
+            print(f"  {name:<20} {found[name]}")
+    elif args.action == "set":
+        if not args.name:
+            sys.exit("Which one? e.g. secrets set TMDB_TOKEN  (known: " + ", ".join(secrets.KNOWN) + ")")
+        value = getpass.getpass(f"Paste {args.name} (hidden), then Enter: ")
+        st.set(args.name, value)
+        print(f"Saved {args.name} in {st.where}.")
+        if args.name in os.environ:
+            print(f"Note: {args.name} is also set in your environment / .env, which takes precedence. "
+                  "Run `secrets migrate` or remove it there.")
+    elif args.action == "delete":
+        if not args.name:
+            sys.exit("Which one? e.g. secrets delete TMDB_TOKEN")
+        print(f"Deleted {args.name}." if st.delete(args.name) else f"{args.name} wasn't saved.")
+    elif args.action == "migrate":
+        moved = secrets.migrate_env(ROOT / ".env", st)
+        print(f"Moved {', '.join(moved)} from .env into {st.where}." if moved
+              else "Nothing to move: .env has no saved secrets.")
+
+
 def main() -> None:
     force_utf8_stdout()
+    secrets.install_log_redaction()
     ap = argparse.ArgumentParser(prog="ytw")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("ingest", help="Load Takeout JSON into the database")
@@ -282,18 +315,23 @@ def main() -> None:
     p = sub.add_parser("fetch", help="Crunchyroll: download your watch history with your browser cookie")
     p.set_defaults(func=cmd_fetch)
 
+    p = sub.add_parser("secrets", help="Save, list or remove API keys, tokens and cookies (OS keychain)")
+    p.add_argument("action", choices=["list", "set", "delete", "migrate"])
+    p.add_argument("name", nargs="?", type=str.upper, help="e.g. TMDB_TOKEN")
+    p.set_defaults(func=cmd_secrets)
+
     p = sub.add_parser("investigate-delay", help="Report on videos logged hours after their pre-roll ad")
     p.add_argument("--min-gap-hours", type=float, default=1.0)
     p.set_defaults(func=cmd_investigate_delay)
 
     for name, sp in sub.choices.items():
-        if name != "investigate-delay":
+        if name not in ("investigate-delay", "secrets"):
             sp.add_argument("--platform", default=platforms.DEFAULT, choices=sorted(platforms.PLATFORMS),
                             help="which platform (default: youtube)")
 
     args = ap.parse_args()
     p = platforms.get(getattr(args, "platform", platforms.DEFAULT))
-    if not p.implemented and args.cmd != "fetch":  # fetching comes before a platform is switched on
+    if not p.implemented and args.cmd not in ("fetch", "secrets"):  # fetching comes before a platform is switched on
         sys.exit(f"{p.name} isn't supported yet - see issue #{p.issue}.\n"
                  f"How to get the data when it is: " + "; ".join(p.export_steps))
     cfg = load_config()

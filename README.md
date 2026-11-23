@@ -51,13 +51,13 @@ Without a key the app still works, but with no durations, categories, genres or 
 2. Go to **APIs & Services → Library**, search for **YouTube Data API v3**, and click **Enable**.
 3. Go to **APIs & Services → Credentials → Create credentials → API key**.
 4. Optional but recommended: click the key, and under **API restrictions** restrict it to *YouTube Data API v3*.
-5. Create a `.env` file in the repo root:
+5. Save it (you paste it at a hidden prompt; it's kept in your OS keychain, see [Secrets](#secrets)):
 
-   ```
-   YOUTUBE_API_KEY=your-key-here
+   ```bash
+   python backend/cli.py secrets set YOUTUBE_API_KEY
    ```
 
-`.env` is gitignored. The free quota is 10,000 units/day. Lookups are batched 50 IDs per unit, so even a very large history (~80k videos) takes about 2,000 units.
+The free quota is 10,000 units/day. Lookups are batched 50 IDs per unit, so even a very large history (~80k videos) takes about 2,000 units.
 
 ## 3. Load and enrich
 
@@ -113,9 +113,9 @@ To export cards with thumbnails, the server relays YouTube images through `/api/
    - **Quick (instant):** netflix.com/viewingactivity → *Download all* → `NetflixViewingHistory.csv`. Titles and dates only, so watch time is estimated and there are no times of day.
    - **Full (takes a few days):** netflix.com/account → *Download your personal information* → `CONTENT_INTERACTION/ViewingActivity.csv`. Adds exact start times and durations. If it has several profiles, set `[netflix] profile = "Your Name"` in `config.toml` (or pass `--profile`).
 2. Put the file(s) in `data/netflix/`. Every `NetflixViewingHistory*.csv` and `ViewingActivity.csv` there is read and merged into one timeline, so you can add several accounts (e.g. `NetflixViewingHistory-account2.csv`). A viewing that appears in two files (same title, same day) counts once, and full-export rows win over quick-download rows.
-3. Get a free TMDB token for posters, genres and runtimes: sign up at [themoviedb.org](https://www.themoviedb.org) → Settings → API → create a *Developer* key, then add the **API Read Access Token** to `.env`:
-   ```
-   TMDB_TOKEN=eyJ...
+3. Get a free TMDB token for posters, genres and runtimes: sign up at [themoviedb.org](https://www.themoviedb.org) → Settings → API → create a *Developer* key, then save the **API Read Access Token**:
+   ```bash
+   python backend/cli.py secrets set TMDB_TOKEN
    ```
 4. Run:
    ```bash
@@ -150,9 +150,9 @@ Notes on the data:
 
 1. Log in at crunchyroll.com **on your profile** (accounts can have several profiles; the history you get is the one the browser is on).
 2. Open DevTools (F12) → **Application** → **Cookies** → `https://www.crunchyroll.com`, and copy the value of **`etp_rt`**.
-3. Add it to `.env` (treat it like a password; it never leaves your machine and `.env` is git-ignored):
-   ```
-   CRUNCHYROLL_ETP_RT=...
+3. Save it (treat it like a password; it's kept in your OS keychain and never leaves your machine):
+   ```bash
+   python backend/cli.py secrets set CRUNCHYROLL_ETP_RT
    ```
 4. In `config.toml`, set your profile name so a cookie from someone else's profile is refused:
    ```toml
@@ -184,6 +184,19 @@ Notes on the data:
 - Each platform has its own raw-export folder (`data/<platform>/`) and its own database (`data/<platform>.db`). The stats engine reads the generic `watches`, `items` and `creators` tables, which every platform fills in its own way.
 - The API takes `?platform=<id>` (default `youtube`); the CLI takes `--platform <id>`.
 - Themes are CSS variables in `frontend/src/index.css` (`[data-theme="youtube"]`, …).
+
+## Secrets
+
+API keys, tokens and cookies are kept in your OS keychain (Windows Credential Manager, macOS Keychain or the Linux Secret Service), never in plain text in the repo.
+
+```bash
+python backend/cli.py secrets list               # names and where each is set (never the values)
+python backend/cli.py secrets set TMDB_TOKEN     # paste at a hidden prompt
+python backend/cli.py secrets delete TMDB_TOKEN
+python backend/cli.py secrets migrate            # move secrets from an old .env into the keychain
+```
+
+An environment variable (or a line in `.env`) with the same name still overrides the keychain, e.g. for a one-off run. On a system with no keychain, secrets go to `data/.secrets.json` (readable only by you) with a warning. Known secret values, `Authorization` headers, cookies and `key=`/`token=` parameters are masked in every log line.
 
 ## Configuration
 

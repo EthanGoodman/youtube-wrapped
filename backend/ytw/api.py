@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 
 import logging
 
-from . import db, images, platforms, security
+from . import db, images, platforms, secrets, security
 from .config import Config
 from .stats import ads, details, evolution, overview, patterns, records, search, shows, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, data_bounds, resolve_range
@@ -93,6 +93,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         overrides.setdefault(platforms.DEFAULT, db_path)
     app = FastAPI(title="Wrapped", docs_url="/api/docs" if dev else None, redoc_url=None,
                   openapi_url="/api/openapi.json" if dev else None)
+    secrets.install_log_redaction()
     app_token = token or security.load_or_create_token(cfg.data_root / ".app_token")
     app.state.token = app_token
     app.add_middleware(security.SecurityMiddleware, token=app_token, require_token=not dev, any_host=lan)
