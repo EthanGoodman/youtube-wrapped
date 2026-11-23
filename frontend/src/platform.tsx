@@ -4,9 +4,14 @@ import {
   Link as RouterLink, LinkProps, NavLink as RouterNavLink, NavLinkProps, To, useParams,
 } from "react-router-dom";
 import { useMeta } from "./api";
+import { themeOf } from "./themes";
 
-/** Mirrors backend/ytw/platforms.py (ids only; everything else comes from /api/platforms and /api/meta). */
+/** Known platform ids: the built-in ones, plus every id /api/platforms reports (registerPlatforms). */
 export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll"];
+
+export function registerPlatforms(ids: string[]) {
+  ids.forEach((id) => { if (!PLATFORM_IDS.includes(id)) PLATFORM_IDS.push(id); });
+}
 export const DEFAULT_PLATFORM = "youtube";
 
 export interface PlatformInfo {
@@ -34,7 +39,12 @@ export function usePlatform(): PlatformInfo | undefined {
 
 /** How creators are pictured: round avatars (YouTube channels) or 2:3 posters (shows). */
 export function useCreatorShape(): "circle" | "poster" {
-  return ["netflix", "prime_video", "crunchyroll"].includes(usePlatform()?.theme ?? "") ? "poster" : "circle";
+  return themeOf(usePlatform()).creatorShape;
+}
+
+/** The current platform's theme (family, look, variants). */
+export function useTheme() {
+  return themeOf(usePlatform());
 }
 
 export function useCapability(capability: string): boolean {
@@ -79,9 +89,16 @@ export { RouterLink as HubLink };
 
 /** Current platform wording, set when entering a platform (YouTube's words map to themselves). */
 let currentVocab: PlatformInfo["vocab"] | null = null;
+let currentName = "Netflix";
 
-export function setVocab(v: PlatformInfo["vocab"] | null) {
+export function setVocab(v: PlatformInfo["vocab"] | null, name?: string) {
   currentVocab = v;
+  if (name) currentName = name;
+}
+
+/** The current platform's name, outside React (Wrapped cards). */
+export function platformName(): string {
+  return currentName;
 }
 
 /** Translate YouTube wording in a UI string to the current platform's:

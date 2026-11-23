@@ -5,8 +5,8 @@ import { BarChart3, Film, Clock, Home, LayoutGrid, Megaphone, MoreHorizontal, Se
 import { useLinkQuery } from "../filters";
 import { useMeta } from "../api";
 import { RangeBar } from "./RangeBar";
-import { NetflixShell } from "./NetflixShell";
-import { CrunchyrollShell } from "./CrunchyrollShell";
+import { ShowsShell } from "../families/shows/Shell";
+import { useTheme } from "../platform";
 
 interface NavItem { to: string; label: string; icon: typeof Home; end?: boolean; match?: string; cap?: string }
 const ALL_NAV: NavItem[] = [
@@ -45,10 +45,10 @@ export function Logo() {
 }
 
 export function Layout({ children, showRange = true }: { children: ReactNode; showRange?: boolean }) {
-  // Netflix gets its own frame (top bar, menus, phone tabs) so it feels like Netflix, not a recolored YouTube
-  const theme = usePlatform()?.theme;
-  if (theme === "crunchyroll") return <CrunchyrollShell showRange={showRange}>{children}</CrunchyrollShell>;
-  if (theme === "netflix") return <NetflixShell showRange={showRange}>{children}</NetflixShell>;
+  // shows platforms get their own frame (top bar, menus, phone tabs) from their theme, so Netflix feels
+  // like Netflix and Crunchyroll like Crunchyroll, not a recolored YouTube
+  const theme = useTheme();
+  if (usePlatform() && theme.shell) return <ShowsShell showRange={showRange}>{children}</ShowsShell>;
   return <DefaultLayout showRange={showRange}>{children}</DefaultLayout>;
 }
 

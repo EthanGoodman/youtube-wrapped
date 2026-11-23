@@ -4,17 +4,8 @@ import { BarChart3, ChevronDown, Database, ExternalLink, Sparkles } from "lucide
 import { PlatformSummary, usePlatforms } from "../api";
 import { compact, date, num } from "../format";
 import { HubLink } from "../platform";
+import { tileOf } from "../themes";
 
-/** Brand colors for the tiles (each platform's own pages use its full theme). */
-export const BRAND: Record<string, { bg: string; fg?: string }> = {
-  youtube: { bg: "linear-gradient(140deg,#ff0033,#7a0019)" },
-  netflix: { bg: "linear-gradient(140deg,#e50914,#3d0306)" },
-  spotify: { bg: "linear-gradient(140deg,#1ed760,#0b5c2a)", fg: "#0b0b0b" },
-  prime_video: { bg: "linear-gradient(140deg,#00a8e1,#0b2a4a)" },
-  tiktok: { bg: "linear-gradient(140deg,#25f4ee 0%,#111 45%,#fe2c55 100%)" },
-  instagram: { bg: "linear-gradient(140deg,#f58529,#dd2a7b 50%,#8134af)" },
-  crunchyroll: { bg: "linear-gradient(140deg,#ff640a,#7a2a05)" },
-};
 
 export function Hub() {
   const q = usePlatforms();
@@ -61,7 +52,7 @@ export function Hub() {
 }
 
 function ReadyTile({ p }: { p: PlatformSummary }) {
-  const brand = BRAND[p.id] ?? BRAND.youtube;
+  const brand = tileOf(p.id);
   const hours = (p.est_s ?? 0) / 3600;
   return (
     <div className="flex flex-col justify-between overflow-hidden rounded-2xl p-6 shadow-xl"
@@ -90,7 +81,7 @@ function ReadyTile({ p }: { p: PlatformSummary }) {
 
 function SoonTile({ p }: { p: PlatformSummary }) {
   const [open, setOpen] = useState(false);
-  const brand = BRAND[p.id] ?? BRAND.youtube;
+  const brand = tileOf(p.id);
   return (
     <div className="rounded-2xl bg-card p-4 ring-1 ring-line">
       <div className="flex items-center gap-3">

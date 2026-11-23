@@ -1,9 +1,10 @@
 import { Smile } from "lucide-react";
 import { useState } from "react";
 import { Link, useVocab, tr, useCapability, useHasSeries, usePlatform } from "../platform";
-import { NetflixHome } from "./NetflixHome";
-import { CrunchyrollHome } from "./CrunchyrollHome";
-import { KindSplit, KindSplitBar, ShowProgress, ShowProgressRows, useShows } from "../components/shows";
+import { ShowsHome } from "../families/shows/Home";
+import { themeOf } from "../themes";
+import { AnimeHome } from "../families/shows/AnimeHome";
+import { KindSplit, KindSplitBar, ShowProgress, ShowProgressRows, useShows } from "../families/shows/data";
 import { HourPoint, Overview, TopResponse, WatchInfo, useMeta, useStats } from "../api";
 import { BarList, ChannelCarousel, RankedRows, WatchRows } from "../components/lists";
 import { MeasureToggle, WatchClock, useMeasure } from "../components/charts";
@@ -17,8 +18,8 @@ export function Home() {
   const platform = usePlatform();
   const series = useHasSeries();
   if (!platform) return null;  // wait for the platform, so Netflix doesn't flash the stats layout first
-  if (platform.theme === "crunchyroll") return <CrunchyrollHome />;
-  return series ? <NetflixHome /> : <StatsHome />;
+  if (themeOf(platform).anime) return <AnimeHome />;
+  return series ? <ShowsHome /> : <StatsHome />;
 }
 
 function StatsHome() {

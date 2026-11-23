@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
 import { useParams } from "react-router-dom";
-import { NetflixShowPage } from "./NetflixShow";
-import { CrunchyrollShowPage } from "./CrunchyrollShow";
+import { ShowPage } from "../families/shows/Show";
+import { AnimeShowPage } from "../families/shows/AnimeShow";
+import { themeOf } from "../themes";
 import { Link, tr, useCapability, useHasSeries, usePlatform } from "../platform";
 import type { EChartsOption } from "echarts";
 import { ExternalLink, Sparkles } from "lucide-react";
@@ -117,8 +118,8 @@ export function ChannelPage() {
   const series = useHasSeries();
   const platform = usePlatform();
   if (!platform) return null;
-  if (platform.theme === "crunchyroll") return <CrunchyrollShowPage />;
-  return series ? <NetflixShowPage /> : <CreatorPage />;
+  if (themeOf(platform).anime) return <AnimeShowPage />;
+  return series ? <ShowPage /> : <CreatorPage />;
 }
 
 function CreatorPage() {

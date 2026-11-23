@@ -1,4 +1,4 @@
-import { NetflixPatterns } from "./NetflixPatterns";
+import { ShowsPatterns } from "../families/shows/Patterns";
 import { useHasSeries as useHasSeriesW, usePlatform as usePlatformW } from "../platform";
 import { DayPoint, HourPoint, MonthPoint, useStats } from "../api";
 import { CalendarHeat, MeasureToggle, MonthlyBars, WatchClock, WeekHeatmap, useMeasure } from "../components/charts";
@@ -20,7 +20,7 @@ export function Patterns() {
   const platform = usePlatformW();
   const series = useHasSeriesW();
   if (!platform) return null;
-  return series ? <NetflixPatterns /> : <StatsPatterns />;
+  return series ? <ShowsPatterns /> : <StatsPatterns />;
 }
 
 function StatsPatterns() {

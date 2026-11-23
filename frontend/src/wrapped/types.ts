@@ -49,7 +49,7 @@ export interface WrappedData {
 }
 
 /** Netflix's story data (GET /api/wrapped/<year>?platform=netflix): shows instead of channels. */
-export interface NetflixWrappedData {
+export interface ShowsWrappedData {
   platform: "netflix";
   year: number;
   mode: "all";
@@ -83,7 +83,7 @@ export interface NetflixWrappedData {
   } | null;
 }
 
-export type AnyWrapped = (WrappedData & { platform?: undefined }) | NetflixWrappedData;
+export type AnyWrapped = (WrappedData & { platform?: undefined }) | ShowsWrappedData;
 
 /** Route every YouTube image through the local relay so cards can be exported as PNG. */
 // <img src> can't send headers, so the relay takes the app token as a query parameter

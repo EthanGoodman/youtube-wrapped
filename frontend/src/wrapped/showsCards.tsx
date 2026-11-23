@@ -1,10 +1,11 @@
 /* Netflix Wrapped cards: same 360 x 640 design size and player as YouTube's, Netflix look
    (near-black, Netflix red, heavy Inter headlines, posters instead of avatars). */
+import { platformName } from "../platform";
 import { ReactNode, useState } from "react";
 import { motion } from "framer-motion";
 import { compact, date, hourLabel, num } from "../format";
 import { CardDef, CountUp, RadialClock, pop, rise } from "./cards";
-import { NetflixWrappedData, img } from "./types";
+import { ShowsWrappedData, img } from "./types";
 
 const RED = "rgb(var(--c-accent))";  // the platform accent (Netflix red, Crunchyroll orange)
 // Inter Black, like the dashboard (Netflix's own type is a heavy sans, not a condensed display face)
@@ -19,12 +20,9 @@ const poster = (url: string | null | undefined, big = false) => img(big && url ?
 
 // ------------------------------------------------------------------ building blocks
 
-/** Which platform's story this is (from the page's theme), for the name on the cards. */
-const platformName = () =>
-  ({ netflix: "Netflix", crunchyroll: "Crunchyroll" } as Record<string, string>)[document.documentElement.dataset.theme ?? ""] ?? "Netflix";
 
 /** Our own mark (not Netflix's N), shared with the dashboard's top bar. */
-import { WrappedMark as NMark } from "../components/NetflixShell";
+import { WrappedMark as NMark } from "../families/shows/Shell";
 export { NMark };
 
 function Card({ children, footer = true, year, glow = "top" }: {
@@ -97,9 +95,9 @@ function Rank({ n, size }: { n: number; size: number }) {
 
 // ------------------------------------------------------------------ cards
 
-type NCard = CardDef<NetflixWrappedData>;
+type NCard = CardDef<ShowsWrappedData>;
 
-export const NETFLIX_CARDS: NCard[] = [
+export const SHOWS_CARDS: NCard[] = [
   {
     id: "intro", label: "Intro",
     render: (d) => (
@@ -130,7 +128,7 @@ export const NETFLIX_CARDS: NCard[] = [
           </motion.div>
           {!d.has_times && (
             <motion.p {...rise(1.7)} className="mt-auto text-[11px] text-white/50">
-              Estimated from each episode's and movie's runtime: Netflix's quick download has no watch times.
+              Estimated from each episode's and movie's runtime: {platformName() === "Netflix" ? "Netflix's quick download" : `your ${platformName()} history`} has no watch times.
             </motion.p>
           )}
         </Card>
@@ -408,10 +406,10 @@ export const NETFLIX_CARDS: NCard[] = [
       );
     },
   },
-  { id: "summary", label: "Summary", render: (d) => <NetflixSummary d={d} /> },
+  { id: "summary", label: "Summary", render: (d) => <ShowsSummary d={d} /> },
 ];
 
-function NetflixSummary({ d }: { d: NetflixWrappedData }) {
+function ShowsSummary({ d }: { d: ShowsWrappedData }) {
   const p = d.personality;
   const s = d.progress.summary;
   return (

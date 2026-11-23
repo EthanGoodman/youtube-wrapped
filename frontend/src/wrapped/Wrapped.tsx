@@ -7,34 +7,17 @@ import { toPng } from "html-to-image";
 import { useQuery } from "@tanstack/react-query";
 import { getJson, useMeta } from "../api";
 import { num } from "../format";
-import { CARDS, CARD_H, CARD_W, CardDef, YtMark } from "./cards";
-import { NETFLIX_CARDS, NMark } from "./netflixCards";
+import { CARDS, CARD_H, CARD_W, CardDef } from "./cards";
+import { SHOWS_CARDS } from "./showsCards";
 import { AnyWrapped, WrappedData, WrappedMode } from "./types";
+import { themeOf } from "../themes";
 
-/** Look of the picker and player around the cards, per platform. */
-const BRAND: Record<string, { name: string; mark: (size: number) => React.ReactNode; file: string; pickerBg: string; tiles: string[]; backdrop: string; tileFont?: string }> = {
-  youtube: {
-    name: "YouTube", mark: (size) => <YtMark size={size} />, file: "youtube-wrapped",
-    pickerBg: "radial-gradient(ellipse at top,#4a0012,#0f0f0f 60%)",
-    tiles: ["#ff0033", "#7c3aed", "#f97316", "#0ea5e9", "#db2777", "#10b981"],
-    backdrop: "radial-gradient(circle at 30% 30%, #ff0033, transparent 55%), radial-gradient(circle at 70% 70%, #7c3aed, transparent 55%)",
-  },
-  netflix: {
-    name: "Netflix", mark: (size) => <NMark size={size} />, file: "netflix-wrapped",
-    pickerBg: "radial-gradient(ellipse at top,#5c0a0f,#0b0b0b 60%)",
-    tiles: ["#e50914", "#b20710", "#831010", "#5c0a0f", "#e50914", "#b20710"],
-    backdrop: "radial-gradient(circle at 30% 30%, #e50914, transparent 55%), radial-gradient(circle at 70% 70%, #5c0a0f, transparent 55%)",
-    tileFont: "Inter, sans-serif",
-  },
-  crunchyroll: {
-    name: "Crunchyroll", mark: (size) => <NMark size={size} />, file: "crunchyroll-wrapped",
-    pickerBg: "radial-gradient(ellipse at top,#5a2a0b,#000 60%)",
-    tiles: ["#f47521", "#c85a12", "#8a3d0c", "#5a2a0b", "#f47521", "#c85a12"],
-    backdrop: "radial-gradient(circle at 30% 30%, #f47521, transparent 55%), radial-gradient(circle at 70% 70%, #5a2a0b, transparent 55%)",
-    tileFont: "Inter, sans-serif",
-  },
-};
-const brandOf = (platform: string | null | undefined) => BRAND[platform ?? "youtube"] ?? BRAND.youtube;
+/** Look of the picker and player around the cards: the platform's theme, plus its name. */
+function useBrand() {
+  const p = useMeta().data?.platform;
+  const id = p?.id ?? "youtube";
+  return { ...themeOf(p).wrapped, name: p?.name ?? "YouTube", file: `${id}-wrapped` };
+}
 
 const SECONDS_PER_CARD = 7;
 
@@ -90,7 +73,7 @@ export function WrappedPage() {
 
 function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: WrappedMode) => void }) {
   const meta = useMeta().data;
-  const brand = brandOf(usePlatformId());
+  const brand = useBrand();
   const years = [...(meta?.years ?? [])].reverse();
   return (
     <div className="flex min-h-[100dvh] flex-col items-center px-5 py-10" style={{ background: brand.pickerBg }}>
@@ -154,10 +137,10 @@ function Fullscreen({ children }: { children: React.ReactNode }) {
 }
 
 function Player({ data, setMode }: { data: AnyWrapped; setMode: (m: WrappedMode) => void }) {
-  const brand = brandOf(data.platform);
+  const brand = useBrand();
   // each card set renders its own platform's data
   const cards = useMemo<CardDef<AnyWrapped>[]>(() => ("kind_split" in data
-    ? (NETFLIX_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
+    ? (SHOWS_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
     : (CARDS as CardDef<AnyWrapped>[]).filter((c) => available(c as CardDef, data as WrappedData))), [data]);
   // ?card=<id> opens the story on that card, paused (handy for linking to one card)
   const [params] = useSearchParams();

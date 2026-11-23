@@ -1,9 +1,9 @@
 /* Pieces for platforms with episodic shows (Netflix): show progress, binges, episodes vs movies. */
-import { Link, useHasSeries } from "../platform";
-import { useStats } from "../api";
-import { Avatar } from "./ui";
-import { date, duration, num, pct } from "../format";
-import { useLinkQuery } from "../filters";
+import { Link, useHasSeries } from "../../platform";
+import { useStats } from "../../api";
+import { Avatar } from "../../components/ui";
+import { date, duration, num, pct } from "../../format";
+import { useLinkQuery } from "../../filters";
 
 export type ShowStatus = "finished" | "watching" | "dropped";
 

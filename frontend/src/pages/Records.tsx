@@ -1,8 +1,8 @@
-import { NetflixRecords } from "./NetflixRecords";
+import { ShowsRecords } from "../families/shows/Records";
 import { useHasSeries as useHasSeriesW, usePlatform as usePlatformW } from "../platform";
 import { ReactNode } from "react";
 import { Link, tr, useCapability, useHasSeries, usePlatform } from "../platform";
-import { Binge, useShows } from "../components/shows";
+import { Binge, useShows } from "../families/shows/data";
 import { CalendarDays, Clock3, Flame, Hourglass, Moon, Rocket, Sunrise, Tv, Zap } from "lucide-react";
 import { WatchInfo, useStats } from "../api";
 import { PageTitle, QueryState, Section, Thumb, WatchTimeInfo } from "../components/ui";
@@ -29,7 +29,7 @@ export function Records() {
   const platform = usePlatformW();
   const series = useHasSeriesW();
   if (!platform) return null;
-  return series ? <NetflixRecords /> : <StatsRecords />;
+  return series ? <ShowsRecords /> : <StatsRecords />;
 }
 
 function StatsRecords() {

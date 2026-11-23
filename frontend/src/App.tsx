@@ -6,8 +6,8 @@ import { PageTitle } from "./components/ui";
 import { Home } from "./pages/Home";
 import { Hub } from "./pages/Hub";
 import { Sources } from "./pages/Sources";
-import { Anime } from "./pages/Anime";
-import { Shows } from "./pages/Shows";
+import { Anime } from "./families/shows/Anime";
+import { Shows } from "./families/shows/Shows";
 import { Top } from "./pages/Top";
 import { Patterns } from "./pages/Patterns";
 import { Records } from "./pages/Records";
@@ -19,6 +19,7 @@ import { WrappedPage } from "./wrapped/Wrapped";
 import { usePlatforms } from "./api";
 import { HubLink, PLATFORM_IDS, setVocab, useCapability } from "./platform";
 import { setChartTheme } from "./theme";
+import { applyThemeColors, themeOf } from "./themes";
 
 /** Sections of a platform. Old single-platform links (/top/channels, …) redirect to /youtube/… */
 const SECTIONS = ["top", "patterns", "records", "evolution", "ads", "search", "channel", "video", "category",
@@ -50,6 +51,7 @@ export function App() {
 function HubPage({ page = <Hub /> }: { page?: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.removeAttribute("data-theme");
+    applyThemeColors(null);
   }, []);
   return <>{page}</>;
 }
@@ -64,12 +66,15 @@ function PlatformApp() {
   // apply the platform's theme before its pages render (CSS colors + chart colors)
   const theme = info?.theme ?? platform;
   if (PLATFORM_IDS.includes(platform)) {
+    const t = info ? themeOf(info) : null;
     document.documentElement.setAttribute("data-theme", theme);
-    setChartTheme(theme);
-    setVocab(info?.vocab ?? null);
+    applyThemeColors(t);
+    setChartTheme(theme, t?.chart);
+    setVocab(info?.vocab ?? null, info?.name);
   }
 
   if (!PLATFORM_IDS.includes(platform)) {
+    if (!platforms) return null;  // a platform added on the server may not be known yet
     if (SECTIONS.includes(platform)) return <Navigate to={`/youtube${pathname}${search}`} replace />;
     return <NotFound />;
   }

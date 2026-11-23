@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Filters, toQuery, useFilters } from "./filters";
-import { DEFAULT_PLATFORM, PlatformInfo, usePlatformId } from "./platform";
+import { DEFAULT_PLATFORM, PlatformInfo, registerPlatforms, usePlatformId } from "./platform";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -59,7 +59,14 @@ export interface PlatformSummary extends PlatformInfo {
 
 /** All platforms, with a headline for the ones that have data (the hub page). */
 export function usePlatforms() {
-  return useQuery<PlatformSummary[], ApiError>({ queryKey: ["platforms"], queryFn: () => getJson("/api/platforms") });
+  return useQuery<PlatformSummary[], ApiError>({
+    queryKey: ["platforms"],
+    queryFn: async () => {
+      const list = await getJson<PlatformSummary[]>("/api/platforms");
+      registerPlatforms(list.map((p) => p.id));
+      return list;
+    },
+  });
 }
 
 // ------------------------------------------------------------------ types

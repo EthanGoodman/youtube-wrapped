@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CaretDown, CheckCircle } from "@phosphor-icons/react";
-import { MonthPoint, useStats } from "../api";
-import { Link } from "../platform";
-import { QueryState, Section } from "../components/ui";
-import { MeasureToggle, MonthlyBars, useMeasure } from "../components/charts";
-import { ShowProgress } from "../components/shows";
-import { Bar, Meta, ORANGE, PosterImg, STATUS, TEAL, Tag, subDub } from "../components/cr";
-import { date, num } from "../format";
-import { useLinkQuery } from "../filters";
+import { MonthPoint, useStats } from "../../api";
+import { Link } from "../../platform";
+import { QueryState, Section } from "../../components/ui";
+import { MeasureToggle, MonthlyBars, useMeasure } from "../../components/charts";
+import { ShowProgress } from "./data";
+import { Bar, Meta, ORANGE, PosterImg, STATUS, TEAL, Tag, subDub } from "./animeUi";
+import { date, num } from "../../format";
+import { useLinkQuery } from "../../filters";
 
 interface Episode { number: number; name: string | null; runtime_min: number | null; air_date: string | null; aired: boolean;
                     still: string | null; watched: boolean; first: string | null; times: number; pct: number | null; dubbed: boolean | null }
@@ -36,7 +36,7 @@ const hours = (s: number) => (s >= 3600 ? `${num(Math.round(s / 3600))}h` : `${M
 const days = (n: number) => (n === 1 ? "1 day" : `${num(n)} days`);
 const eps = (n: number) => `${num(n)} ep${n === 1 ? "" : "s"}`;
 
-export function CrunchyrollShowPage() {
+export function AnimeShowPage() {
   const { id = "" } = useParams();
   const d = useStats<Detail>(`show/${encodeURIComponent(id)}`);
   const monthly = useStats<{ monthly: MonthPoint[] }>(`channel/${encodeURIComponent(id)}`);

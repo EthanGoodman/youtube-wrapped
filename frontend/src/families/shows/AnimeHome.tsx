@@ -2,15 +2,15 @@
    uppercase tags, banner art fading to black). */
 import { ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Sparkle } from "@phosphor-icons/react";
-import { MonthPoint, Overview, TopResponse, useStats } from "../api";
-import { Link } from "../platform";
-import { QueryState, Section, SeeAll } from "../components/ui";
-import { BarList } from "../components/lists";
-import { MeasureToggle, MonthlyBars, useMeasure } from "../components/charts";
-import { ShowProgress, ShowStatus, useShows } from "../components/shows";
-import { Bar, CRShow, Meta, ORANGE, PosterCard, PosterImg, STATUS, TEAL, Tag } from "../components/cr";
-import { date, num, pct } from "../format";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
+import { MonthPoint, Overview, TopResponse, useStats } from "../../api";
+import { Link } from "../../platform";
+import { QueryState, Section, SeeAll } from "../../components/ui";
+import { BarList } from "../../components/lists";
+import { MeasureToggle, MonthlyBars, useMeasure } from "../../components/charts";
+import { ShowProgress, ShowStatus, useShows } from "./data";
+import { Bar, CRShow, Meta, ORANGE, PosterCard, PosterImg, STATUS, TEAL, Tag } from "./animeUi";
+import { date, num, pct } from "../../format";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
 
 interface HomeShow extends CRShow { backdrop: string | null; year: string | null; first_watched?: string; last_watched?: string | null }
 interface HomeData { billboard: HomeShow | null; top10: HomeShow[]; finished: HomeShow[]; new: HomeShow[] }
@@ -22,7 +22,7 @@ interface Anime {
 
 const hours = (s: number) => (s >= 3600 ? `${num(Math.round(s / 3600))}h` : `${Math.round(s / 60)}m`);
 
-export function CrunchyrollHome() {
+export function AnimeHome() {
   const home = useShows<HomeData>("home");
   const { filters, update } = useFilters();
   const genres = useStats<TopResponse>("top/genres", { limit: 8 });

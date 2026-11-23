@@ -1,15 +1,18 @@
-/* The Netflix look for every Netflix page: Netflix-style top bar (transparent over the page,
-   solid once you scroll), dropdown menus, search, profile square, phone tab bar and footer.
-   Look-alike only: our own "W" mark, Inter instead of Netflix Sans, no Netflix assets. */
+/* The frame around every page of a shows platform (Netflix, Crunchyroll, Prime Video…): top bar with
+   nav, search, period picker and profile menu; phone quick filters and tab bar; footer.
+   One component; the platform's look (bar style, nav style, icons, colors, credits) comes from
+   its theme's ShellLook (themes.tsx). Look-alike only: our own "W" mark, free fonts, no platform assets. */
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { CalendarRange, ChevronDown, Clapperboard, Film, Home, LayoutGrid, Menu, Search, Smile, Sparkles, Trophy, X } from "lucide-react";
-import { HubLink, Link, NavLink } from "../platform";
-import { RankedItem, TopResponse, useMeta, useStats } from "../api";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
-import { CustomRange } from "./RangeBar";
+import { CalendarRange, ChevronDown, Film, LayoutGrid, Search, Smile, Sparkles, X } from "lucide-react";
+import { HubLink, Link, NavLink, useTheme } from "../../platform";
+import { RankedItem, TopResponse, useMeta, useStats } from "../../api";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
+import { CustomRange } from "../../components/RangeBar";
+import { KindSplit, useShows } from "./data";
+import type { ShellLook, TabName } from "../../themes";
 
-/** Our own mark (not Netflix's N): a red tile with a W for "Wrapped". */
+/** Our own mark (no platform's logo): a tile in the accent color with a W for "Wrapped". */
 export function WrappedMark({ size = 24 }: { size?: number }) {
   return (
     <span aria-hidden className="inline-flex shrink-0 items-center justify-center rounded-[3px] bg-yt font-black leading-none text-white"
@@ -29,8 +32,11 @@ export const LINKS: NavItem[] = [
   { to: "/records", label: "Records" },
   { to: "/evolution", label: "Evolution" },
 ];
+const [HOME, SHOWS, MOVIES, TOP] = LINKS;
+const GENRES: NavItem = { to: "/top/genres", label: "Genres" };
+const TABS: [TabName, NavItem | null, string][] = [["home", HOME, "Home"], ["shows", SHOWS, "Shows"], ["top", TOP, "Top 10"], ["wrapped", null, "Wrapped"]];
 
-/** true once the page has scrolled (the bar turns solid, like Netflix's). */
+/** true once the page has scrolled (an overlay bar turns solid). */
 function useScrolled() {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -62,96 +68,118 @@ export function isActive(n: NavItem, pathname: string) {
   return n.end ? rest === "/" : rest.startsWith(n.to);
 }
 
-export function NetflixShell({ children, showRange: rangeWanted = true }: { children: ReactNode; showRange?: boolean }) {
+export function ShowsShell({ children, showRange: rangeWanted = true }: { children: ReactNode; showRange?: boolean }) {
+  const look = useTheme().shell!;
   const scrolled = useScrolled();
   const meta = useMeta();
   const q = useLinkQuery();
   const { pathname } = useLocation();
-  // a show's page always covers your whole history, so the period picker would do nothing there
-  const showRange = rangeWanted && !/\/channel\//.test(pathname);
-  const platformName = meta.data?.platform.name ?? "Netflix";
-  const isNetflix = (meta.data?.platform.id ?? "netflix") === "netflix";
   const [sheet, setSheet] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => { setSheet(false); setSearchOpen(false); }, [pathname]);
+  // a show's page always covers your whole history, so the period picker would do nothing there
+  const showRange = rangeWanted && !/\/channel\//.test(pathname);
+  const platformName = meta.data?.platform.name ?? "Netflix";
+
+  // nav: the shared links, the theme's extra ones (e.g. Anime) after Shows, Movies only if there are any
+  const split = useShows<KindSplit>("split", { range: "all" }, !look.moviesOnlyIfAny);
+  const hasMovies = !look.moviesOnlyIfAny || (split.data?.data.movie.count ?? 0) > 0;
+  const links = LINKS.filter((n) => n !== MOVIES || hasMovies);
+  links.splice(2, 0, ...look.extraLinks);
+  const inSheet = links.filter((n) => !TABS.some(([, t]) => t === n));
+  const pillItem = (id: string) => ({ shows: SHOWS, movies: MOVIES, top: TOP, genres: GENRES }[id] ?? look.extraLinks.find((n) => n.to === `/${id}`)!);
+  const pillOn = (n: NavItem) => (n === GENRES ? pathname.endsWith("/top/genres") : isActive(n, pathname));
+  const tiles = look.nav === "tiles";
 
   return (
-    <div className="nf flex min-h-screen flex-col">
-      <header className={`fixed inset-x-0 top-0 z-40 transition-colors duration-[400ms] ${scrolled ? "bg-[#141414]" : "bg-gradient-to-b from-black/70 to-transparent"}`}>
-        <div className="flex h-[56px] items-center gap-4 px-[4%] md:h-[68px] md:gap-5">
-          {/* same as YouTube: the grid goes to all platforms, the name to this platform's home */}
-          <HubLink to="/" aria-label="All platforms" title="All platforms"
-                   className="-ml-1.5 rounded-[4px] p-1.5 text-[#b3b3b3] transition-colors hover:bg-white/10 hover:text-white">
-            <LayoutGrid size={21} />
-          </HubLink>
-          <Link to={"/" + q} aria-label={`${platformName} Wrapped home`} className="flex shrink-0 items-center gap-2">
-            <WrappedMark size={26} />
-            <span className="text-[19px] font-extrabold tracking-tight">{platformName} Wrapped</span>
+    <div className={`${look.root} flex min-h-screen flex-col`}>
+      <header className={look.header(scrolled)}>
+        <div className={look.bar}>
+          {/* the grid goes to all platforms, the name to this platform's home */}
+          <HubLink to="/" aria-label="All platforms" title="All platforms" className={look.hubLink}>{look.hubIcon}</HubLink>
+          <Link to={"/" + q} aria-label={`${platformName} Wrapped home`} className={look.logoLink}>
+            <WrappedMark size={look.markSize} />
+            <span className={look.title}>{platformName} Wrapped</span>
           </Link>
-          {/* full links on wide screens, a "Browse" menu between phone and desktop */}
-          <nav className="hidden items-center gap-5 xl:flex" aria-label="Main">
-            {LINKS.map((n) => (
-              <NavLink key={n.to} to={n.to + q} end={n.end}
-                       className={`text-[14px] transition-colors ${isActive(n, pathname) ? "font-bold text-white" : "text-[#e5e5e5] hover:text-[#b3b3b3]"}`}>
-                {n.label}
-              </NavLink>
-            ))}
-          </nav>
-          <BrowseMenu pathname={pathname} />
-          <div className="ml-auto flex items-center gap-4">
-            <TitleSearch open={searchOpen} setOpen={setSearchOpen} />
-            {showRange && <div className="hidden md:block"><RangeMenu /></div>}
-            <ProfileMenu />
-          </div>
+          {tiles ? (
+            <nav className="ml-2 hidden items-stretch xl:flex" aria-label="Main">
+              {links.map((n) => <NavTile key={n.to} n={n} active={isActive(n, pathname)} look={look} />)}
+            </nav>
+          ) : (
+            <>
+              {/* full links on wide screens, a "Browse" menu between phone and desktop */}
+              <nav className="hidden items-center gap-5 xl:flex" aria-label="Main">
+                {links.map((n) => (
+                  <NavLink key={n.to} to={n.to + q} end={n.end}
+                           className={`text-[14px] transition-colors ${isActive(n, pathname) ? "font-bold text-white" : "text-[#e5e5e5] hover:text-[#b3b3b3]"}`}>
+                    {n.label}
+                  </NavLink>
+                ))}
+              </nav>
+              <BrowseMenu pathname={pathname} links={links} />
+            </>
+          )}
+          {tiles ? (
+            <div className="ml-auto flex items-stretch">
+              <div className="flex items-center px-3"><TitleSearch open={searchOpen} setOpen={setSearchOpen} /></div>
+              {showRange && <div className="hidden items-center px-2 md:flex"><RangeMenu /></div>}
+              <div className="flex items-center px-3"><ProfileMenu round={look.roundProfile} /></div>
+            </div>
+          ) : (
+            <div className="ml-auto flex items-center gap-4">
+              <TitleSearch open={searchOpen} setOpen={setSearchOpen} />
+              {showRange && <div className="hidden md:block"><RangeMenu /></div>}
+              <ProfileMenu round={look.roundProfile} />
+            </div>
+          )}
         </div>
-        {/* phone: Netflix-app style filter pills under the bar */}
-        <div className={`no-scrollbar flex gap-2 overflow-x-auto px-[4%] pb-2.5 md:hidden ${/\/top\//.test(pathname) ? "hidden" : ""}`}>
-          <Link to={"/shows" + q} className={`nf-pill ${isActive(LINKS[1], pathname) ? "nf-pill-on" : ""}`}>Shows</Link>
-          <Link to={"/top/movies" + q} className={`nf-pill ${isActive(LINKS[2], pathname) ? "nf-pill-on" : ""}`}>Movies</Link>
-          <Link to={"/top/genres" + q} className={`nf-pill ${pathname.endsWith("/top/genres") ? "nf-pill-on" : ""}`}>Genres</Link>
+        {/* tiles between phone and desktop: the nav as a strip under the bar */}
+        {tiles && (
+          <nav className="no-scrollbar hidden overflow-x-auto border-t border-black/40 bg-[#272727] px-[2%] md:flex xl:hidden" aria-label="Sections">
+            {links.map((n) => <NavTile key={n.to} n={n} active={isActive(n, pathname)} look={look} compact />)}
+          </nav>
+        )}
+        {/* phone: quick filters under the bar (the Top page has its own tabs) */}
+        <div className={`${look.pillsBar} ${/\/top\//.test(pathname) ? "hidden" : ""}`}>
+          {look.pills.map((id) => {
+            const n = pillItem(id);
+            return <Link key={id} to={n.to + q} className={`nf-pill ${pillOn(n) ? "nf-pill-on" : ""}`}>{n.label}</Link>;
+          })}
           {showRange && <RangeMenu pill />}
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1600px] flex-1 px-[4%] pb-28 pt-[104px] md:pb-12 md:pt-[92px]">
+      <main className={look.main}>
         {meta.error ? (
           <div className="mt-6 text-sm">
             <p className="font-bold">Can't reach your data.</p>
-            <p className="mt-1 text-[#b3b3b3]">{meta.error.message}</p>
+            <p className={`mt-1 ${look.subText}`}>{meta.error.message}</p>
           </div>
         ) : children}
       </main>
 
-      <footer className="mx-auto hidden w-full max-w-[980px] px-[4%] pb-10 text-[13px] text-[#808080] md:block">
-        <div className="flex flex-wrap gap-x-8 gap-y-2">
-          <HubLink to="/" className="hover:underline">All platforms</HubLink>
-          <Link to={"/wrapped" + q} className="hover:underline">Play your Wrapped</Link>
-          {isNetflix && <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer noopener" className="hover:underline">Posters and details from TMDB</a>}
-        </div>
-        <p className="mt-5 text-[11px]">
-          Wrapped is a private, personal project made from your own viewing history. It is not affiliated with or endorsed by {platformName}.
-          {isNetflix && " This product uses the TMDB API but is not endorsed or certified by TMDB."}
-        </p>
-      </footer>
+      <Footer look={look} platformName={platformName} />
 
       {/* phone tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 bg-[#121212] pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Main">
+      <nav className={look.tabs.bar} aria-label="Main">
         <div className="grid grid-cols-5">
-          <Tab to="/" end icon={Home} label="Home" active={isActive(LINKS[0], pathname)} />
-          <Tab to="/shows" icon={Clapperboard} label="Shows" active={isActive(LINKS[1], pathname)} />
-          <Tab to="/top/channels" icon={Trophy} label="Top 10" active={isActive(LINKS[3], pathname)} />
-          <Tab to="/wrapped" icon={Sparkles} label="Wrapped" active={false} />
+          {TABS.map(([name, n, label]) => (
+            <NavLink key={name} to={(n?.to ?? "/wrapped") + q} end={n?.end}
+                     className={`${look.tabs.tab} ${n && isActive(n, pathname) ? look.tabs.on : look.tabs.off}`}>
+              {look.tabs.icon(name, !!n && isActive(n, pathname))} {label}
+            </NavLink>
+          ))}
           <button onClick={() => setSheet((s) => !s)} aria-expanded={sheet}
-                  className={`flex flex-col items-center gap-1 pb-2 pt-2.5 text-[10px] ${sheet ? "text-white" : "text-[#808080]"}`}>
-            <Menu size={22} /> More
+                  className={`${look.tabs.tab} ${sheet ? look.tabs.on : look.tabs.off}`}>
+            {look.tabs.icon("more", sheet)} More
           </button>
         </div>
         {sheet && (
-          <div className="absolute inset-x-0 bottom-full border-t border-white/10 bg-[#181818] px-[4%] py-2">
-            {[LINKS[2], LINKS[4], LINKS[5], LINKS[6]].map((n) => (
-              <Link key={n.to} to={n.to + q} className={`block py-3 text-[15px] ${isActive(n, pathname) ? "font-bold text-white" : "text-[#e5e5e5]"}`}>{n.label}</Link>
+          <div className={look.tabs.sheet}>
+            {inSheet.map((n) => (
+              <Link key={n.to} to={n.to + q} className={`block py-3 text-[15px] ${isActive(n, pathname) ? look.tabs.sheetOn : look.tabs.sheetOff}`}>{n.label}</Link>
             ))}
-            <HubLink to="/" className="block border-t border-white/10 py-3 text-[15px] text-[#b3b3b3]">All platforms</HubLink>
+            <HubLink to="/" className={look.tabs.sheetHub}>All platforms</HubLink>
           </div>
         )}
       </nav>
@@ -159,22 +187,45 @@ export function NetflixShell({ children, showRange: rangeWanted = true }: { chil
   );
 }
 
-function Tab({ to, end, icon: Icon, label, active }: { to: string; end?: boolean; icon: typeof Home; label: string; active: boolean }) {
+function Footer({ look, platformName }: { look: ShellLook; platformName: string }) {
+  const q = useLinkQuery();
+  const f = look.footer;
+  const body = (
+    <>
+      <div className={f.links}>
+        <HubLink to="/" className={f.link}>All platforms</HubLink>
+        <Link to={"/wrapped" + q} className={f.link}>Play your Wrapped</Link>
+        {f.credits.map((c) => <a key={c.href} href={c.href} target="_blank" rel="noreferrer noopener" className={f.link}>{c.label}</a>)}
+      </div>
+      <p className={f.note}>
+        Wrapped is a private, personal project made from your own viewing history. It is not affiliated with or endorsed by {platformName}.
+        {f.extraNote}
+      </p>
+    </>
+  );
+  return <footer className={f.outer}>{f.inner ? <div className={f.inner}>{body}</div> : body}</footer>;
+}
+
+/** Full-height nav tile (tile-style bars): gray text, white on a darker tile when hovered or active. */
+function NavTile({ n, active, look, compact = false }: { n: NavItem; active: boolean; look: ShellLook; compact?: boolean }) {
   const q = useLinkQuery();
   return (
-    <NavLink to={to + q} end={end} className={`flex flex-col items-center gap-1 pb-2 pt-2.5 text-[10px] ${active ? "text-white" : "text-[#808080]"}`}>
-      <Icon size={22} fill={active && Icon === Home ? "currentColor" : "none"} /> {label}
+    <NavLink to={n.to + q} end={n.end}
+             className={`relative flex items-center whitespace-nowrap px-4 text-[14px] font-medium transition-colors duration-100 ${compact ? "h-11" : ""} ${
+               active ? "bg-[#151515] text-white" : "text-[#bbb] hover:bg-[#151515] hover:text-white"}`}>
+      {n.label}
+      {active && <span className={`absolute inset-x-0 bottom-0 h-[3px] ${look.tileAccent}`} aria-hidden />}
     </NavLink>
   );
 }
 
 /** "Browse ▾" menu shown where the full link row doesn't fit. */
-function BrowseMenu({ pathname }: { pathname: string }) {
+function BrowseMenu({ pathname, links }: { pathname: string; links: NavItem[] }) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
   const q = useLinkQuery();
   useEffect(() => setOpen(false), [pathname]);
-  const current = LINKS.find((n) => isActive(n, pathname))?.label ?? "Browse";
+  const current = links.find((n) => isActive(n, pathname))?.label ?? "Browse";
   return (
     <div ref={ref} className="relative hidden md:block xl:hidden">
       <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex items-center gap-1 text-[14px] font-bold">
@@ -182,7 +233,7 @@ function BrowseMenu({ pathname }: { pathname: string }) {
       </button>
       {open && (
         <div className="nf-menu absolute left-1/2 top-full mt-4 w-56 -translate-x-1/2 py-2">
-          {LINKS.map((n) => (
+          {links.map((n) => (
             <Link key={n.to} to={n.to + q} className={`block px-4 py-2.5 text-center text-[14px] hover:bg-white/10 ${isActive(n, pathname) ? "font-bold text-white" : "text-[#b3b3b3]"}`}>
               {n.label}
             </Link>
@@ -195,7 +246,7 @@ function BrowseMenu({ pathname }: { pathname: string }) {
 
 const PRESETS: [string, string][] = [["4w", "Last 4 weeks"], ["6m", "Last 6 months"], ["this_year", "This year"], ["all", "Lifetime"]];
 
-/** The period picker as a Netflix dropdown ("Lifetime ▾"), like its season picker. */
+/** The period picker as a dropdown ("Lifetime ▾"), like a season picker. */
 export function RangeMenu({ pill = false }: { pill?: boolean }) {
   const { filters, update } = useFilters();
   const meta = useMeta().data;
@@ -246,7 +297,7 @@ function MenuItem({ on, onClick, children }: { on: boolean; onClick: () => void;
   );
 }
 
-/** Profile square with a dropdown, like Netflix's account menu. */
+/** Profile square (or circle) with a dropdown, like a streaming service's account menu. */
 export function ProfileMenu({ round = false }: { round?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
@@ -271,7 +322,7 @@ export function ProfileMenu({ round = false }: { round?: boolean } = {}) {
   );
 }
 
-/** Search your shows and movies (everything you've watched), Netflix-style expanding box. */
+/** Search your shows and movies (everything you've watched), with an expanding box. */
 export function TitleSearch({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
   const [text, setText] = useState("");
   const ref = useDismiss(open, () => setOpen(false));
