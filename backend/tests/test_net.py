@@ -145,8 +145,8 @@ def test_logs_are_redacted(caplog):
     secrets.install_log_redaction()
     h, _, _ = make(ok())
     with caplog.at_level(logging.DEBUG, logger="ytw.net"):
-        h.request("GET", "https://www.googleapis.com/youtube/v3/videos", params={"id": "a", "key": "AIzaSecret123"})
-    assert "AIzaSecret123" not in caplog.text and "videos" in caplog.text
+        h.request("GET", "https://www.googleapis.com/youtube/v3/videos", params={"id": "a", "key": "fake-key-for-test"})
+    assert "fake-key-for-test" not in caplog.text and "videos" in caplog.text
 
 
 def test_image_relay_uses_net(monkeypatch):

@@ -1,0 +1,2 @@
+# Reviewed false positives only (fake values in tests). Format: commit:file:rule:line
+e2bf9c435bb3ad61a774092d555e6d57bf744b47:backend/tests/test_net.py:generic-api-key:148
