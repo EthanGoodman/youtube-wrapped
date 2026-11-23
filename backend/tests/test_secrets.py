@@ -6,7 +6,7 @@ import stat
 import pytest
 
 from ytw import secrets
-from ytw.secrets import MASK, SecretsError, Store, migrate_env, redact
+from ytw.secrets import MASK, SecretsError, Store, migrate_env, migrate_file, redact
 
 
 class FakeKeyring:
@@ -96,6 +96,28 @@ def test_migrate_keeps_env_if_keychain_fails(tmp_path):
     with pytest.raises(SecretsError):
         migrate_env(env, Store(tmp_path / ".secrets.json", keyring=Forgetful()))
     assert "eyJ-tmdb-token-value" in env.read_text(encoding="utf-8")
+
+
+def test_fallback_file_moves_to_keychain(tmp_path):
+    f = tmp_path / ".secrets.json"
+    Store(f, keyring=None).set("TMDB_TOKEN", "was-in-the-fallback-file")
+    st = Store(f, keyring=FakeKeyring())
+    assert migrate_file(st) == ["TMDB_TOKEN"]
+    assert not f.exists() and st.get("TMDB_TOKEN") == "was-in-the-fallback-file"
+    assert migrate_file(st) == []
+
+
+def test_missing_keyring_package_is_an_error(tmp_path, monkeypatch):
+    import builtins
+    real = builtins.__import__
+
+    def no_keyring(name, *a, **k):
+        if name.startswith("keyring"):
+            raise ImportError(name)
+        return real(name, *a, **k)
+    monkeypatch.setattr(builtins, "__import__", no_keyring)
+    with pytest.raises(SecretsError, match="keyring"):
+        Store(tmp_path / ".secrets.json")
 
 
 @pytest.mark.parametrize("text, secret", [

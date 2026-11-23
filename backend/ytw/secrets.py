@@ -37,12 +37,14 @@ def _check(name: str) -> str:
 
 
 def _keyring():
-    """The OS keychain, or None when this system has none (keyring's 'fail' backend)."""
+    """The OS keychain, or None when this system truly has none (keyring's 'fail' backend).
+    A missing keyring package is an error, not "no keychain": it means the wrong Python is running."""
     try:
         import keyring
         from keyring.backends import fail
     except ImportError:
-        return None
+        raise SecretsError("The keyring package isn't installed for this Python. Use the project's .venv "
+                           "(or run: pip install -r requirements.txt).") from None
     kr = keyring.get_keyring()
     return None if isinstance(kr, fail.Keyring) else kr
 
@@ -178,6 +180,22 @@ def migrate_env(env_path: Path, st: Store) -> list[str]:
     if moved:
         env_path.write_text("".join(keep), encoding="utf-8")
     return moved
+
+
+def migrate_file(st: Store) -> list[str]:
+    """Move secrets out of the no-keychain fallback file once a keychain is available, then delete it.
+    Each value is written and read back first. Returns the names moved."""
+    if not st.kr or not st.fallback.exists():
+        return []
+    data = st._read_file()
+    for name, value in data.items():
+        if os.environ.get(name) == value:
+            os.environ.pop(name)
+        st.set(name, value)
+        if st.kr.get_password(SERVICE, name) != value:
+            raise SecretsError(f"Couldn't verify {name} in the keychain; {st.fallback.name} left as it was")
+    st.fallback.unlink()
+    return sorted(data)
 
 
 # -- log redaction ------------------------------------------------------------

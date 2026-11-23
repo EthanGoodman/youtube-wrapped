@@ -11,6 +11,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+_VENV_PY = ROOT_DIR / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+if __name__ == "__main__" and _VENV_PY.exists() and Path(sys.executable).resolve() != _VENV_PY.resolve():
+    import subprocess  # rerun with the project's Python, which has every dependency (e.g. keyring)
+    sys.exit(subprocess.call([str(_VENV_PY), __file__, *sys.argv[1:]]))
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ytw import db, platforms, secrets  # noqa: E402
@@ -287,9 +293,14 @@ def cmd_secrets(args, _cfg) -> None:
             sys.exit("Which one? e.g. secrets delete TMDB_TOKEN")
         print(f"Deleted {args.name}." if st.delete(args.name) else f"{args.name} wasn't saved.")
     elif args.action == "migrate":
+        from_file = secrets.migrate_file(st)
+        if from_file:
+            print(f"Moved {', '.join(from_file)} from {st.fallback.name} into {st.where} and deleted the file.")
         moved = secrets.migrate_env(ROOT / ".env", st)
-        print(f"Moved {', '.join(moved)} from .env into {st.where}." if moved
-              else "Nothing to move: .env has no saved secrets.")
+        if moved:
+            print(f"Moved {', '.join(moved)} from .env into {st.where}.")
+        if not (moved or from_file):
+            print("Nothing to move.")
 
 
 def main() -> None:
