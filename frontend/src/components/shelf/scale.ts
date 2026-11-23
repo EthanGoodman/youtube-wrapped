@@ -5,10 +5,25 @@ export interface Size { w: number; h: number }
 
 const share = (hours: number, max: number) => (max > 0 ? Math.max(0, Math.min(1, hours / max)) : 1);
 
-/** A tape spine: as thick as its hours (the biggest app is 220 wide, the smallest about 56). */
-export function spineSize(hours: number, max: number, maxW = 220): Size {
+export const SHELF_MAX_H = 460;
+export const SHELF_MIN_H = 240;
+
+/** The tallest spine that lets the whole shelf fit in the window: `room` is the height left between
+ *  the shelf's top and the bottom of the window (minus the plank and caption). */
+export function shelfHeight(room: number): number {
+  return Math.round(Math.max(SHELF_MIN_H, Math.min(SHELF_MAX_H, room)));
+}
+
+/** A tape spine: as thick as its hours (the biggest app is 220 wide, the smallest about 56).
+ *  `maxH` is the tallest spine (460 on a tall window, less on a short one); heights keep their ratios. */
+export function spineSize(hours: number, max: number, maxW = 220, maxH = SHELF_MAX_H): Size {
   const r = share(hours, max);
-  return { w: Math.min(maxW, Math.round(56 + 164 * r)), h: Math.round(400 + 60 * r) };
+  return { w: Math.min(maxW, Math.round(56 + 164 * r)), h: Math.round((maxH * (400 + 60 * r)) / SHELF_MAX_H) };
+}
+
+/** An empty slot's height on a shelf whose tallest spine is `maxH` (380 of 460). */
+export function slotHeight(maxH: number, full = false): number {
+  return full ? maxH : Math.round((maxH * 380) / SHELF_MAX_H);
 }
 
 /** Hours label across the top of a spine. */

@@ -25,10 +25,11 @@ interface Props {
   selected: boolean;
   onSelect: () => void;
   maxW?: number;
+  maxH?: number;
   flat?: boolean;
 }
 
-export function Spine({ p, max, color, selected, onSelect, maxW = 220, flat = false }: Props) {
+export function Spine({ p, max, color, selected, onSelect, maxW = 220, maxH, flat = false }: Props) {
   const hours = hoursOf(p);
   const common = {
     type: "button" as const,
@@ -45,14 +46,14 @@ export function Spine({ p, max, color, selected, onSelect, maxW = 220, flat = fa
       </button>
     );
   }
-  const { w, h } = spineSize(hours, max, maxW);
+  const { w, h } = spineSize(hours, max, maxW, maxH);
   return (
     <button {...common} className="shelf-lift shelf-focus flex shrink-0 flex-col items-center justify-between py-[14px]"
             style={{ width: w, height: h, background: color.bg, color: color.fg }}>
       <span aria-hidden className="font-shelf-display leading-none" style={{ fontSize: hoursFontSize(w) }}>{num(hours)} H</span>
       <span aria-hidden className="shelf-vertical font-shelf-display uppercase leading-none"
             style={{ fontSize: nameFontSize(w, h, p.name) }}>{p.name}</span>
-      {w >= 120 ? (
+      {w >= 120 && h >= 300 ? (
         <span aria-hidden className="text-center font-shelf-mono text-[11px] uppercase leading-snug">
           {compact(p.items ?? 0)} {p.vocab.items}<br />since {monthYear(p.first_date)}
         </span>
