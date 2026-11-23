@@ -13,16 +13,18 @@ Every ticket is a GitHub issue; every chapter is a milestone. Work chapter by ch
  Export files (ZIP/JSON/CSV) ──upload──▶ Safe importer ─┐
  Official APIs (Last.fm, Steam, Trakt) ─▶ Connectors ────┤─▶ normalize ─▶ SQLite per platform ─▶ Stats API ─▶ Platform pages
  OAuth (Spotify, Threads, Strava) ──────▶ (one template) │                                                  (themed page families)
- Wrapped Helper extension ──paired──────▶ Ingest API ────┘   Scheduler keeps live sources fresh             Hub: lifetime + Wrapped
-   (Netflix, Crunchyroll, Prime Video…)                       Secrets in the OS keychain
+ Wrapped Helper extension ──paired──────▶ Ingest API ────┤   Scheduler keeps live sources fresh             Hub: lifetime + Wrapped
+   (import history + live tracking)                      │   Secrets in the OS keychain
+ Scrobblers (Web Scrobbler, Pano) ──────▶ Scrobble API ──┘
 ```
 
-Four ways data arrives, one pipeline after that:
+Five ways data arrives, one pipeline after that:
 
 | Route | Platforms | Experience |
 |---|---|---|
 | **Official/open API** (live) | Last.fm, ListenBrainz, Steam, Trakt, Simkl, Plex, Jellyfin, Bluesky, Threads | Connect once, stays up to date |
-| **Wrapped Helper extension** (one click) | Netflix, Crunchyroll, Prime Video, Max (partial) | Click "Import" while logged in |
+| **Wrapped Helper extension** (one click + live) | Netflix, Crunchyroll, Prime Video, Max (partial); live tracking also Disney+, Hulu… | Click "Import" for the past; viewing logs itself from then on |
+| **Scrobbles sent to the hub** (live, like Last.fm) | Apple Music, YouTube Music, SoundCloud, Pandora, Amazon Music… via Web Scrobbler / Pano | Point the scrobbler at your app once |
 | **Export once + live feed** | Spotify, Apple Music, YouTube Music, Tidal, Deezer… (live via Last.fm) | Upload history once, then automatic |
 | **Export upload** | YouTube (or scheduled Takeout), TikTok, Instagram, Facebook, X, Reddit, Discord, Snapchat, LinkedIn, Pinterest, Letterboxd, Goodreads, Strava | Upload a file from the Data sources page |
 
@@ -34,8 +36,8 @@ Locked services (Disney+, Hulu, Max, Apple TV+, Paramount+) come in **through Tr
 |---|---|---|---|
 | 1 | **Harden the base** | Fix today's security gaps before growing: DNS rebinding/CSRF, image relay SSRF, secrets out of `.env`, CI + supply chain, code audit, one shared HTTP client | #8–#13 |
 | 2 | **Connector framework** | The reusable template: connector SDK, safe importer, Data sources page (no CLI), OAuth helper, scheduler, UI kit + page families (music, games, social, small) | #14–#23 |
-| 3 | **Wrapped Helper extension** | One extension for Chrome, Edge and Firefox with per-site adapters and secure pairing; store publishing later | #24–#26 |
-| 4 | **Music** | Last.fm first (the live hub), then Spotify, ListenBrainz, Apple Music, YouTube Music, Tidal, Deezer, SoundCloud, Amazon Music, Pandora | #32–#40, #3 |
+| 3 | **Wrapped Helper extension** | One extension for Chrome, Edge and Firefox with per-site adapters, secure pairing, and live tracking on streaming sites; store publishing later | #24–#26, #77 |
+| 4 | **Music** | Built-in scrobble receiver (#75) and Last.fm as the live feeds, Spotify (export + recently-played poller #76), then ListenBrainz, Apple Music, YouTube Music, Tidal, Deezer, SoundCloud, Amazon Music, Pandora | #75, #32, #3, #76, #33–#40 |
 | 5 | **Video & streaming** | Netflix + Crunchyroll via the extension, Prime Video, Trakt (gateway to Disney+/Hulu/Max/Apple TV+/Paramount+), Letterboxd, Plex, Jellyfin, Kodi, scheduled YouTube Takeout | #41–#58, #4 |
 | 6 | **Gaming** | Steam, PlayStation, Xbox (Nintendo icebox) | #59–#62 |
 | 7 | **Social** | TikTok, Instagram, Bluesky, Discord, Threads, Facebook, X, Reddit, Snapchat, LinkedIn, Pinterest | #5, #6, #63–#71 |
