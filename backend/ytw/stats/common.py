@@ -6,6 +6,14 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 ALL_BUCKETS = ("long", "short", "music", "unknown")
+# dates the app will reason about (anything outside is a typo or a probe, and breaks date math)
+MIN_YEAR, MAX_YEAR = 1970, 2100
+
+
+def check_year(y: int) -> int:
+    if not MIN_YEAR <= y <= MAX_YEAR:
+        raise ValueError(f"year must be between {MIN_YEAR} and {MAX_YEAR}")
+    return y
 # Netflix episodes listed without a show name: counted in totals, never ranked as a show
 NAMELESS_SHOW = "show:unknown-show"
 
@@ -55,12 +63,13 @@ def resolve_range(conn: sqlite3.Connection, preset: str = "all", start: str | No
     if preset == "this_year":
         return Range(date(today.year, 1, 1), today, str(today.year))
     if preset.isdigit() and len(preset) == 4:
-        y = int(preset)
+        y = check_year(int(preset))
         return Range(date(y, 1, 1), min(date(y, 12, 31), max(today, bounds[1])), preset)
     if preset == "custom":
         if not start or not end:
             raise ValueError("custom range needs start and end")
         s, e = date.fromisoformat(start), date.fromisoformat(end)
+        check_year(s.year), check_year(e.year)
         if e < s:
             s, e = e, s
         return Range(s, e, f"{s} – {e}")

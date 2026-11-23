@@ -10,7 +10,7 @@ import { Chart } from "../components/Chart";
 import { MeasureToggle, MonthlyBars, WatchClock, useMeasure } from "../components/charts";
 import { BarList, ChannelCarousel, RankedRows } from "../components/lists";
 import { Avatar, Carousel, MetricToggle, QueryState, Section, StatTile, WatchTimeInfo } from "../components/ui";
-import { clockTime, compact, date, duration, num, pct } from "../format";
+import { clockTime, compact, date, duration, num, pct, safeHref } from "../format";
 import { rangeLabel, useFilters, useLinkQuery } from "../filters";
 import { accent, axisLabel, grid, sub, surface } from "../theme";
 
@@ -44,8 +44,10 @@ function Hero({ image, title, lines, action }: { image: ReactNode; title: ReactN
 
 function YouTubeButton({ href, label = "Open on YouTube" }: { href: string; label?: string }) {
   const isYouTube = (usePlatform()?.id ?? "youtube") === "youtube";
+  const safe = safeHref(href);  // links come from imported data: http(s) only
+  if (!safe) return null;
   return (
-    <a href={href} target="_blank" rel="noreferrer noopener"
+    <a href={safe} target="_blank" rel="noreferrer noopener"
        className={isYouTube ? "flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-bold text-bg hover:bg-white" : "btn-secondary"}>
       <ExternalLink size={15} /> {label}
     </a>

@@ -29,7 +29,7 @@ import logging
 from . import db, images, platforms, secrets, security
 from .config import Config
 from .stats import ads, details, evolution, overview, patterns, records, search, shows, tops
-from .stats.common import ALL_BUCKETS, Filters, Range, data_bounds, resolve_range
+from .stats.common import ALL_BUCKETS, Filters, Range, check_year, data_bounds, resolve_range
 from .wrapped import (MODES as WRAPPED_MODES, METRICS as YT_METRICS, NETFLIX_METRICS, load_personalities,
                       netflix_wrapped, personalities_file, wrapped as wrapped_data)
 
@@ -156,11 +156,23 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         key = (request.url.path, tuple(sorted(request.query_params.multi_items())))
         return cache_for(request).get_or_compute(stamp, key, fn)
 
+    def int_param(request: Request, name: str, default: int, lo: int, hi: int) -> int:
+        """A whole-number query param, clamped to [lo, hi]; 400 if it isn't a number."""
+        raw = request.query_params.get(name)
+        if raw is None:
+            return default
+        if not raw.strip().lstrip("-").isdigit() or len(raw) > 12:
+            raise HTTPException(400, f"{name} must be a whole number")
+        return max(lo, min(int(raw), hi))
+
     def limit(request: Request, default: int = 50) -> int:
+        return int_param(request, "limit", default, 1, 1000)
+
+    def year_param(year: int) -> int:
         try:
-            return max(1, min(int(request.query_params.get("limit", default)), 1000))
-        except ValueError:
-            raise HTTPException(400, "limit must be a number") from None
+            return check_year(year)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
 
     # ------------------------------------------------------------------ meta
 
@@ -229,7 +241,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     @app.get("/api/recent")
     def get_recent(request: Request):
         _, f = parse(request)
-        off = int(request.query_params.get("offset", 0))
+        off = int_param(request, "offset", 0, 0, 10_000_000)
         return cached(request, lambda: overview.recent(conn(request), f, limit(request, 20), off))
 
     @app.get("/api/top/{kind}")
@@ -333,6 +345,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
 
     @app.get("/api/year/{year}")
     def get_year(year: int, request: Request):
+        year_param(year)
         _, f = parse(request)
         return cached(request, lambda: details.year(conn(request), year, f, today()))
 
@@ -340,6 +353,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
 
     @app.get("/api/wrapped/{year}")
     def get_wrapped(year: int, request: Request):
+        year_param(year)
         _, f = parse(request)
         p = platform_of(request)
         personalities_path = personalities_file(cfg.root, p.id)
@@ -372,7 +386,8 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         except images.NotAllowed as e:
             raise HTTPException(400, str(e)) from None
         except images.FetchFailed as e:
-            raise HTTPException(502, str(e)) from None
+            log.info("image relay: %s", e)
+            raise HTTPException(502, "could not fetch that image") from None
         return Response(content=data, media_type=ctype, headers={"Cache-Control": "public, max-age=604800"})
 
     @app.exception_handler(sqlite3.OperationalError)

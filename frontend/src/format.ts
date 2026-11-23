@@ -68,3 +68,14 @@ export const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 /** Larger YouTube thumbnail from the stored medium one. */
 export const ytThumb = (videoId: string, size: "mq" | "hq" | "maxres" = "mq") =>
   `https://i.ytimg.com/vi/${videoId}/${size}default.jpg`;
+
+/** A link from imported data, only if it's http(s): never javascript:, data: or other schemes. */
+export function safeHref(u: string | null | undefined): string | null {
+  if (!u) return null;
+  try {
+    const url = new URL(u);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}

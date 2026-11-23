@@ -186,3 +186,42 @@ def test_build_endpoint(tmp_path):
     # no frontend built: nothing to compare against
     client2 = make_client(create_app(load_config(), db_paths={}, static_dir=tmp_path / "none"))
     assert client2.get("/api/build").json() == {"build": None}
+
+
+# ------------------------------------------------------------------ hostile input (#12)
+
+@pytest.mark.parametrize("url", [
+    "/api/recent?offset=abc", "/api/recent?offset=99999999999999999999", "/api/top/channels?limit=abc",
+    "/api/year/99999", "/api/year/0", "/api/year/-1", "/api/wrapped/1", "/api/wrapped/99999",
+    "/api/overview?range=custom&start=0001-01-01&end=9999-12-31", "/api/overview?range=0001",
+    "/api/overview?range=custom&start=x&end=y", "/api/overview?buckets=long,evil", "/api/overview?metric=drop",
+    "/api/evolution/mix?by=x",
+])
+def test_bad_input_is_a_400_not_a_crash(client, url):
+    r = client.get(url)
+    assert r.status_code == 400, (url, r.status_code)
+    assert "Traceback" not in r.text and "sqlite" not in r.text.lower()
+
+
+def test_numbers_are_clamped(client):
+    assert client.get("/api/recent?offset=-5").status_code == 200
+    assert client.get("/api/top/channels?limit=-1").status_code == 200
+    assert client.get("/api/top/channels?limit=99999").status_code == 200
+
+
+def test_odd_ids_are_just_not_found(client):
+    for url in ("/api/channel/" + "A" * 5000, "/api/channel/' OR '1'='1", "/api/video/%00",
+                "/api/category/1;DROP TABLE watches", "/api/overview?platform=../../x"):
+        assert client.get(url).status_code == 404, url
+    assert client.get("/api/overview?range=2024").json()["videos"] == 9      # data untouched
+
+
+def test_image_relay_errors_are_generic(client, monkeypatch):
+    from ytw import images
+
+    def boom(url):
+        raise images.FetchFailed("could not fetch image: [Errno 11001] getaddrinfo failed for internal-host")
+    monkeypatch.setattr(images, "getter", boom)
+    monkeypatch.setattr(images, "_cache", images.OrderedDict())
+    r = client.get("/api/img?u=https://i.ytimg.com/vi/x/mq.jpg")
+    assert r.status_code == 502 and r.json() == {"detail": "could not fetch that image"}
