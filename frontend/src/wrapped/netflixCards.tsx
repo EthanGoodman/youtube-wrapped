@@ -24,7 +24,7 @@ const platformName = () =>
   ({ netflix: "Netflix", crunchyroll: "Crunchyroll" } as Record<string, string>)[document.documentElement.dataset.theme ?? ""] ?? "Netflix";
 
 /** Our own mark (not Netflix's N), shared with the dashboard's top bar. */
-import { WrappedMark as NMark } from "../components/NetflixShell";
+import { WrappedMark as NMark } from "../components/ShowsShell";
 export { NMark };
 
 function Card({ children, footer = true, year, glow = "top" }: {
