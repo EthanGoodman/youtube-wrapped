@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flatSpineHeight, hoursFontSize, nameFontSize, shortWait, spineSize, waitRank, yearBoxHeight } from "./scale";
+import { SHELF_MIN_H, flatSpineHeight, hoursFontSize, nameFontSize, shelfHeight, shortWait, slotHeight, spineSize, waitRank, yearBoxHeight } from "./scale";
 
 const GLYPH = 0.42; // Bebas Neue's average advance, in em
 
@@ -17,10 +17,11 @@ describe("spineSize", () => {
 
 describe("labels never leave the spine", () => {
   const names = ["YouTube", "Netflix", "Crunchyroll", "Prime Video", "Apple TV Plus"].filter((n) => n.length <= 12);
+  for (const maxH of [460, SHELF_MIN_H])
   for (const pct of [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1]) {
     for (const name of [...names, "ABCDEFGHIJKL"]) {
-      it(`${name} at ${pct * 100}%`, () => {
-        const { w, h } = spineSize(pct * 1000, 1000);
+      it(`${name} at ${pct * 100}% on a ${maxH}px shelf`, () => {
+        const { w, h } = spineSize(pct * 1000, 1000, 220, maxH);
         const size = nameFontSize(w, h, name);
         expect(size).toBeLessThanOrEqual(w * 0.6);                    // across: the spine's thickness
         expect(name.length * GLYPH * size).toBeLessThanOrEqual(h - 130); // along: leaves room top and bottom
@@ -32,6 +33,20 @@ describe("labels never leave the spine", () => {
       const { w } = spineSize(pct * 1000, 1000);
       expect("12,345 H".length * GLYPH * hoursFontSize(w)).toBeLessThanOrEqual(w + 1);
     }
+  });
+});
+
+describe("fits the window", () => {
+  it("shelf height follows the room, within 240..460", () => {
+    expect(shelfHeight(900)).toBe(460);
+    expect(shelfHeight(350)).toBe(350);
+    expect(shelfHeight(100)).toBe(240);
+  });
+  it("short shelves keep the same proportions and widths", () => {
+    expect(spineSize(1000, 1000, 220, 230)).toEqual({ w: 220, h: 230 });
+    expect(spineSize(0, 1000, 220, 230)).toEqual({ w: 56, h: 200 });
+    expect(slotHeight(460)).toBe(380);
+    expect(slotHeight(300, true)).toBe(300);
   });
 });
 

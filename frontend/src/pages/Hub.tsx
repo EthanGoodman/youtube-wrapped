@@ -1,7 +1,7 @@
 /* The home page: a shelf. Every app with data is a tape spine as thick as its hours; apps not added yet
    are empty slots that say how long their data takes to arrive; below, a shelf of year boxes.
    Design spec: "The shelf" (flat color, no gradients/shadows/rounding, our own spine colors, self-hosted fonts). */
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ApiError, getJson, usePlatforms } from "../api";
 import { num } from "../format";
@@ -11,7 +11,7 @@ import { EmptySlot } from "../components/shelf/EmptySlot";
 import { Spine, hoursOf } from "../components/shelf/Spine";
 import { SpineDetail } from "../components/shelf/SpineDetail";
 import { HubYear, YearBoxes } from "../components/shelf/YearBoxes";
-import { waitRank } from "../components/shelf/scale";
+import { SHELF_MAX_H, shelfHeight, slotHeight, waitRank } from "../components/shelf/scale";
 
 function useMedia(query: string): boolean {
   const [on, setOn] = useState(() => window.matchMedia(query).matches);
@@ -24,6 +24,24 @@ function useMedia(query: string): boolean {
   return on;
 }
 
+/** The tallest spine that keeps the whole shelf (plank and caption included) inside the window, so a
+ *  laptop sees heading, intro and shelf without scrolling. Re-measured when the window changes. */
+function useShelfHeight(enabled: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [h, setH] = useState(SHELF_MAX_H);
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    const measure = () => {
+      const top = (ref.current?.getBoundingClientRect().top ?? 0) + window.scrollY;
+      setH(shelfHeight(window.innerHeight - top - 88));   // 88 = lift room + plank + caption + breathing room
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [enabled]);
+  return [ref, h] as const;
+}
+
 /** "YouTube, Netflix or Crunchyroll" */
 function orList(names: string[]): string {
   return names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
@@ -34,6 +52,7 @@ export function Hub() {
   const yearsQ = useQuery<HubYear[], ApiError>({ queryKey: ["hub-years"], queryFn: () => getJson("/api/hub/years") });
   const phone = useMedia("(max-width: 639px)");
   const tablet = useMedia("(max-width: 1023px)");
+  const [shelfRef, maxH] = useShelfHeight(!phone && !q.isLoading);
   const [picked, setPicked] = useState<string | null>(null);
 
   const list = q.data ?? [];
@@ -53,7 +72,7 @@ export function Hub() {
   const latestYear = (id: string) => [...years].reverse().find((y) => y.by_platform[id])?.year ?? null;
   const names = Object.fromEntries(list.map((p) => [p.id, p.name]));
 
-  const slotSize = tablet ? { w: 72, h: firstVisit ? 400 : 340 } : { w: 84, h: firstVisit ? 460 : 380 };
+  const slotSize = { w: tablet ? 72 : 84, h: slotHeight(tablet ? Math.min(maxH, 400) : maxH, firstVisit) };
   const pad = phone ? "px-4" : tablet ? "px-6" : "px-12";
 
   return (
@@ -69,8 +88,9 @@ export function Hub() {
           </nav>
         </header>
 
-        <section className={`flex flex-wrap items-end justify-between gap-x-12 gap-y-6 ${phone ? "mt-10" : "mt-16"}`}>
-          <h1 className="m-0 font-shelf-display font-normal uppercase leading-[0.85]" style={{ fontSize: "clamp(72px, 10vw, 150px)" }}>
+        <section className="flex flex-wrap items-end justify-between gap-x-12 gap-y-6" style={{ marginTop: phone ? 40 : "clamp(24px, 6vh, 64px)" }}>
+          {/* sized by width AND height, so a short laptop window still shows the whole shelf */}
+          <h1 className="m-0 font-shelf-display font-normal uppercase leading-[0.85]" style={{ fontSize: "clamp(64px, min(9.6vw, 15vh), 140px)" }}>
             {firstVisit ? "Start your collection" : "Your collection"}
           </h1>
           <p className={`m-0 max-w-[420px] text-[18px] leading-normal text-[#C9C2B5] ${tablet ? "basis-full" : ""}`}>
@@ -80,7 +100,7 @@ export function Hub() {
           </p>
         </section>
 
-        <section aria-label="Your apps" className={phone ? "mt-10" : "mt-14"}>
+        <section aria-label="Your apps" ref={shelfRef} style={{ marginTop: phone ? 40 : "clamp(20px, 5vh, 56px)" }}>
           {q.error ? (
             <div className="py-10">
               <p className="m-0 text-[18px]">Couldn't reach the app's server: {q.error.message}</p>
@@ -89,11 +109,11 @@ export function Hub() {
             </div>
           ) : (
             <>
-              <Shelf phone={phone} busy={q.isLoading}>
+              <Shelf phone={phone} busy={q.isLoading} minH={maxH}>
                 {q.isLoading ? <LoadingSpines phone={phone} /> : (
                   <>
                     {ready.map((p) => (
-                      <Spine key={p.id} p={p} max={max} color={colors[p.id]} flat={phone} maxW={tablet ? 180 : 220}
+                      <Spine key={p.id} p={p} max={max} color={colors[p.id]} flat={phone} maxW={tablet ? 180 : 220} maxH={maxH}
                              selected={selected?.id === p.id} onSelect={() => setPicked(p.id)} />
                     ))}
                     {slots.map((p, i) => (
@@ -131,10 +151,11 @@ export function Hub() {
 }
 
 /** The row of spines standing on a plank (phone: a stack lying on it). */
-function Shelf({ phone, busy, children }: { phone: boolean; busy: boolean; children: React.ReactNode }) {
+function Shelf({ phone, busy, minH, children }: { phone: boolean; busy: boolean; minH: number; children: React.ReactNode }) {
   return (
     <div aria-busy={busy}>
-      <div className={phone ? "flex flex-col gap-2 pt-2" : "flex min-h-[460px] flex-wrap items-end gap-[10px] pt-3"}>{children}</div>
+      <div className={phone ? "flex flex-col gap-2 pt-2" : "flex flex-wrap items-end gap-[10px] pt-3"}
+           style={phone ? undefined : { minHeight: minH }}>{children}</div>
       <div aria-hidden className="h-[14px] bg-[#3A332A]" />
       <div aria-hidden className="h-[6px] bg-[#0B0A09]" />
     </div>
