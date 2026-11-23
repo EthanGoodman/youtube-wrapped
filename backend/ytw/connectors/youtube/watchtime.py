@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from ..store import View, write_views
 from .parser import AD, WATCH_KINDS
 
 
@@ -181,11 +182,6 @@ WHERE e.kind IN ('ad', 'video', 'unavailable', 'music')
 ORDER BY e.epoch, e.id
 """
 
-_COLS = ("entry_id, kind, video_id, channel_id, start_epoch, local_iso, local_date, year, month, "
-         "local_hour, local_minute, local_dow, duration_s, est_s, max_s, est_method, gap_next_s, session_id, "
-         "bucket, short_basis, is_background, is_live, delayed_fix, category_id, published_epoch")
-
-
 def load_rows(conn: sqlite3.Connection) -> list[Raw]:
     rows = []
     for (eid, kind, epoch, vid, cid, cname, title, dur, live, was_live, ew, eh, tags, cat, pub) in conn.execute(_LOAD_SQL):
@@ -199,19 +195,13 @@ def load_rows(conn: sqlite3.Connection) -> list[Raw]:
 
 def build_watches(conn: sqlite3.Connection, c: WatchConfig, tz: ZoneInfo) -> int:
     out = compute(load_rows(conn), c)
-    records = []
-    for w in out:
-        local = datetime.fromtimestamp(w["start_epoch"], timezone.utc).astimezone(tz)
-        date = local.strftime("%Y-%m-%d")
-        records.append((
-            w["entry_id"], w["kind"], w["video_id"], w["channel_id"], w["start_epoch"],
-            local.isoformat(), date, local.year, date[:7], local.hour, local.hour * 60 + local.minute,
-            local.weekday(), w["duration_s"], w["est_s"], w["max_s"], w["est_method"], w["gap_next_s"], w["session_id"],
-            w["bucket"], w["short_basis"], w["is_background"], w["is_live"], w["delayed_fix"],
-            w["category_id"], w["published_epoch"],
-        ))
-    conn.execute("DELETE FROM watches")
-    conn.executemany(f"INSERT INTO watches ({_COLS}) VALUES ({','.join('?' * len(_COLS.split(',')))})",
-                     records)
+    views = [View(
+        w["entry_id"], w["kind"], w["video_id"], w["channel_id"], w["start_epoch"],
+        datetime.fromtimestamp(w["start_epoch"], timezone.utc).astimezone(tz), w["est_s"], w["est_method"],
+        duration_s=w["duration_s"], max_s=w["max_s"], session_id=w["session_id"], bucket=w["bucket"],
+        gap_next_s=w["gap_next_s"], short_basis=w["short_basis"], is_background=w["is_background"],
+        is_live=w["is_live"], delayed_fix=w["delayed_fix"], category_id=w["category_id"],
+        published_epoch=w["published_epoch"]) for w in out]
+    n = write_views(conn, views)
     conn.commit()
-    return len(records)
+    return n

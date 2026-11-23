@@ -10,6 +10,9 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from ... import db
+from .. import store
+from ..base import finish_build
+from ..store import Creator, Item, View
 from . import tmdb
 from .parser import find_files, parse_files, profiles_in
 
@@ -135,13 +138,12 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
             prev_date = r["local_date"]
         local = start.astimezone(tz)
         local_date = r["local_date"] if r["start_epoch"] is None else local.date().isoformat()
-        watches.append((
-            r["id"], kind, item_id, creator_id, start.timestamp(), local.isoformat(), local_date,
-            int(local_date[:4]), local_date[:7], local.hour, local.hour * 60 + local.minute,
-            datetime.fromisoformat(local_date).weekday(), r["duration_s"], est, runtime_s or r["duration_s"] or None,
-            method, None, session, "long", None, 0, 0, 0, None, None))
+        watches.append(View(
+            r["id"], kind, item_id, creator_id, start.timestamp(), local, est, method,
+            duration_s=r["duration_s"], max_s=runtime_s or r["duration_s"] or None, session_id=session,
+            local_date=local_date))
         if item_id not in items:
-            items[item_id] = (
+            items[item_id] = Item(
                 item_id, "ok" if t else "unknown", episode if show else (t["name"] if t else r["title"]), creator_id,
                 tmdb.img(ep["still_path"], "w300") if ep and ep["still_path"] else (tmdb.img(t["poster_path"], "w185") if t else None),
                 tmdb.img((ep["still_path"] if ep else None) or t["backdrop_path"] or t["poster_path"], "w780") if t else None,
@@ -157,7 +159,7 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
             if t:
                 genres[item_id] = json.loads(t["genres"] or "[]")
         if creator_id and creator_id not in creators:
-            creators[creator_id] = (
+            creators[creator_id] = Creator(
                 creator_id, "ok" if t else "unknown", t["name"] if t else show, None,
                 tmdb.img(t["poster_path"], "w185") if t else None, None, t["episodes"] if t else None,
                 t["country"] if t else None, t["first_air_date"] if t else None,
@@ -168,17 +170,10 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
                 if t else None)
 
     conn.execute("PRAGMA foreign_keys=OFF")  # Netflix has no YouTube-style raw `entries` table
-    cols = ("entry_id, kind, video_id, channel_id, start_epoch, local_iso, local_date, year, month, local_hour, "
-            "local_minute, local_dow, duration_s, est_s, max_s, est_method, gap_next_s, session_id, bucket, "
-            "short_basis, is_background, is_live, delayed_fix, category_id, published_epoch")
-    conn.execute("DELETE FROM watches")
-    conn.execute("DELETE FROM items")
-    conn.execute("DELETE FROM creators")
-    conn.executemany(f"INSERT INTO watches ({cols}) VALUES ({','.join('?' * 25)})", watches)
-    conn.executemany("INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(items.values()))
-    conn.executemany("INSERT INTO creators VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(creators.values()))
-    conn.execute("DELETE FROM item_genres")
-    conn.executemany("INSERT INTO item_genres VALUES (?, ?)", [(i, g) for i, gs in genres.items() for g in gs])
+    store.write_views(conn, watches)
+    store.write_items(conn, items.values())
+    store.write_creators(conn, creators.values())
+    store.write_genres(conn, genres)
     # every episode of each matched show, for show progress and the episode checklist
     conn.execute("DELETE FROM catalog_episodes")
     conn.execute("""INSERT OR REPLACE INTO catalog_episodes
@@ -188,6 +183,5 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
         WHERE e.season > 0""")
     # what this data can show: real times of day only come with the full export
     db.set_meta(conn, "extra_capabilities", "time_of_day" if has_times else "estimated_time")
-    db.set_meta(conn, "built_at", datetime.now(timezone.utc).isoformat())
-    conn.commit()
+    finish_build(conn, analyze=False)  # small; ANALYZE would reorder tied rankings (#85)
     return len(watches)

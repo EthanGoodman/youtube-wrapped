@@ -140,9 +140,10 @@ class Connector:
         raise ConnectorError(f"{self.manifest.name} has no build step yet")
 
 
-def finish_build(conn: sqlite3.Connection) -> None:
-    """Every build ends here: refresh the query planner's statistics and stamp built_at (which
-    also clears the API's result cache)."""
-    conn.execute("ANALYZE")
+def finish_build(conn: sqlite3.Connection, analyze: bool = True) -> None:
+    """Every build ends here: refresh the query planner's statistics (big databases) and stamp
+    built_at (which also clears the API's result cache)."""
+    if analyze:
+        conn.execute("ANALYZE")
     db.set_meta(conn, "built_at", datetime.now(timezone.utc).isoformat())
     conn.commit()
