@@ -5,12 +5,12 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { CalendarRange, ChevronDown, Film, LayoutGrid, Search, Smile, Sparkles, X } from "lucide-react";
-import { HubLink, Link, NavLink, useTheme } from "../platform";
-import { RankedItem, TopResponse, useMeta, useStats } from "../api";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
-import { CustomRange } from "./RangeBar";
-import { KindSplit, useShows } from "./shows";
-import type { ShellLook, TabName } from "../themes";
+import { HubLink, Link, NavLink, useTheme } from "../../platform";
+import { RankedItem, TopResponse, useMeta, useStats } from "../../api";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
+import { CustomRange } from "../../components/RangeBar";
+import { KindSplit, useShows } from "./data";
+import type { ShellLook, TabName } from "../../themes";
 
 /** Our own mark (no platform's logo): a tile in the accent color with a W for "Wrapped". */
 export function WrappedMark({ size = 24 }: { size?: number }) {

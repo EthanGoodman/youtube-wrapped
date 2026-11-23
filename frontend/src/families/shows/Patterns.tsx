@@ -1,18 +1,19 @@
 /* Patterns on Netflix: when you watch, in Netflix reds. Dates-only data gets a day-of-week chart
    instead of a clock (there are no real times to show). */
-import { DayPoint, HourPoint, MonthPoint, useStats } from "../api";
-import { useCapability } from "../platform";
-import { QueryState, Section, WatchTimeInfo } from "../components/ui";
-import { CalendarHeat, MonthlyBars, WatchClock, WeekHeatmap, useMeasure } from "../components/charts";
-import { FigureStrip, PageHead, RED, Toggle, hours } from "../components/nf";
-import { duration, month, num } from "../format";
-import { rangeLabel, useFilters } from "../filters";
+import { DayPoint, HourPoint, MonthPoint, useStats } from "../../api";
+import { useCapability, usePlatform } from "../../platform";
+import { QueryState, Section, WatchTimeInfo } from "../../components/ui";
+import { CalendarHeat, MonthlyBars, WatchClock, WeekHeatmap, useMeasure } from "../../components/charts";
+import { FigureStrip, PageHead, RED, Toggle, hours } from "./ui";
+import { duration, month, num } from "../../format";
+import { rangeLabel, useFilters } from "../../filters";
 
 interface WW { count: number; time_s: number; days: number; avg_count_per_day: number; avg_time_s_per_day: number }
 type Grid = { count: number[][]; time_s: number[][] };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-export function NetflixPatterns() {
+export function ShowsPatterns() {
+  const name = usePlatform()?.name ?? "Netflix";
   const { filters } = useFilters();
   const hasTimes = useCapability("time_of_day");
   const [measure, setMeasure] = useMeasure();
@@ -61,7 +62,7 @@ export function NetflixPatterns() {
           </Section>
         </div>
       ) : (
-        <Section title="Day of the week" subtitle="Netflix's quick download has dates but no times, so this is by day rather than by hour">
+        <Section title="Day of the week" subtitle={`${name === "Netflix" ? "Netflix's quick download" : `Your ${name} history`} has dates but no times, so this is by day rather than by hour`}>
           <QueryState q={heat} minHeight={220}>
             {() => <DayBars byDay={byDay.map(val)} top={topDay} format={(v) => (measure === "time" ? hours(v) : num(v))} />}
           </QueryState>

@@ -7,8 +7,9 @@ import { ReactNode } from "react";
 import { Clapperboard, Home, LayoutGrid, Menu, Sparkles, Trophy } from "lucide-react";
 import { House, List, Sparkle, SquaresFour, Television, Trophy as PTrophy } from "@phosphor-icons/react";
 import { PlatformInfo } from "./platform";
-import { NavItem, WrappedMark } from "./components/ShowsShell";
+import { NavItem, WrappedMark } from "./families/shows/Shell";
 import { YtMark } from "./wrapped/cards";
+import type { ChartTheme } from "./theme";
 
 export type Family = "videos" | "shows";
 
@@ -137,6 +138,22 @@ export interface PlatformTheme {
   anime?: boolean;
   /** shows family: the frame around every page (videos platforms use the default layout) */
   shell?: ShellLook;
+  /** page colors as "r g b" for the --c-* variables (bg, card, raised, line, ink, sub, muted, accent,
+   *  accent-dark, accent-soft, up, down). Older themes keep theirs in index.css instead. */
+  colors?: Record<string, string>;
+  /** chart colors (see theme.ts); a one-hue ramp, dark to bright, checked for contrast on `surface` */
+  chart?: ChartTheme;
+}
+
+/** Apply a theme's own page colors (and remove the previous platform's). */
+let applied: string[] = [];
+export function applyThemeColors(theme: PlatformTheme | null) {
+  const root = document.documentElement.style;
+  applied.forEach((k) => root.removeProperty(k));
+  applied = Object.entries(theme?.colors ?? {}).map(([k, v]) => {
+    root.setProperty(`--c-${k}`, v);
+    return `--c-${k}`;
+  });
 }
 
 const YOUTUBE_WRAPPED: WrappedLook = {
@@ -177,7 +194,22 @@ export const THEMES: Record<string, PlatformTheme> = {
   },
   // planned platforms: hub tiles for now; their family config comes with their connector
   spotify: { family: "videos", creatorShape: "circle", tile: { bg: "linear-gradient(140deg,#1ed760,#0b5c2a)", fg: "#0b0b0b" }, wrapped: YOUTUBE_WRAPPED },
-  prime_video: { family: "shows", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#00a8e1,#0b2a4a)" }, wrapped: showsWrapped("#00a8e1", "#0a7fb0", "#0b4f75", "#0b2a4a", "#05080d"), shell: NETFLIX_LOOK },
+  prime_video: {
+    family: "shows", creatorShape: "poster",
+    tile: { bg: "linear-gradient(140deg,#00a8e1,#0b2a4a)" },
+    wrapped: showsWrapped("#00a8e1", "#0a7fb0", "#0b4f75", "#0b2a4a", "#05080d"),
+    shell: NETFLIX_LOOK,
+    // Prime Video's navy and blue (look-alike only; refine with its connector in #4)
+    colors: {
+      bg: "15 23 30", card: "26 36 46", raised: "37 50 62", line: "51 65 78", ink: "255 255 255",
+      sub: "140 157 172", muted: "100 116 130", accent: "0 168 225", "accent-dark": "0 130 180",
+      "accent-soft": "77 199 240", up: "43 166 64", down: "255 78 69",
+    },
+    chart: {
+      accent: "#00a8e1", accentHi: "#7fd8f5", surface: "#1a242e", empty: "#25323e",
+      ramp: ["#0d2836", "#0b3b52", "#09506f", "#06668d", "#027fae", "#00a8e1", "#7fd8f5"],
+    },
+  },
   tiktok: { family: "videos", creatorShape: "circle", tile: { bg: "linear-gradient(140deg,#25f4ee 0%,#111 45%,#fe2c55 100%)" }, wrapped: YOUTUBE_WRAPPED },
   instagram: { family: "videos", creatorShape: "circle", tile: { bg: "linear-gradient(140deg,#f58529,#dd2a7b 50%,#8134af)" }, wrapped: YOUTUBE_WRAPPED },
 };

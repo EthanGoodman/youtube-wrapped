@@ -1,21 +1,21 @@
 /* Top lists on Netflix: shows, titles (episodes), movies and genres, as Netflix-flavored rankings. */
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { RankedItem, TopResponse, useStats } from "../api";
-import { Link, NavLink, useTheme } from "../platform";
-import { PosterCard } from "../components/cr";
-import { QueryState, RankChange } from "../components/ui";
-import { BarList } from "../components/lists";
-import { ShowProgress, useShows } from "../components/shows";
-import { OutlinedRank, PageHead, Poster, Progress, StatusLabel, Toggle, hours, plural } from "../components/nf";
-import { duration, num, pct } from "../format";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
+import { RankedItem, TopResponse, useStats } from "../../api";
+import { Link, NavLink, useTheme } from "../../platform";
+import { PosterCard } from "./animeUi";
+import { QueryState, RankChange } from "../../components/ui";
+import { BarList } from "../../components/lists";
+import { ShowProgress, useShows } from "./data";
+import { OutlinedRank, PageHead, Poster, Progress, StatusLabel, Toggle, hours, plural } from "./ui";
+import { duration, num, pct } from "../../format";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
 
 const TABS: [string, string][] = [["channels", "Shows"], ["videos", "Titles"], ["movies", "Movies"], ["genres", "Genres"]];
 
 interface MovieItem extends RankedItem { poster?: string | null; year?: string | null; runtime_s?: number | null; genres?: string[] }
 
-export function NetflixTop() {
+export function ShowsTop() {
   const { kind = "channels" } = useParams();
   const { filters, update } = useFilters();
   const q = useLinkQuery();

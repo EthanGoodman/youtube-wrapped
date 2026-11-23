@@ -5,7 +5,7 @@ import { BarChart3, Film, Clock, Home, LayoutGrid, Megaphone, MoreHorizontal, Se
 import { useLinkQuery } from "../filters";
 import { useMeta } from "../api";
 import { RangeBar } from "./RangeBar";
-import { ShowsShell } from "./ShowsShell";
+import { ShowsShell } from "../families/shows/Shell";
 import { useTheme } from "../platform";
 
 interface NavItem { to: string; label: string; icon: typeof Home; end?: boolean; match?: string; cap?: string }

@@ -1,12 +1,12 @@
 /* The Anime tab (Crunchyroll): sub vs dub, simulcast, studios, the seasons your series aired in,
    decades and formats, AniList scores and tags. */
 import { ReactNode } from "react";
-import { Link } from "../platform";
-import { QueryState, Section } from "../components/ui";
-import { useShows } from "../components/shows";
-import { Meta, ORANGE, PosterImg, TEAL, Tag, subDub } from "../components/cr";
-import { month, num, pct } from "../format";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
+import { Link } from "../../platform";
+import { QueryState, Section } from "../../components/ui";
+import { useShows } from "./data";
+import { Meta, ORANGE, PosterImg, TEAL, Tag, subDub } from "./animeUi";
+import { month, num, pct } from "../../format";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
 
 interface Brief { key: string; title: string; poster: string | null; count: number }
 interface Series extends Brief {

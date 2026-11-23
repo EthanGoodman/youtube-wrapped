@@ -1,4 +1,4 @@
-import { NetflixEvolution } from "./NetflixEvolution";
+import { ShowsEvolution } from "../families/shows/Evolution";
 import { useHasSeries as useHasSeriesW, usePlatform as usePlatformW } from "../platform";
 import { useEffect, useMemo, useState } from "react";
 import { Link, tr, useCapability, useHasSeries } from "../platform";
@@ -24,7 +24,7 @@ export function Evolution() {
   const platform = usePlatformW();
   const series = useHasSeriesW();
   if (!platform) return null;
-  return series ? <NetflixEvolution /> : <StatsEvolution />;
+  return series ? <ShowsEvolution /> : <StatsEvolution />;
 }
 
 function StatsEvolution() {

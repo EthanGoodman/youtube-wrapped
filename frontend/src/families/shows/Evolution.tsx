@@ -1,13 +1,13 @@
 /* Evolution on Netflix: your #1 show of every year, the bar chart race, loyalty and drop-offs. */
-import { useMeta, useStats } from "../api";
-import { Link } from "../platform";
-import { QueryState, Section } from "../components/ui";
-import { PageHead, Poster, RED, Toggle, hours, plural } from "../components/nf";
-import { date, num } from "../format";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
-import { BarRace, Discovery, FellOff, Loyal, MixByYear, TopYear } from "./Evolution";
+import { useMeta, useStats } from "../../api";
+import { Link } from "../../platform";
+import { QueryState, Section } from "../../components/ui";
+import { PageHead, Poster, RED, Toggle, hours, plural } from "./ui";
+import { date, num } from "../../format";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
+import { BarRace, Discovery, FellOff, Loyal, MixByYear, TopYear } from "../../pages/Evolution";
 
-export function NetflixEvolution() {
+export function ShowsEvolution() {
   const { filters, update } = useFilters();
   return (
     <div className="flex flex-col gap-12">

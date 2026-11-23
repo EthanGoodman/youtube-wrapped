@@ -2,13 +2,13 @@
    and milestones along your history. */
 import { ReactNode } from "react";
 import { Film } from "lucide-react";
-import { Overview, WatchInfo, useStats } from "../api";
-import { Link, useCapability } from "../platform";
-import { QueryState, Section, WatchTimeInfo } from "../components/ui";
-import { Binge, EpisodeDay, useShows } from "../components/shows";
-import { PageHead, Poster, RED, plural } from "../components/nf";
-import { clockTime, date, duration, num, pct } from "../format";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
+import { Overview, WatchInfo, useStats } from "../../api";
+import { Link, useCapability } from "../../platform";
+import { QueryState, Section, WatchTimeInfo } from "../../components/ui";
+import { Binge, EpisodeDay, useShows } from "./data";
+import { PageHead, Poster, RED, plural } from "./ui";
+import { clockTime, date, duration, num, pct } from "../../format";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
 
 interface Streak { days: number; start: string | null; end: string | null }
 interface RecordsResponse {
@@ -20,7 +20,7 @@ interface RecordsResponse {
 }
 type Milestone = WatchInfo & { n: number };
 
-export function NetflixRecords() {
+export function ShowsRecords() {
   const { filters } = useFilters();
   const hasTimes = useCapability("time_of_day");
   const rec = useStats<RecordsResponse>("records");

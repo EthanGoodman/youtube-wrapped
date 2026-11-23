@@ -10,7 +10,7 @@ export let empty = "#232323"; // a zero cell: neutral, so "none" never reads as 
 
 /* Per-platform chart colors. Each ramp is one hue, dark (low) -> bright (high), lightness strictly
    increasing (checked with the dataviz validator), with the bright end >= 3:1 on that theme's card. */
-interface ChartTheme { accent: string; accentHi: string; ramp: string[]; surface: string; empty: string }
+export interface ChartTheme { accent: string; accentHi: string; ramp: string[]; surface: string; empty: string }
 const CHART_THEMES: Record<string, ChartTheme> = {
   youtube: {
     accent: "#ff3355", accentHi: "#ff7a8c", surface: "#181818", empty: "#232323",
@@ -32,9 +32,10 @@ export let accentHi = CHART_THEMES.youtube.accentHi;
 /** Sequential ramp in the platform's accent hue. */
 export let redRamp = CHART_THEMES.youtube.ramp;
 
-/** Called when entering a platform, before its pages render. Unknown themes keep YouTube's colors. */
-export function setChartTheme(theme: string) {
-  const t = CHART_THEMES[theme] ?? CHART_THEMES.youtube;
+/** Called when entering a platform, before its pages render. A theme config's own chart colors win;
+ *  unknown themes keep YouTube's colors. */
+export function setChartTheme(theme: string, own?: ChartTheme) {
+  const t = own ?? CHART_THEMES[theme] ?? CHART_THEMES.youtube;
   accent = t.accent;
   accentHi = t.accentHi;
   redRamp = t.ramp;

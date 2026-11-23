@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getJson, useMeta } from "../api";
 import { num } from "../format";
 import { CARDS, CARD_H, CARD_W, CardDef } from "./cards";
-import { NETFLIX_CARDS } from "./netflixCards";
+import { SHOWS_CARDS } from "./showsCards";
 import { AnyWrapped, WrappedData, WrappedMode } from "./types";
 import { themeOf } from "../themes";
 
@@ -140,7 +140,7 @@ function Player({ data, setMode }: { data: AnyWrapped; setMode: (m: WrappedMode)
   const brand = useBrand();
   // each card set renders its own platform's data
   const cards = useMemo<CardDef<AnyWrapped>[]>(() => ("kind_split" in data
-    ? (NETFLIX_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
+    ? (SHOWS_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
     : (CARDS as CardDef<AnyWrapped>[]).filter((c) => available(c as CardDef, data as WrappedData))), [data]);
   // ?card=<id> opens the story on that card, paused (handy for linking to one card)
   const [params] = useSearchParams();

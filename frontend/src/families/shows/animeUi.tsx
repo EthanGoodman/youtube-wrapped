@@ -2,10 +2,10 @@
    hover panel (stats, not a play button), the 4px progress bar. */
 import { ReactNode } from "react";
 import { Television } from "@phosphor-icons/react";
-import { Link } from "../platform";
-import { useLinkQuery } from "../filters";
-import { num } from "../format";
-import type { ShowStatus } from "./shows";
+import { Link } from "../../platform";
+import { useLinkQuery } from "../../filters";
+import { num } from "../../format";
+import type { ShowStatus } from "./data";
 
 export const ORANGE = "#ff640a";
 export const TEAL = "#2abdbb";

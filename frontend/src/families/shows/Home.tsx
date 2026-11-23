@@ -3,14 +3,14 @@
 import { Fragment, ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
-import { MonthPoint, Overview, TopResponse, useStats } from "../api";
-import { Link, usePlatform } from "../platform";
-import { QueryState, Section, SeeAll } from "../components/ui";
-import { BarList } from "../components/lists";
-import { MeasureToggle, MonthlyBars, useMeasure } from "../components/charts";
-import { KindSplit, ShowProgress, ShowStatus, useShows } from "../components/shows";
-import { date, duration, num, pct } from "../format";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
+import { MonthPoint, Overview, TopResponse, useStats } from "../../api";
+import { Link, usePlatform } from "../../platform";
+import { QueryState, Section, SeeAll } from "../../components/ui";
+import { BarList } from "../../components/lists";
+import { MeasureToggle, MonthlyBars, useMeasure } from "../../components/charts";
+import { KindSplit, ShowProgress, ShowStatus, useShows } from "./data";
+import { date, duration, num, pct } from "../../format";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
 
 export interface HomeItem {
   key: string;
@@ -39,7 +39,7 @@ const STATUS: Record<ShowStatus, string> = { finished: "Finished", watching: "Wa
 const hours = (s: number) => (s >= 3600 ? `${num(Math.round(s / 3600))}h` : duration(s));
 const big = (s: string) => s.replace("/w185/", "/w342/");
 
-export function NetflixHome() {
+export function ShowsHome() {
   const home = useShows<HomeData>("home");
   const { filters, update } = useFilters();
   const genres = useStats<TopResponse>("top/genres", { limit: 8 });

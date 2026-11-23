@@ -1,8 +1,8 @@
 /* Small building blocks for the Netflix-styled stats pages. */
 import { ReactNode } from "react";
 import { Film } from "lucide-react";
-import { duration, num } from "../format";
-import type { ShowStatus } from "./shows";
+import { duration, num } from "../../format";
+import type { ShowStatus } from "./data";
 
 export const RED = "rgb(var(--c-accent))";  // the platform accent (Netflix red, Crunchyroll orange)
 export const GREEN = "rgb(var(--c-up))";  // "finished": Netflix green, Crunchyroll teal

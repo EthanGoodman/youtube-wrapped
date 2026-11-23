@@ -2,14 +2,15 @@
    plus your fastest seasons and rewatches. */
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { TopResponse } from "../api";
-import { Link, useCapability, useTheme } from "../platform";
-import { Meta, PosterCard } from "../components/cr";
-import { QueryState, Section } from "../components/ui";
-import { Binge, ShowProgress, ShowStatus, useShows } from "../components/shows";
-import { FigureStrip, GREEN, PageHead, Poster, Progress, RED, STATUS, plural } from "../components/nf";
-import { date, num } from "../format";
-import { rangeLabel, useFilters, useLinkQuery } from "../filters";
+import { TopResponse } from "../../api";
+import { Link, useCapability, useTheme } from "../../platform";
+import { platformName } from "../../platform";
+import { Meta, PosterCard } from "./animeUi";
+import { QueryState, Section } from "../../components/ui";
+import { Binge, ShowProgress, ShowStatus, useShows } from "./data";
+import { FigureStrip, GREEN, PageHead, Poster, Progress, RED, STATUS, plural } from "./ui";
+import { date, num } from "../../format";
+import { rangeLabel, useFilters, useLinkQuery } from "../../filters";
 
 type Progressed = { summary: Record<ShowStatus, number>; shows: ShowProgress[] };
 type Rewatches = { detectable: boolean; items: TopResponse["items"] };
@@ -70,7 +71,9 @@ export function Shows() {
             {({ data }) => !data.detectable ? (
               <p className="text-[14px] text-[#b3b3b3]">
                 {anime ? "Crunchyroll only keeps the latest play of each episode, so rewatches can't be seen."
-                       : "Netflix's quick download lists each title once per account, so rewatches only show up across accounts or with the full data export (ViewingActivity.csv)."}
+                       : platformName() === "Netflix"
+                         ? "Netflix's quick download lists each title once per account, so rewatches only show up across accounts or with the full data export (ViewingActivity.csv)."
+                         : `Your ${platformName()} history lists each title once, so rewatches can't be seen.`}
               </p>
             ) : data.items.length ? <RewatchList items={data.items} /> : <p className="text-[14px] text-[#b3b3b3]">Nothing rewatched in this period.</p>}
           </QueryState>

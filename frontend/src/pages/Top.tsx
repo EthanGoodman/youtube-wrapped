@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Link, NavLink, tr, useHasSeries, usePlatform } from "../platform";
-import { NetflixTop } from "./NetflixTop";
+import { ShowsTop } from "../families/shows/Top";
 import { LayoutGrid, List } from "lucide-react";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { BarList, RankedRows, shortsNote } from "../components/lists";
@@ -43,7 +43,7 @@ export function Top() {
   const platform = usePlatform();
   const series = useHasSeries();
   if (!platform) return null;
-  return series ? <NetflixTop /> : <StatsTop />;
+  return series ? <ShowsTop /> : <StatsTop />;
 }
 
 function StatsTop() {
