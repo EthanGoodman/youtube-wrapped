@@ -78,11 +78,12 @@ class YouTube(Connector):
         db.init_db(conn)
         self._derive(conn)
         r = conn.execute(
-            "SELECT COUNT(*), SUM(est_s)/3600.0, SUM(max_s)/3600.0, COUNT(DISTINCT session_id), "
-            "SUM(delayed_fix), SUM(is_background), SUM(bucket='short'), SUM(bucket='music') FROM watches").fetchone()
+            "SELECT COUNT(*), TOTAL(est_s)/3600.0, TOTAL(max_s)/3600.0, COUNT(DISTINCT session_id), "
+            "TOTAL(delayed_fix), TOTAL(is_background), TOTAL(bucket='short'), TOTAL(bucket='music') FROM watches"
+        ).fetchone()  # TOTAL, not SUM: 0 instead of NULL before enrich / on an empty table
         self.out(f"  estimated watch time: {r[1]:,.0f} h (max possible {r[2]:,.0f} h)")
-        self.out(f"  sessions: {r[3]:,}  delayed logs fixed: {r[4]:,}  background: {r[5]:,}  "
-                 f"Shorts: {r[6]:,}  music: {r[7]:,}")
+        self.out(f"  sessions: {r[3]:,}  delayed logs fixed: {r[4]:,.0f}  background: {r[5]:,.0f}  "
+                 f"Shorts: {r[6]:,.0f}  music: {r[7]:,.0f}")
 
     def enrich(self, retry_missing: bool = False, skip_ads: bool = False, budget: int | None = None, **_) -> None:
         from tqdm import tqdm
