@@ -5,7 +5,7 @@ import { AlertTriangle, Check, ChevronDown, FileUp, KeyRound, Loader2, RefreshCw
 import { ApiError, DataSource, Job, sendJson, uploadFile, useSources } from "../api";
 import { compact, date } from "../format";
 import { HubLink } from "../platform";
-import { BRAND } from "./Hub";
+import { tileOf } from "../themes";
 
 const STEP_LABEL: Record<Job["step"], string> = {
   ingest: "Importing", build: "Rebuilding", enrich: "Looking up details", fetch: "Fetching history", sync: "Syncing",
@@ -63,7 +63,7 @@ export function Sources() {
 
 function SourceCard({ s, keychain }: { s: DataSource; keychain: string }) {
   const qc = useQueryClient();
-  const brand = BRAND[s.id] ?? { bg: "rgb(var(--c-raised))" };
+  const brand = tileOf(s.id);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [confirm, setConfirm] = useState(false);

@@ -4,6 +4,7 @@ import {
   Link as RouterLink, LinkProps, NavLink as RouterNavLink, NavLinkProps, To, useParams,
 } from "react-router-dom";
 import { useMeta } from "./api";
+import { themeOf } from "./themes";
 
 /** Mirrors backend/ytw/platforms.py (ids only; everything else comes from /api/platforms and /api/meta). */
 export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll"];
@@ -34,7 +35,12 @@ export function usePlatform(): PlatformInfo | undefined {
 
 /** How creators are pictured: round avatars (YouTube channels) or 2:3 posters (shows). */
 export function useCreatorShape(): "circle" | "poster" {
-  return ["netflix", "prime_video", "crunchyroll"].includes(usePlatform()?.theme ?? "") ? "poster" : "circle";
+  return themeOf(usePlatform()).creatorShape;
+}
+
+/** The current platform's theme (family, look, variants). */
+export function useTheme() {
+  return themeOf(usePlatform());
 }
 
 export function useCapability(capability: string): boolean {

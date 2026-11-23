@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { RankedItem, TopResponse, useStats } from "../api";
-import { Link, NavLink, usePlatform } from "../platform";
+import { Link, NavLink, useTheme } from "../platform";
 import { PosterCard } from "../components/cr";
 import { QueryState, RankChange } from "../components/ui";
 import { BarList } from "../components/lists";
@@ -52,7 +52,7 @@ function TopShows({ limit }: { limit: number }) {
   const top = useStats<TopResponse>("top/channels", { limit });
   const prog = useShows<{ shows: ShowProgress[] }>("progress", { limit: 500 });
   const byKey = new Map((prog.data?.data.shows ?? []).map((s) => [s.key, s]));
-  const cr = usePlatform()?.theme === "crunchyroll";
+  const cr = !!useTheme().anime;
   return (
     <QueryState q={top} minHeight={500} empty={(d) => !d.items.length}>
       {(d) => (

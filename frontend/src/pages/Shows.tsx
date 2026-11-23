@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { TopResponse } from "../api";
-import { Link, useCapability, usePlatform } from "../platform";
+import { Link, useCapability, useTheme } from "../platform";
 import { Meta, PosterCard } from "../components/cr";
 import { QueryState, Section } from "../components/ui";
 import { Binge, ShowProgress, ShowStatus, useShows } from "../components/shows";
@@ -103,7 +103,7 @@ function SortMenu({ value, onChange }: { value: Sort; onChange: (s: Sort) => voi
 
 function PosterWall({ shows, status, sort }: { shows: ShowProgress[]; status: ShowStatus | "all"; sort: Sort }) {
   const q = useLinkQuery();
-  const cr = usePlatform()?.theme === "crunchyroll";
+  const cr = !!useTheme().anime;
   const list = useMemo(() => {
     const picked = shows.filter((s) => status === "all" || s.status === status);
     const by: Record<Sort, (a: ShowProgress, b: ShowProgress) => number> = {
