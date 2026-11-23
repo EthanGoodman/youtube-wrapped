@@ -57,7 +57,8 @@ def test_list(env):
     d = env.get("/api/sources").json()
     by = {s["id"]: s for s in d["sources"]}
     assert list(by) == ["youtube", "netflix", "crunchyroll"]
-    assert by["netflix"]["can"] == {"upload": True, "fetch": False, "enrich": True}
+    assert by["netflix"]["can"] == {"upload": True, "fetch": False, "enrich": True, "sync": False}
+    assert by["netflix"]["sync"] is None                                   # not a live source
     assert by["crunchyroll"]["can"]["upload"] is False and by["crunchyroll"]["can"]["fetch"] is True
     assert by["crunchyroll"]["official"] is False and by["youtube"]["official"] is True
     assert by["netflix"]["status"]["has_data"] is False and by["netflix"]["secrets"][0] == {

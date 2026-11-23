@@ -28,13 +28,14 @@ from fastapi.responses import HTMLResponse
 
 from . import platforms, secrets
 from .oauth import OAuth, OAuthError, OAuthSpec
+from .scheduler import Scheduler
 from .config import Config
 from .connectors.base import Connector, ConnectorError
 from .imports import DEFAULT as LIMITS
 from .imports import ImportRejected, Source, safe_basename, store_original
 
 log = logging.getLogger("ytw.sources")
-STEPS = ("ingest", "build", "enrich", "fetch")
+STEPS = ("ingest", "build", "enrich", "fetch", "sync")
 MAX_LINES = 400
 
 
@@ -72,7 +73,7 @@ class Busy(Exception):
 
 
 class JobRunner:
-    def __init__(self, cfg: Config, on_finish: Callable[[str], None] = lambda pid: None):
+    def __init__(self, cfg: Config, on_finish: Callable[[Job], None] = lambda job: None):
         self.cfg = cfg
         self.on_finish = on_finish
         self.jobs: dict[str, Job] = {}          # latest job per platform
@@ -110,7 +111,10 @@ class JobRunner:
         finally:
             c.close()
             job.ended = time.time()
-            self.on_finish(job.platform)
+            try:
+                self.on_finish(job)
+            except Exception:
+                log.exception("after-job hook failed")
 
     def cancel(self, pid: str) -> Job | None:
         j = self.jobs.get(pid)
@@ -152,7 +156,10 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
     handles on a platform's database (before it's replaced or deleted)."""
     runner = JobRunner(cfg)
     auth = OAuth()
+    sched = Scheduler(runner, cfg.data_root / ".sync.json")
+    runner.on_finish = sched.on_finish
     app.state.oauth = auth
+    app.state.scheduler = sched                      # run.py starts its thread; tests drive tick() directly
 
     def connector_cls(pid: str) -> type[Connector]:
         cls = platforms.CONNECTORS.get(pid)
@@ -170,7 +177,9 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
             "folder": f"data/{m.id}/",
             "secrets": [{"name": s, "label": secrets.KNOWN.get(s, s), "set": s in names, "where": names.get(s)}
                         for s in m.secrets],
-            "can": {"upload": m.auth == "file", "fetch": _overrides(cls, "fetch"), "enrich": _overrides(cls, "enrich")},
+            "can": {"upload": m.auth == "file", "fetch": _overrides(cls, "fetch"), "enrich": _overrides(cls, "enrich"),
+                    "sync": _overrides(cls, "sync")},
+            "sync": sched.describe(m.id),
             "status": {**_status(cfg, path_for(m.id)), "files": _files(cfg.platform_dir(m.id))},
             "job": runner.jobs[m.id].to_dict() if m.id in runner.jobs else None,
             "oauth": {"connected": auth.connected(m.id), "scopes": list(m.oauth.scopes),
@@ -196,7 +205,7 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
     @app.post("/api/sources/{pid}/run/{step}")
     def run_step(pid: str, step: str):
         cls = connector_cls(pid)
-        if step not in STEPS or (step in ("fetch", "enrich") and not _overrides(cls, step)):
+        if step not in STEPS or (step in ("fetch", "enrich", "sync") and not _overrides(cls, step)):
             raise HTTPException(404, f"{cls.manifest.name} has no {step} step")
         return start(pid, step)
 
@@ -295,7 +304,25 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
             if secrets.store().delete(s):
                 removed.append(s)
         runner.jobs.pop(pid, None)
+        sched.forget(pid)
         return removed
+
+    # -- background sync ------------------------------------------------------------------
+    def live_or_404(pid: str) -> None:
+        if sched.describe(connector_cls(pid).manifest.id) is None:
+            raise HTTPException(404, "this platform doesn't sync on its own")
+
+    @app.post("/api/sources/{pid}/sync/pause")
+    def sync_pause(pid: str):
+        live_or_404(pid)
+        sched.pause(pid)
+        return sched.describe(pid)
+
+    @app.post("/api/sources/{pid}/sync/resume")
+    def sync_resume(pid: str):
+        live_or_404(pid)
+        sched.resume(pid)
+        return sched.describe(pid)
 
     # -- OAuth sign-ins (the person signs in themselves, in their own browser) ----------
     def spec_of(pid: str) -> OAuthSpec:

@@ -233,7 +233,7 @@ export function uploadFile<T>(path: string, file: File, onProgress: (fraction: n
 export interface Job {
   id: string;
   platform: string;
-  step: "ingest" | "build" | "enrich" | "fetch";
+  step: "ingest" | "build" | "enrich" | "fetch" | "sync";
   state: "running" | "done" | "failed" | "cancelled";
   lines: string[];
   error: string | null;
@@ -252,7 +252,9 @@ export interface DataSource {
   export_wait: string;
   folder: string;
   secrets: { name: string; label: string; set: boolean; where: string | null }[];
-  can: { upload: boolean; fetch: boolean; enrich: boolean };
+  can: { upload: boolean; fetch: boolean; enrich: boolean; sync: boolean };
+  sync: { every: number; paused: boolean; auto_paused: boolean; failures: number; last_ok: number | null;
+          last_error: string | null; next_due: number | null } | null;
   status: { has_data: boolean; rows: number; first_date: string | null; last_date: string | null;
             built_at: string | null; files: number };
   job: Job | null;

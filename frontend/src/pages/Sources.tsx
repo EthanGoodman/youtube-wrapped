@@ -8,8 +8,17 @@ import { HubLink } from "../platform";
 import { BRAND } from "./Hub";
 
 const STEP_LABEL: Record<Job["step"], string> = {
-  ingest: "Importing", build: "Rebuilding", enrich: "Looking up details", fetch: "Fetching history",
+  ingest: "Importing", build: "Rebuilding", enrich: "Looking up details", fetch: "Fetching history", sync: "Syncing",
 };
+
+function every(s: number): string {
+  return s >= 86400 ? `${Math.round(s / 86400)} day${s >= 172800 ? "s" : ""}` : s >= 3600 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 60)} min`;
+}
+
+function until(epochS: number): string {
+  const s = epochS - Date.now() / 1000;
+  return s < 60 ? "in under a minute" : `in ${every(s)}`;
+}
 
 function ago(iso: string | null): string {
   if (!iso) return "";
@@ -90,8 +99,9 @@ function SourceCard({ s, keychain }: { s: DataSource; keychain: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-bold">{s.name}</h2>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.official ? "bg-raised text-sub" : "bg-[#f5a524]/15 text-[#f5a524]"}`}
-                  title={s.official ? "Uses the platform's own data export" : "The platform has no export; this reads your history from its website"}>
-              {s.official ? "Official export" : "Unofficial method"}
+                  title={s.official ? "Uses the platform's own data export or API" : "The platform has no export; this reads your history from its website"}>
+              {!s.official ? "Unofficial method" : s.auth === "file" ? "Official export"
+                : s.auth === "extension" ? "Browser extension" : s.auth === "server" ? "Your server" : "Official API"}
             </span>
           </div>
           <p className="mt-0.5 text-sm text-sub">
@@ -103,6 +113,8 @@ function SourceCard({ s, keychain }: { s: DataSource; keychain: string }) {
       </div>
 
       <Steps s={s} />
+
+      {s.sync && <SyncLine s={s} busy={running} onChange={refresh} onRun={() => run("sync")} />}
 
       {s.can.upload && <DropZone disabled={running || progress !== null} progress={progress} onFile={upload} />}
 
@@ -148,6 +160,33 @@ function SourceCard({ s, keychain }: { s: DataSource; keychain: string }) {
       {error && <p className="mt-3 flex items-start gap-2 text-sm text-down"><AlertTriangle size={16} className="mt-0.5 shrink-0" /> {error}</p>}
       {s.job && <JobPanel job={s.job} onCancel={() => act(() => sendJson("POST", `/api/sources/${s.id}/cancel`))} />}
     </section>
+  );
+}
+
+function SyncLine({ s, busy, onChange, onRun }: { s: DataSource; busy: boolean; onChange: () => void; onRun: () => void }) {
+  const sync = s.sync!;
+  const toggle = async () => {
+    await sendJson("POST", `/api/sources/${s.id}/sync/${sync.paused || sync.auto_paused ? "resume" : "pause"}`);
+    onChange();
+  };
+  const stopped = sync.paused || sync.auto_paused;
+  return (
+    <div className={`mt-4 rounded-xl p-3 text-sm ${sync.auto_paused ? "bg-down/10 ring-1 ring-down/40" : "bg-raised/60"}`}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="flex items-center gap-1.5">
+          <RefreshCw size={14} className={busy ? "animate-spin" : "text-sub"} />
+          {sync.auto_paused ? <span className="font-medium text-down">Paused after {sync.failures} failed syncs</span>
+            : sync.paused ? <span className="text-sub">Syncing is paused</span>
+            : <span>Syncs every {every(sync.every)}{sync.next_due ? ` · next ${until(sync.next_due)}` : ""}</span>}
+        </span>
+        <span className="ml-auto flex gap-3 text-xs">
+          {!stopped && <button onClick={onRun} disabled={busy} className="text-sub hover:text-ink disabled:opacity-40">Sync now</button>}
+          <button onClick={toggle} className="font-semibold text-sub hover:text-ink">{stopped ? "Resume" : "Pause"}</button>
+        </span>
+      </div>
+      {sync.last_error && <p className="mt-1.5 text-xs text-down">Last error: {sync.last_error}</p>}
+      {sync.last_ok && !sync.auto_paused && <p className="mt-1 text-xs text-muted">Last synced {ago(new Date(sync.last_ok * 1000).toISOString())}</p>}
+    </div>
   );
 }
 

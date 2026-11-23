@@ -179,12 +179,15 @@ def test_store_original_stays_inside(tmp_path):
     assert store_original(src, tmp_path / "data" / "youtube").parent != dest.parent      # never overwrites
 
 
-def test_locate_prefers_the_plain_file_then_newest_zip(tmp_path):
-    make_zip(tmp_path / "takeout.zip", {"Takeout/YouTube/history/watch-history.json": "[1]"})
+def test_locate_takes_the_newest_file_or_zip(tmp_path):
+    import os
+    z = make_zip(tmp_path / "takeout.zip", {"Takeout/YouTube/history/watch-history.json": "[1]"})
+    os.utime(z, (1_700_000_000, 1_700_000_000))
     src, member = locate(tmp_path, "watch-history.json")
     with src:
         assert member.endswith("history/watch-history.json") and src.read_json(member) == [1]
     (tmp_path / "watch-history.json").write_text("[2]")
+    os.utime(tmp_path / "watch-history.json", (1_800_000_000, 1_800_000_000))
     src, member = locate(tmp_path, "watch-history.json")
     with src:
         assert src.read_json(member) == [2]

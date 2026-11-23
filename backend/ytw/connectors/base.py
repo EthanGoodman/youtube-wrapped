@@ -68,6 +68,7 @@ class Manifest:
     secrets: tuple[str, ...] = ()   # names in the secrets store this connector reads
     official: bool = True           # False when the data comes from an unofficial method (say so in the UI)
     oauth: OAuthSpec | None = None  # for "Connect" sign-ins: endpoints + least-privilege scopes
+    sync_every: int | None = None   # live sources: seconds between background syncs (floor 5 min)
     order: int = 100                # position on the hub page
 
     def __post_init__(self):
@@ -155,6 +156,19 @@ class Connector:
 
     def build(self) -> None:
         raise ConnectorError(f"{self.manifest.name} has no build step yet")
+
+    def sync(self, **opts) -> None:
+        """Live sources: fetch only what's new since the cursor, then build (run by the scheduler)."""
+        raise ConnectorError(f"{self.manifest.name} doesn't sync on its own")
+
+    # -- incremental sync position, kept with the data ------------------------------------
+    @staticmethod
+    def cursor(conn: sqlite3.Connection, name: str = "default") -> str | None:
+        return db.get_meta(conn, f"sync_cursor:{name}")
+
+    @staticmethod
+    def set_cursor(conn: sqlite3.Connection, value: str, name: str = "default") -> None:
+        db.set_meta(conn, f"sync_cursor:{name}", value)
 
 
 def finish_build(conn: sqlite3.Connection, analyze: bool = True) -> None:

@@ -82,7 +82,9 @@ def main() -> None:
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     # localhost only unless --lan (opt-in): your history is never exposed to the network by default
-    uvicorn.run(create_app(cfg, dev=args.dev, lan=args.lan), host="0.0.0.0" if args.lan else "127.0.0.1",  # nosec B104
+    app = create_app(cfg, dev=args.dev, lan=args.lan)
+    app.state.scheduler.start()              # background sync for live sources (no-op when there are none)
+    uvicorn.run(app, host="0.0.0.0" if args.lan else "127.0.0.1",  # nosec B104
                 port=args.port, log_level="warning")
 
 
