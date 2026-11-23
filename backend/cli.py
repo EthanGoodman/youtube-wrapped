@@ -7,8 +7,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -21,247 +19,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ytw import db, platforms, secrets  # noqa: E402
 from ytw.config import force_utf8_stdout, load_config, migrate_legacy_layout  # noqa: E402
-from ytw.connectors.youtube.ingest import ingest_search_history, ingest_watch_history, kind_counts  # noqa: E402
-from ytw.connectors.youtube import enrich  # noqa: E402
-from ytw.connectors.youtube.investigate import report as delay_report  # noqa: E402
-from ytw.connectors.youtube.preroll import link_prerolls  # noqa: E402
-from ytw.connectors.youtube.lookups import build_lookups  # noqa: E402
-from ytw.connectors.youtube.watchtime import WatchConfig, build_watches  # noqa: E402
+from ytw.connectors.base import ConnectorError  # noqa: E402
+
+# CLI options a connector step may use; each connector takes the ones it understands
+STEP_OPTIONS = ("watch", "search", "profile", "retry_missing", "skip_ads", "budget")
 
 
-def netflix_ingest(args, cfg) -> None:
-    from ytw.connectors.netflix import ingest as nf
-    folder = cfg.platform_dir("netflix")
-    conn = db.connect(cfg.platform_db("netflix"))
-    nf.init(conn)
-    profile = getattr(args, "profile", None) or cfg.section("netflix").get("profile") or None
-    try:
-        res = nf.ingest(conn, folder, cfg.tz, profile)
-    except (FileNotFoundError, ValueError) as e:
-        sys.exit(str(e))
-    kind = {"full": "full export (times + durations)", "simple": "quick download (dates only)",
-            "mixed": "full export + quick download"}[res["format"]]
-    print(f"Netflix: read {res['file']} - {kind}: {res['rows']:,} rows, "
-          f"{res['supplemental']:,} trailers/previews skipped"
-          + (f", {res['duplicates']:,} duplicates across files dropped" if res["duplicates"] else ""))
-    netflix_build(conn, cfg)
-
-
-def netflix_build(conn, cfg) -> None:
-    from ytw.connectors.netflix import ingest as nf
-    n = nf.build(conn, cfg.tz, cfg.section("netflix"), cfg.section("watchtime").get("session_gap_minutes", 30) * 60)
-    r = conn.execute("SELECT COUNT(DISTINCT channel_id), SUM(kind='episode'), SUM(kind='movie'), SUM(est_s)/3600.0, "
-                     "MIN(local_date), MAX(local_date) FROM watches").fetchone()
-    print(f"Built {n:,} views: {r[1]:,} episodes of {r[0]:,} shows, {r[2]:,} movies, "
-          f"{r[3]:,.0f} h ({r[4]} -> {r[5]})")
-
-
-def netflix_enrich(args, cfg) -> None:
-    from ytw.connectors.netflix import tmdb
-    token = secrets.get("TMDB_TOKEN")
-    if not token:
-        sys.exit("No TMDB_TOKEN saved. Get a free API Read Access Token at themoviedb.org "
-                 "(Settings -> API), then run: python backend/cli.py secrets set TMDB_TOKEN")
-    conn = db.connect(cfg.platform_db("netflix"))
-    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'views'").fetchone():
-        sys.exit("No Netflix data yet. Run `python backend/cli.py ingest --platform netflix` first.")
-    overrides = tmdb.load_overrides(cfg.platform_dir("netflix") / "overrides.toml")
-    try:
-        r = tmdb.enrich(conn, tmdb.http_fetcher(token), overrides,
-                        progress=lambda s: print(f"  {s[:70]:<70}", end="\r", flush=True))
-    except tmdb.TmdbError as e:
-        sys.exit(str(e))
-    print(" " * 75, end="\r")
-    print(f"TMDB: {r['shows_found']}/{r['shows']} shows and {r['movies_found']}/{r['movies']} movies matched, "
-          f"{r['one_offs']} one-off titles settled ({r['requests']} requests). "
-          "Fix wrong matches in data/netflix/overrides.toml.")
-    netflix_build(conn, cfg)
-
-
-def crunchyroll_build(cfg) -> None:
-    from ytw.connectors.crunchyroll import ingest as cr
-    conn = db.connect(cfg.platform_db("crunchyroll"))
-    try:
-        r = cr.build(conn, cfg.platform_dir("crunchyroll"), cfg.tz)
-    except FileNotFoundError as e:
-        sys.exit(str(e))
-    print(f"Built {r['plays']:,} episodes of {r['series']:,} series, {r['hours']:,.0f} h watched "
-          f"({r['first']} -> {r['last']}); {r['skipped']} removed or few-second plays skipped")
-
-
-def crunchyroll_enrich(args, cfg) -> None:
-    """Posters + episode lists from Crunchyroll's catalog, then studios / season / tags from AniList."""
-    from ytw.connectors.crunchyroll import anilist, catalog
-    from ytw.connectors.crunchyroll.fetch import WEB_CLIENT_ID, Client, CrunchyrollError
-    conn = db.connect(cfg.platform_db("crunchyroll"))
-    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'watches'").fetchone() or \
-            not conn.execute("SELECT 1 FROM watches LIMIT 1").fetchone():
-        sys.exit("No Crunchyroll data yet. Run `python backend/cli.py fetch --platform crunchyroll` first.")
-    series = [(cid.split(":", 1)[1], title) for cid, title in conn.execute(
-        "SELECT creator_id, title FROM creators WHERE creator_id LIKE 'series:%' ORDER BY title")]
-    sec = cfg.section("crunchyroll")
-    cookie = secrets.get("CRUNCHYROLL_ETP_RT") or ""
-    refresh = getattr(args, "retry_missing", False)
-    try:
-        client = Client(cookie, client_id=sec.get("client_id", WEB_CLIENT_ID))
-        r = catalog.fetch_catalog(conn, client, [sid for sid, _ in series], refresh=refresh, locale=sec.get("locale", "en-US"),
-                                  progress=lambda m: print(f"  Crunchyroll catalog: {m:<30}", end="\r", flush=True))
-    except CrunchyrollError as e:
-        sys.exit(f"\n{e}")
-    print(f"\nCrunchyroll catalog: {r['fetched']} of {r['series']} series fetched ({r['episodes']:,} episodes, "
-          f"{r['requests']} requests); the rest were cached")
-    try:
-        a = anilist.enrich(conn, series, overrides=anilist.load_overrides(cfg.platform_dir("crunchyroll") / "overrides.toml"),
-                           refresh=refresh, progress=lambda m: print(f"  AniList {m[:60]:<60}", end="\r", flush=True))
-    except anilist.AniListError as e:
-        sys.exit(f"\n{e}")
-    print(" " * 75, end="\r")
-    print(f"AniList: {a['matched']} of {a['series']} series matched ({a['requests']} requests). "
-          "Fix wrong matches in data/crunchyroll/overrides.toml ([anilist] \"Title\" = id).")
-    crunchyroll_build(cfg)
-
-
-def cmd_ingest(args, cfg) -> None:
-    if args.platform == "netflix":
-        return netflix_ingest(args, cfg)
-    if args.platform == "crunchyroll":
-        return crunchyroll_build(cfg)
-    conn = db.connect(cfg.db_path)
-    db.init_db(conn)
-    if cfg.tz.key != (db.get_meta(conn, "timezone") or cfg.tz.key):
-        print(f"Timezone changed to {cfg.tz.key}; rebuilding entries.")
-        conn.execute("DELETE FROM entries")
-        conn.execute("DELETE FROM searches")
-
-    watch = Path(args.watch) if args.watch else cfg.data_dir / "watch-history.json"
-    if not watch.exists():
-        sys.exit(f"Not found: {watch}\nPut your Takeout watch-history.json in {cfg.data_dir}")
-    t = time.perf_counter()
-    res = ingest_watch_history(conn, watch, cfg.tz)
-    print(f"Watch history: parsed {res['parsed']:,}, added {res['added']:,} new "
-          f"({time.perf_counter() - t:.1f}s)")
-
-    n = link_prerolls(conn, cfg.section("ads").get("preroll_window_seconds", 60))
-    print(f"Pre-roll ads linked to a video: {n:,}")
-
-    search = Path(args.search) if args.search else cfg.data_dir / "search-history.json"
-    if search.exists():
-        res = ingest_search_history(conn, search, cfg.tz)
-        print(f"Search history: parsed {res['parsed']:,} ({res['searches']:,} real searches), "
-              f"added {res['added']:,} new")
-    else:
-        print("Search history: not found (optional)")
-
-    print("\nEntries by type:")
-    for kind, n in kind_counts(conn).items():
-        print(f"  {kind:<15}{n:>10,}")
-    row = conn.execute("SELECT MIN(local_iso), MAX(local_iso) FROM entries").fetchone()
-    print(f"\nRange: {row[0]}  ->  {row[1]}")
-    rebuild(conn, cfg)
-    conn.close()
+def run_step(step: str):
+    """ingest / build / enrich / fetch: the same command for every platform, run by its connector."""
+    def cmd(args, cfg) -> None:
+        c = platforms.connector(args.platform, cfg)
+        if c is None:
+            p = platforms.get(args.platform)
+            sys.exit(f"{p.name} isn't supported yet - see issue #{p.issue}.")
+        opts = {k: getattr(args, k) for k in STEP_OPTIONS if getattr(args, k, None) is not None}
+        try:
+            getattr(c, step)(**opts)
+        except ConnectorError as e:
+            sys.exit(str(e))
+    return cmd
 
 
 def cmd_investigate_delay(args, cfg) -> None:
+    from ytw.connectors.youtube.investigate import report as delay_report
     conn = db.connect(cfg.db_path)
     print(delay_report(conn, cfg.section("background").get("keywords", []), args.min_gap_hours))
-
-
-def cmd_enrich(args, cfg) -> None:
-    if args.platform == "crunchyroll":
-        return crunchyroll_enrich(args, cfg)
-    if args.platform == "netflix":
-        return netflix_enrich(args, cfg)
-    conn = db.connect(cfg.db_path)
-    db.init_db(conn)
-    if not conn.execute("SELECT 1 FROM entries LIMIT 1").fetchone():
-        sys.exit("No data yet. Run `python backend/cli.py ingest` first.")
-    if not cfg.api_key:
-        print("No YOUTUBE_API_KEY saved (python backend/cli.py secrets set YOUTUBE_API_KEY), skipping enrichment. The app still works with "
-              "reduced stats (no durations, categories, genres or thumbnails).")
-        return
-    from tqdm import tqdm
-
-    api = cfg.section("api")
-    budget = args.budget or api.get("daily_budget_units", 9500)
-    used = enrich.units_used_today(conn)
-    print(f"Quota used today (Pacific day {enrich.quota_day()}): {used:,} / budget {budget:,}")
-    e = enrich.Enricher(
-        conn, cfg.api_key, budget=budget, batch_size=api.get("batch_size", 50),
-        progress=lambda total, desc: tqdm(total=total, desc=f"{desc:<8}", unit="id", ncols=90))
-    try:
-        r = e.run(include_ads=api.get("fetch_ad_videos", True) and not args.skip_ads,
-                  retry_missing=args.retry_missing,
-                  shorts_max_duration=cfg.section("shorts").get("max_duration_seconds", 180))
-    except enrich.ApiKeyError as err:
-        sys.exit(f"The API rejected your key: {err}\nSave it again (python backend/cli.py secrets set YOUTUBE_API_KEY) and check that "
-                 "'YouTube Data API v3' is enabled for the key's project.")
-    except enrich.ApiError as err:
-        sys.exit(f"API error: {err}\nProgress so far is saved; rerun to continue.")
-
-    print(f"\nThis run: {r.units:,} units. Videos found {r.videos_ok:,}, missing {r.videos_missing:,}. "
-          f"Channels found {r.channels_ok:,}, missing {r.channels_missing:,}."
-          + (f" Categories: {r.categories}." if r.categories else "")
-          + (f" Video shapes checked: {r.shapes:,}." if r.shapes else ""))
-    if r.stopped:
-        print(f"Stopped early ({r.stopped}). {r.videos_left:,} videos and {r.channels_left:,} channels "
-              "left; rerun after the quota resets (midnight Pacific) to continue.")
-    c = enrich.coverage(conn)
-    pct = 100 * c["watched_ok"] / max(1, c["watched_ids"])
-    print(f"Coverage: {c['watched_ok']:,} of {c['watched_ids']:,} watched video IDs enriched ({pct:.1f}%); "
-          f"{c['unavailable_recovered']:,} 'unavailable' videos recovered; "
-          f"{c['channels_ok']:,} channels. Quota used today: {c['units_today']:,}.")
-    rebuild(conn, cfg)
-
-
-def rebuild(conn, cfg) -> None:
-    """Recompute derived tables (watch time, sessions, rollups)."""
-    t = time.perf_counter()
-    n = build_watches(conn, WatchConfig.from_config(cfg), cfg.tz)
-    tg = cfg.section("tags")
-    nt, ng = build_lookups(conn, frozenset(tg.get("stopwords", [])), tg.get("min_videos", 2))
-    conn.execute("ANALYZE")
-    db.set_meta(conn, "built_at", datetime.now(timezone.utc).isoformat())
-    conn.commit()
-    print(f"Built {n:,} watches, {nt:,} genre and {ng:,} tag links ({time.perf_counter() - t:.1f}s)")
-
-
-def cmd_build(args, cfg) -> None:
-    if args.platform == "crunchyroll":
-        return crunchyroll_build(cfg)
-    if args.platform == "netflix":
-        conn = db.connect(cfg.platform_db("netflix"))
-        return netflix_build(conn, cfg)
-    conn = db.connect(cfg.db_path)
-    db.init_db(conn)
-    rebuild(conn, cfg)
-    r = conn.execute(
-        "SELECT COUNT(*), SUM(est_s)/3600.0, SUM(max_s)/3600.0, COUNT(DISTINCT session_id), "
-        "SUM(delayed_fix), SUM(is_background), SUM(bucket='short'), SUM(bucket='music') FROM watches").fetchone()
-    print(f"  estimated watch time: {r[1]:,.0f} h (max possible {r[2]:,.0f} h)")
-    print(f"  sessions: {r[3]:,}  delayed logs fixed: {r[4]:,}  background: {r[5]:,}  "
-          f"Shorts: {r[6]:,}  music: {r[7]:,}")
-
-
-def cmd_fetch(args, cfg) -> None:
-    """Download history straight from the platform (only Crunchyroll, which has no data export)."""
-    if args.platform != "crunchyroll":
-        sys.exit("fetch is only for Crunchyroll (other platforms have their own data exports).")
-    from ytw.connectors.crunchyroll.fetch import WEB_CLIENT_ID, CrunchyrollError, fetch_history
-    sec = cfg.section("crunchyroll")
-    cookie = secrets.get("CRUNCHYROLL_ETP_RT") or ""
-    if not cookie:
-        sys.exit("No CRUNCHYROLL_ETP_RT saved. Log in at crunchyroll.com, open DevTools (F12) > Application > "
-                 "Cookies > https://www.crunchyroll.com, copy the value of etp_rt, then run:\n"
-                 "  python backend/cli.py secrets set CRUNCHYROLL_ETP_RT\nTreat it like a password.")
-    try:
-        res = fetch_history(cfg.platform_dir("crunchyroll"), cookie, client_id=sec.get("client_id", WEB_CLIENT_ID),
-                            locale=sec.get("locale", "en-US"), profile=sec.get("profile") or None,
-                            progress=lambda n: print(f"  {n:,} history entries...", end="\r", flush=True))
-    except CrunchyrollError as e:
-        sys.exit(f"\n{e}")
-    span = f" ({res['first'][:10]} -> {res['last'][:10]})" if res["first"] else ""
-    print(f"\nCrunchyroll: saved {res['items']:,} history entries for profile {res['profile']}{span} to {res['file']} ({res['requests']} requests)")
-    crunchyroll_build(cfg)  # import it straight away
 
 
 def cmd_secrets(args, _cfg) -> None:
@@ -310,19 +92,19 @@ def main() -> None:
     p.add_argument("--watch", help="path to watch-history.json (default: data/youtube/)")
     p.add_argument("--search", help="path to search-history.json (default: data/youtube/)")
     p.add_argument("--profile", help="Netflix: which profile to import from a full export")
-    p.set_defaults(func=cmd_ingest)
+    p.set_defaults(func=run_step("ingest"))
 
     p = sub.add_parser("enrich", help="Fetch video/channel details from the YouTube Data API")
     p.add_argument("--retry-missing", action="store_true", help="refetch IDs the API didn't return before")
     p.add_argument("--skip-ads", action="store_true", help="don't look up ad videos")
     p.add_argument("--budget", type=int, help="max quota units to use today")
-    p.set_defaults(func=cmd_enrich)
+    p.set_defaults(func=run_step("enrich"))
 
     p = sub.add_parser("build", help="Recompute watch time, sessions and rollups (after editing config)")
-    p.set_defaults(func=cmd_build)
+    p.set_defaults(func=run_step("build"))
 
     p = sub.add_parser("fetch", help="Crunchyroll: download your watch history with your browser cookie")
-    p.set_defaults(func=cmd_fetch)
+    p.set_defaults(func=run_step("fetch"))
 
     p = sub.add_parser("secrets", help="Save, list or remove API keys, tokens and cookies (OS keychain)")
     p.add_argument("action", choices=["list", "set", "delete", "migrate"])
