@@ -1,0 +1,135 @@
+[
+ {
+  "header": "YouTube",
+  "title": "Watched Bike Shed Shop Tour",
+  "titleUrl": "https://www.youtube.com/watch?v=bbbbbbbbbb2",
+  "subtitles": [
+   {
+    "name": "Bike Shed",
+    "url": "https://www.youtube.com/channel/UCbikeshed00000000000002"
+   }
+  ],
+  "time": "2026-01-15T17:00:00.000Z",
+  "products": [
+   "YouTube"
+  ],
+  "activityControls": [
+   "YouTube watch history"
+  ]
+ },
+ {
+  "header": "YouTube",
+  "title": "Watched Sourdough Starter Basics",
+  "titleUrl": "https://www.youtube.com/watch?v=aaaaaaaaaa1",
+  "subtitles": [
+   {
+    "name": "Baking Lab",
+    "url": "https://www.youtube.com/channel/UCbakinglab0000000000001"
+   }
+  ],
+  "time": "2025-06-10T18:00:00.000Z",
+  "products": [
+   "YouTube"
+  ],
+  "activityControls": [
+   "YouTube watch history"
+  ]
+ },
+ {
+  "header": "YouTube",
+  "title": "Watched a video that has been removed",
+  "time": "2025-04-01T12:00:00.000Z",
+  "products": [
+   "YouTube"
+  ],
+  "activityControls": [
+   "YouTube watch history"
+  ]
+ },
+ {
+  "header": "YouTube",
+  "title": "Watched Late Night Headlines",
+  "titleUrl": "https://www.youtube.com/watch?v=cccccccccc1",
+  "subtitles": [
+   {
+    "name": "Night News",
+    "url": "https://www.youtube.com/channel/UCnightnews0000000000003"
+   }
+  ],
+  "time": "2025-03-03T04:30:00.000Z",
+  "products": [
+   "YouTube"
+  ],
+  "activityControls": [
+   "YouTube watch history"
+  ]
+ },
+ {
+  "header": "YouTube",
+  "title": "Watched Fixing a Flat in 60 Seconds",
+  "titleUrl": "https://www.youtube.com/watch?v=bbbbbbbbbb1",
+  "subtitles": [
+   {
+    "name": "Bike Shed",
+    "url": "https://www.youtube.com/channel/UCbikeshed00000000000002"
+   }
+  ],
+  "time": "2025-03-02T13:05:00.000Z",
+  "products": [
+   "YouTube"
+  ],
+  "activityControls": [
+   "YouTube watch history"
+  ]
+ },
+ {
+  "header": "YouTube",
+  "title": "Watched Why Bread Rises",
+  "titleUrl": "https://www.youtube.com/watch?v=aaaaaaaaaa2",
+  "subtitles": [
+   {
+    "name": "Baking Lab",
+    "url": "https://www.youtube.com/channel/UCbakinglab0000000000001"
+   }
+  ],
+  "time": "2025-03-01T20:12:00.000Z",
+  "products": [
+   "YouTube"
+  ],
+  "activityControls": [
+   "YouTube watch history"
+  ]
+ },
+ {
+  "header": "YouTube",
+  "title": "Watched Sourdough Starter Basics",
+  "titleUrl": "https://www.youtube.com/watch?v=aaaaaaaaaa1",
+  "subtitles": [
+   {
+    "name": "Baking Lab",
+    "url": "https://www.youtube.com/channel/UCbakinglab0000000000001"
+   }
+  ],
+  "time": "2025-03-01T20:00:00.000Z",
+  "products": [
+   "YouTube"
+  ],
+  "activityControls": [
+   "YouTube watch history"
+  ]
+ },
+ {
+  "header": "YouTube",
+  "title": "Watched Totally Real Shoes",
+  "titleUrl": "https://www.youtube.com/watch?v=dddddddddd1",
+  "time": "2025-03-01T19:59:30.000Z",
+  "products": [
+   "YouTube"
+  ],
+  "details": [
+   {
+    "name": "From Google Ads"
+   }
+  ]
+ }
+]

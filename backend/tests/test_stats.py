@@ -7,13 +7,13 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from ytw import db
-from ytw.lookups import build_lookups
-from ytw.parser import Entry
-from ytw.ingest import insert_entries
+from ytw.connectors.youtube.lookups import build_lookups
+from ytw.connectors.youtube.parser import Entry
+from ytw.connectors.youtube.ingest import insert_entries
 from ytw.stats import ads, details, evolution, overview, patterns, records, search, tops
 from ytw.stats.common import Filters, Range, resolve_range
 from ytw.stats.records import current_streak, longest_break, longest_streak
-from ytw.watchtime import WatchConfig, build_watches
+from ytw.connectors.youtube.watchtime import WatchConfig, build_watches
 
 NY = ZoneInfo("America/New_York")
 D = date.fromisoformat

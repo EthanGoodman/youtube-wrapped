@@ -1,0 +1,196 @@
+{
+ "profile": "Test",
+ "items": [
+  {
+   "id": "GX001",
+   "date_played": "2025-01-10T01:00:00Z",
+   "playhead": 1440,
+   "fully_watched": true,
+   "parent_id": "GSTAR",
+   "panel": {
+    "id": "GX001",
+    "type": "episode",
+    "title": "Episode 1",
+    "slug_title": "episode-1",
+    "images": {
+     "thumbnail": [
+      [
+       {
+        "width": 640,
+        "height": 360,
+        "source": "https://www.crunchyroll.com/imgsrv/display/thumbnail/640x360/GX001.jpg"
+       },
+       {
+        "width": 1280,
+        "height": 720,
+        "source": "https://www.crunchyroll.com/imgsrv/display/thumbnail/1280x720/GX001.jpg"
+       }
+      ]
+     ]
+    },
+    "episode_metadata": {
+     "series_id": "GSTAR",
+     "series_title": "Star Forge",
+     "series_slug_title": "star-forge",
+     "season_id": "GSTAR-1",
+     "season_title": "Star Forge",
+     "season_display_number": "1",
+     "season_number": 1,
+     "episode": "1",
+     "episode_number": 1,
+     "duration_ms": 1440000,
+     "audio_locale": "ja-JP",
+     "episode_air_date": "2025-01-05T00:00:00Z",
+     "tenant_categories": [
+      "Action"
+     ]
+    }
+   }
+  },
+  {
+   "id": "GX002",
+   "date_played": "2025-01-10T01:25:00Z",
+   "playhead": 900,
+   "fully_watched": false,
+   "parent_id": "GSTAR",
+   "panel": {
+    "id": "GX002",
+    "type": "episode",
+    "title": "Episode 2",
+    "slug_title": "episode-2",
+    "images": {
+     "thumbnail": [
+      [
+       {
+        "width": 640,
+        "height": 360,
+        "source": "https://www.crunchyroll.com/imgsrv/display/thumbnail/640x360/GX002.jpg"
+       },
+       {
+        "width": 1280,
+        "height": 720,
+        "source": "https://www.crunchyroll.com/imgsrv/display/thumbnail/1280x720/GX002.jpg"
+       }
+      ]
+     ]
+    },
+    "episode_metadata": {
+     "series_id": "GSTAR",
+     "series_title": "Star Forge",
+     "series_slug_title": "star-forge",
+     "season_id": "GSTAR-1",
+     "season_title": "Star Forge",
+     "season_display_number": "1",
+     "season_number": 1,
+     "episode": "2",
+     "episode_number": 2,
+     "duration_ms": 1440000,
+     "audio_locale": "ja-JP",
+     "episode_air_date": "2025-01-05T00:00:00Z",
+     "tenant_categories": [
+      "Action"
+     ]
+    }
+   }
+  },
+  {
+   "id": "GX003",
+   "date_played": "2025-08-02T22:00:00Z",
+   "playhead": 1440,
+   "fully_watched": true,
+   "parent_id": "GMOON",
+   "panel": {
+    "id": "GX003",
+    "type": "episode",
+    "title": "Episode 1",
+    "slug_title": "episode-1",
+    "images": {
+     "thumbnail": [
+      [
+       {
+        "width": 640,
+        "height": 360,
+        "source": "https://www.crunchyroll.com/imgsrv/display/thumbnail/640x360/GX003.jpg"
+       },
+       {
+        "width": 1280,
+        "height": 720,
+        "source": "https://www.crunchyroll.com/imgsrv/display/thumbnail/1280x720/GX003.jpg"
+       }
+      ]
+     ]
+    },
+    "episode_metadata": {
+     "series_id": "GMOON",
+     "series_title": "Moon Bakery",
+     "series_slug_title": "moon-bakery",
+     "season_id": "GMOON-1",
+     "season_title": "Moon Bakery",
+     "season_display_number": "1",
+     "season_number": 1,
+     "episode": "1",
+     "episode_number": 1,
+     "duration_ms": 1440000,
+     "audio_locale": "en-US",
+     "episode_air_date": "2025-01-05T00:00:00Z",
+     "tenant_categories": [
+      "Comedy",
+      "Slice of Life"
+     ]
+    }
+   }
+  },
+  {
+   "id": "GX004",
+   "date_played": "2026-02-01T01:00:00Z",
+   "playhead": 1440,
+   "fully_watched": true,
+   "parent_id": "GSTAR",
+   "panel": {
+    "id": "GX004",
+    "type": "episode",
+    "title": "Episode 3",
+    "slug_title": "episode-3",
+    "images": {
+     "thumbnail": [
+      [
+       {
+        "width": 640,
+        "height": 360,
+        "source": "https://www.crunchyroll.com/imgsrv/display/thumbnail/640x360/GX004.jpg"
+       },
+       {
+        "width": 1280,
+        "height": 720,
+        "source": "https://www.crunchyroll.com/imgsrv/display/thumbnail/1280x720/GX004.jpg"
+       }
+      ]
+     ]
+    },
+    "episode_metadata": {
+     "series_id": "GSTAR",
+     "series_title": "Star Forge",
+     "series_slug_title": "star-forge",
+     "season_id": "GSTAR-1",
+     "season_title": "Star Forge",
+     "season_display_number": "1",
+     "season_number": 1,
+     "episode": "3",
+     "episode_number": 3,
+     "duration_ms": 1440000,
+     "audio_locale": "ja-JP",
+     "episode_air_date": "2025-01-05T00:00:00Z",
+     "tenant_categories": [
+      "Action"
+     ]
+    }
+   }
+  },
+  {
+   "id": "gone",
+   "date_played": "2026-02-02T00:00:00Z",
+   "playhead": 3,
+   "fully_watched": false
+  }
+ ]
+}

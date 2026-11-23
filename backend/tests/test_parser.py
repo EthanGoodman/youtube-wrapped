@@ -5,11 +5,11 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from ytw import db
-from ytw.ingest import insert_entries, kind_counts
-from ytw.parser import (AD, AD_CLICK, AD_IMPRESSION, MUSIC, OTHER, POST, SURVEY, UNAVAILABLE,
+from ytw.connectors.youtube.ingest import insert_entries, kind_counts
+from ytw.connectors.youtube.parser import (AD, AD_CLICK, AD_IMPRESSION, MUSIC, OTHER, POST, SURVEY, UNAVAILABLE,
                         VIDEO, clean_text, load_watch_history, parse_search_history,
                         video_id_from_url)
-from ytw.preroll import link_prerolls
+from ytw.connectors.youtube.preroll import link_prerolls
 
 FIXTURE = Path(__file__).parent / "fixtures" / "watch-history.json"
 NY = ZoneInfo("America/New_York")

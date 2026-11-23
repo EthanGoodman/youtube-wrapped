@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from .. import net
+from ... import net
 
 API = "https://graphql.anilist.co"
 PAUSE_S = 2.1

@@ -14,7 +14,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .. import db
+from ... import db
+from .. import store
+from ..base import finish_build
+from ..store import Creator, Item, View
 from .fetch import HISTORY_FILE
 
 MIN_PLAY_S = 30          # a tap that played for a few seconds isn't a watch
@@ -122,12 +125,11 @@ def build(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo) -> dict:
         local = p["local"]
         item_id = ("ep:" if p["kind"] == "episode" else "mv:") + p["id"]
         creator_id = f"series:{p['series_id']}" if p["series_id"] else None
-        watches.append((
-            n, p["kind"], item_id, creator_id, p["start"], local.isoformat(), local.date().isoformat(), local.year,
-            local.strftime("%Y-%m"), local.hour, local.hour * 60 + local.minute, local.weekday(), p["watched_s"],
-            p["watched_s"], p["length_s"], "complete" if p["finished"] else "playhead", None, session, "long", None,
-            0, 0, 0, None, p["aired_epoch"]))
-        items[item_id] = (
+        watches.append(View(
+            n, p["kind"], item_id, creator_id, p["start"], local, p["watched_s"],
+            "complete" if p["finished"] else "playhead", duration_s=p["watched_s"], max_s=p["length_s"],
+            session_id=session, published_epoch=p["aired_epoch"]))
+        items[item_id] = Item(
             item_id, "ok", p["title"], creator_id, p["thumb_small"], p["thumb_large"], p["length_s"],
             (p["aired"] or "")[:10] or None, None,
             f"https://www.crunchyroll.com/watch/{p['id']}/{p['slug'] or ''}".rstrip("/"),
@@ -146,21 +148,14 @@ def build(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo) -> dict:
                 c["seasons"][p["season_id"]] = p["season_title"]
 
     conn.execute("PRAGMA foreign_keys=OFF")  # no YouTube-style raw `entries` table here
-    cols = ("entry_id, kind, video_id, channel_id, start_epoch, local_iso, local_date, year, month, local_hour, "
-            "local_minute, local_dow, duration_s, est_s, max_s, est_method, gap_next_s, session_id, bucket, "
-            "short_basis, is_background, is_live, delayed_fix, category_id, published_epoch")
-    conn.execute("DELETE FROM watches")
-    conn.execute("DELETE FROM items")
-    conn.execute("DELETE FROM creators")
-    conn.execute("DELETE FROM item_genres")
-    conn.executemany(f"INSERT INTO watches ({cols}) VALUES ({','.join('?' * 25)})", watches)
-    conn.executemany("INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)", list(items.values()))
+    store.write_views(conn, watches)
+    store.write_items(conn, items.values())
     details = _series_details(conn, [cid.split(":", 1)[1] for cid in creators])
     rows = []
     for cid, c in creators.items():
         d = details.get(cid.split(":", 1)[1], {})
         al = d.get("anilist") or {}
-        rows.append((
+        rows.append(Creator(
             cid, "ok", c["title"], None, d.get("poster"), None, d.get("aired_episodes"), "JP", d.get("first_air"),
             f"https://www.crunchyroll.com/series/{cid.split(':', 1)[1]}/{c['slug'] or ''}".rstrip("/"),
             json.dumps({
@@ -175,20 +170,20 @@ def build(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo) -> dict:
                 "tags": [t["name"] for t in (al.get("tags") or []) if not t.get("isMediaSpoiler") and (t.get("rank") or 0) >= 60][:8],
                 "cover_color": (al.get("coverImage") or {}).get("color"),
             })))
-    conn.executemany("INSERT INTO creators VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows)
+    store.write_creators(conn, rows)
     # every episode out, per series, from Crunchyroll's catalog (for progress, binges, the checklist)
     conn.execute("DELETE FROM catalog_episodes")
     if _has_table(conn, "cr_episodes"):
         conn.execute("""INSERT OR REPLACE INTO catalog_episodes
             SELECT 'series:' || series_id, season_seq, number, title, CAST(ROUND(duration_ms / 60000.0) AS INTEGER), still, air_date
             FROM cr_episodes WHERE number IS NOT NULL AND season_seq > 0""")
-    conn.executemany("INSERT INTO item_genres VALUES (?, ?)", [(i, g) for i, gs in genres.items() for g in gs])
+    store.write_genres(conn, genres)
     # real start times and real watch time (playhead / length): no estimating
     db.set_meta(conn, "extra_capabilities", "time_of_day")
     db.set_meta(conn, "crunchyroll_profile", raw.get("profile") or "")
     db.set_meta(conn, "timezone", str(tz))
-    db.set_meta(conn, "built_at", datetime.now(timezone.utc).isoformat())
-    conn.commit()
+    finish_build(conn, analyze=False)  # small; ANALYZE would reorder tied rankings (#85)
     return {"plays": len(watches), "series": len(creators), "skipped": len(raw.get("items") or []) - len(watches),
-            "hours": sum(w[13] for w in watches) / 3600,
-            "first": watches[0][6] if watches else None, "last": watches[-1][6] if watches else None}
+            "hours": sum(w.est_s for w in watches) / 3600,
+            "first": watches[0].local.date().isoformat() if watches else None,
+            "last": watches[-1].local.date().isoformat() if watches else None}

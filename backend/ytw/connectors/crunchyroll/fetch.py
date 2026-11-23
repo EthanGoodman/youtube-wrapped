@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from .. import net
+from ... import net
 
 API = "https://beta-api.crunchyroll.com"
 # Public client id of Crunchyroll's web app (no secret). Override with [crunchyroll] client_id if it changes.

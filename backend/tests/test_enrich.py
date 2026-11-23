@@ -4,10 +4,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ytw import db, enrich
-from ytw.enrich import Enricher, QuotaExceeded, parse_duration, topic_name
-from ytw.ingest import insert_entries
-from ytw.parser import load_watch_history
+from ytw import db
+from ytw.connectors.youtube import enrich
+from ytw.connectors.youtube.enrich import Enricher, QuotaExceeded, parse_duration, topic_name
+from ytw.connectors.youtube.ingest import insert_entries
+from ytw.connectors.youtube.parser import load_watch_history
 
 FIXTURE = Path(__file__).parent / "fixtures" / "watch-history.json"
 

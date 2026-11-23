@@ -5,7 +5,7 @@ import urllib.parse
 
 import pytest
 
-from ytw.crunchyroll.fetch import API, HISTORY_FILE, CookieExpired, CrunchyrollError, WrongProfile, fetch_history
+from ytw.connectors.crunchyroll.fetch import API, HISTORY_FILE, CookieExpired, CrunchyrollError, WrongProfile, fetch_history
 
 COOKIE = "good-cookie"
 
@@ -124,7 +124,7 @@ from zoneinfo import ZoneInfo  # noqa: E402
 from ytw import db  # noqa: E402
 from ytw.api import create_app  # noqa: E402
 from ytw.config import load_config  # noqa: E402
-from ytw.crunchyroll import ingest as cr  # noqa: E402
+from ytw.connectors.crunchyroll import ingest as cr  # noqa: E402
 from ytw.stats import shows  # noqa: E402
 from ytw.stats.common import Filters, resolve_range  # noqa: E402
 
@@ -217,8 +217,8 @@ def test_show_stats_with_blank_season_labels(tmp_path):
 
 # ------------------------------------------------------------------ catalog + AniList
 
-from ytw.crunchyroll import anilist, catalog  # noqa: E402
-from ytw.crunchyroll.fetch import Client  # noqa: E402
+from ytw.connectors.crunchyroll import anilist, catalog  # noqa: E402
+from ytw.connectors.crunchyroll.fetch import Client  # noqa: E402
 
 
 class FakeCatalog(FakeCrunchyroll):

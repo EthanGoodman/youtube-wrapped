@@ -180,8 +180,9 @@ Notes on the data:
 
 ## How platforms are organized
 
-- `backend/ytw/platforms.py` describes every platform: its wording ("channel/video" vs "show/episode" vs "artist/track"), which features it has (Shorts, ads, search history, estimated vs exact time), its theme and how to export its data.
-- Each platform has its own raw-export folder (`data/<platform>/`) and its own database (`data/<platform>.db`). The stats engine reads the generic `watches`, `items` and `creators` tables, which every platform fills in its own way.
+- Every platform is a **connector**: a package in `backend/ytw/connectors/<id>/` with a manifest (wording like "channel/video" vs "show/episode", features such as Shorts or estimated time, theme, image hosts, secrets, how to export the data) and the steps `ingest`, `build`, plus `enrich` / `fetch` where the platform has them. They're found automatically; planned platforms are listed in `connectors/planned.py`.
+- Each platform has its own raw-export folder (`data/<platform>/`) and its own database (`data/<platform>.db`). Connectors write typed rows (`View`, `Item`, `Creator` in `connectors/store.py`) into the generic `watches`, `items` and `creators` tables that every stat reads.
+- New platform: `python scripts/new_connector.py <id> "<Name>"`, then see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-platform).
 - The API takes `?platform=<id>` (default `youtube`); the CLI takes `--platform <id>`.
 - Themes are CSS variables in `frontend/src/index.css` (`[data-theme="youtube"]`, …).
 

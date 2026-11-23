@@ -28,7 +28,7 @@ REVIEWED = {
     "early": "constant FROM/WHERE built from w_sql",
     "ph": "a run of ? placeholders",
     "UNKNOWN": "module constant", "UNKNOWN_SHOW": "module constant", "_BRAND": "module constant",
-    "cols": "constant column list", "_COLS": "constant column list",
+    "cols": "constant column list", "', '.join(WATCH_COLS)": "store.py: constant column list",
     "', '.join(_ENTRY_COLS)": "constant column list", "', '.join(_SEARCH_COLS)": "constant column list",
     "table": "enrich: constant table name from code", "key_col": "enrich: constant column name from code",
     "done_filter": "one of two constant conditions",

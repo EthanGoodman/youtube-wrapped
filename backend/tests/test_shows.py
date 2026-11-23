@@ -5,8 +5,8 @@ from test_netflix import NY, FakeTmdb, _db
 from ytw import db
 from ytw.api import create_app
 from ytw.config import load_config
-from ytw.netflix import ingest as nf
-from ytw.netflix import tmdb
+from ytw.connectors.netflix import ingest as nf
+from ytw.connectors.netflix import tmdb
 from ytw.stats import shows
 from ytw.stats.common import Filters, resolve_range
 
