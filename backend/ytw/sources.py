@@ -176,7 +176,8 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
 
     @app.get("/api/sources")
     def list_sources():
-        return {"keychain": secrets.store().where,
+        keychain = "your OS keychain" if secrets.store().kr else "a private file in data/ (no OS keychain found)"
+        return {"keychain": keychain,
                 "sources": [describe(cls) for cls in sorted(platforms.CONNECTORS.values(), key=lambda c: c.manifest.order)]}
 
     @app.get("/api/sources/{pid}")

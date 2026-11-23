@@ -9,8 +9,7 @@ MANIFEST = Manifest(
     frozenset({"genres", "series"}),
     ("Quick: netflix.com/viewingactivity → Download all → NetflixViewingHistory.csv (dates only)",
      "Full (adds times and durations): netflix.com/account → Download your personal information "
-     "→ CONTENT_INTERACTION/ViewingActivity.csv",
-     "Put either file in data/netflix/, then: python backend/cli.py ingest --platform netflix"),
+     "→ CONTENT_INTERACTION/ViewingActivity.csv"),
     "instant (quick) or a few days (full)", issue=2, image_hosts=(("image.tmdb.org", "/t/p/"),),
     auth="file", secrets=("TMDB_TOKEN",), order=2)
 

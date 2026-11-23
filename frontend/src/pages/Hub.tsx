@@ -1,12 +1,12 @@
 /* The landing page: every platform, with links into the ones that have data. */
 import { useState } from "react";
-import { BarChart3, ChevronDown, ExternalLink, Sparkles } from "lucide-react";
+import { BarChart3, ChevronDown, Database, ExternalLink, Sparkles } from "lucide-react";
 import { PlatformSummary, usePlatforms } from "../api";
 import { compact, date, num } from "../format";
 import { HubLink } from "../platform";
 
 /** Brand colors for the tiles (each platform's own pages use its full theme). */
-const BRAND: Record<string, { bg: string; fg?: string }> = {
+export const BRAND: Record<string, { bg: string; fg?: string }> = {
   youtube: { bg: "linear-gradient(140deg,#ff0033,#7a0019)" },
   netflix: { bg: "linear-gradient(140deg,#e50914,#3d0306)" },
   spotify: { bg: "linear-gradient(140deg,#1ed760,#0b5c2a)", fg: "#0b0b0b" },
@@ -26,7 +26,19 @@ export function Hub() {
       <header className="mb-10 text-center">
         <h1 className="text-4xl font-black tracking-tight sm:text-5xl">Wrapped</h1>
         <p className="mt-2 text-sub">Your stats and year-in-review for every app you use. Private, on your machine.</p>
+        <HubLink to="/sources" className="mx-auto mt-5 inline-flex items-center gap-1.5 rounded-full bg-raised px-4 py-2 text-sm font-semibold hover:bg-line">
+          <Database size={15} /> Data sources
+        </HubLink>
       </header>
+      {q.data && ready.length === 0 && (
+        <section className="mb-10 rounded-2xl bg-card p-6 text-center ring-1 ring-line">
+          <h2 className="text-xl font-bold">Start by adding your data</h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-sub">Download your history from YouTube, Netflix or another app, then drop the file in. It never leaves this computer.</p>
+          <HubLink to="/sources" className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-bg hover:bg-white">
+            <Database size={16} /> Add data
+          </HubLink>
+        </section>
+      )}
       {q.error && <p className="text-center text-down">Couldn't reach the server: {q.error.message}</p>}
       {ready.length > 0 && (
         <section className="mb-10">
@@ -85,17 +97,17 @@ function SoonTile({ p }: { p: PlatformSummary }) {
         <span className="h-9 w-9 shrink-0 rounded-xl" style={{ background: brand.bg }} />
         <div className="min-w-0 flex-1">
           <div className="font-bold">{p.name}</div>
-          <div className="text-xs text-muted">{p.implemented ? "No data imported yet" : "Coming soon"}</div>
+          <div className="text-xs text-muted">{p.implemented ? <HubLink to="/sources" className="underline underline-offset-2 hover:text-ink">Add your data</HubLink> : "Coming soon"}</div>
         </div>
         {p.issue && (
           <a href={`https://github.com/EthanGoodman/youtube-wrapped/issues/${p.issue}`} target="_blank" rel="noreferrer"
              className="flex items-center gap-1 text-xs text-sub hover:text-ink">#{p.issue} <ExternalLink size={12} /></a>
         )}
       </div>
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
+      {!p.implemented && <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
               className="mt-3 flex w-full items-center justify-between text-xs font-medium text-sub hover:text-ink">
         How to get your data <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
+      </button>}
       {open && (
         <div className="mt-2 text-xs text-sub">
           <ol className="list-decimal space-y-1 pl-4">

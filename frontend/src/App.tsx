@@ -5,6 +5,7 @@ import { Layout } from "./components/Layout";
 import { PageTitle } from "./components/ui";
 import { Home } from "./pages/Home";
 import { Hub } from "./pages/Hub";
+import { Sources } from "./pages/Sources";
 import { Anime } from "./pages/Anime";
 import { Shows } from "./pages/Shows";
 import { Top } from "./pages/Top";
@@ -38,17 +39,19 @@ export function App() {
       <BuildCheck />
       <Routes>
         <Route path="/" element={<HubPage />} />
+        <Route path="/sources" element={<HubPage page={<Sources />} />} />
         <Route path="/:platform/*" element={<PlatformApp />} />
       </Routes>
     </>
   );
 }
 
-function HubPage() {
+/** Pages outside any platform (hub, data sources): neutral theme. */
+function HubPage({ page = <Hub /> }: { page?: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.removeAttribute("data-theme");
   }, []);
-  return <Hub />;
+  return <>{page}</>;
 }
 
 /** Everything under /<platform>/: checks the platform, applies its theme, routes its pages. */

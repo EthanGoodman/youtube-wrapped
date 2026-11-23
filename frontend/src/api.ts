@@ -182,3 +182,88 @@ export interface MonthPoint {
   short?: number;
   music?: number;
 }
+
+// ------------------------------------------------------------------ data sources
+
+async function readError(res: Response): Promise<ApiError> {
+  let detail = res.statusText;
+  try {
+    detail = (await res.json()).detail ?? detail;
+  } catch {
+    /* not JSON */
+  }
+  return new ApiError(res.status, detail);
+}
+
+/** A write to the API (POST / PUT / DELETE), with the install token. */
+export async function sendJson<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    headers: { "X-Wrapped-Token": appToken, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw await readError(res);
+  return res.json() as Promise<T>;
+}
+
+/** Stream a file to the server (XMLHttpRequest, for upload progress). */
+export function uploadFile<T>(path: string, file: File, onProgress: (fraction: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", path);
+    x.setRequestHeader("X-Wrapped-Token", appToken);
+    x.setRequestHeader("X-Filename", file.name.replace(/[^\x20-\x7e]/g, "_"));
+    x.setRequestHeader("Content-Type", "application/octet-stream");
+    x.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    x.onload = () => {
+      let body: { detail?: string } | undefined;
+      try {
+        body = JSON.parse(x.responseText);
+      } catch {
+        /* not JSON */
+      }
+      if (x.status >= 200 && x.status < 300) resolve(body as T);
+      else reject(new ApiError(x.status, body?.detail ?? (x.statusText || "Upload failed")));
+    };
+    x.onerror = () => reject(new ApiError(0, "Upload failed: the server didn't answer"));
+    x.send(file);
+  });
+}
+
+export interface Job {
+  id: string;
+  platform: string;
+  step: "ingest" | "build" | "enrich" | "fetch";
+  state: "running" | "done" | "failed" | "cancelled";
+  lines: string[];
+  error: string | null;
+  started: number;
+  ended: number | null;
+  cancelling: boolean;
+}
+
+export interface DataSource {
+  id: string;
+  name: string;
+  family: string;
+  auth: "file" | "api_key" | "cookie" | "oauth" | "extension" | "server";
+  official: boolean;
+  export_steps: string[];
+  export_wait: string;
+  folder: string;
+  secrets: { name: string; label: string; set: boolean; where: string | null }[];
+  can: { upload: boolean; fetch: boolean; enrich: boolean };
+  status: { has_data: boolean; rows: number; first_date: string | null; last_date: string | null;
+            built_at: string | null; files: number };
+  job: Job | null;
+}
+
+/** Every importable platform with its status; polls every second while a job runs. */
+export function useSources() {
+  return useQuery<{ keychain: string; sources: DataSource[] }, ApiError>({
+    queryKey: ["sources"],
+    queryFn: () => getJson("/api/sources"),
+    staleTime: 0,
+    refetchInterval: (q) => (q.state.data?.sources.some((s) => s.job?.state === "running") ? 1000 : false),
+  });
+}
