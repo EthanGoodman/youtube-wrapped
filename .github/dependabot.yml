@@ -11,6 +11,12 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    ignore:
+      # rewrites, not upgrades: each needs its own migration task (both break the build as-is)
+      - dependency-name: tailwindcss
+        update-types: [version-update:semver-major]
+      - dependency-name: framer-motion
+        update-types: [version-update:semver-major]
     groups:
       npm-minor:
         update-types: [minor, patch]
