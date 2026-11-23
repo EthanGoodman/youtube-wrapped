@@ -22,7 +22,12 @@ from typing import Callable
 
 from fastapi import FastAPI, HTTPException, Request
 
+import html
+
+from fastapi.responses import HTMLResponse
+
 from . import platforms, secrets
+from .oauth import OAuth, OAuthError, OAuthSpec
 from .config import Config
 from .connectors.base import Connector, ConnectorError
 from .imports import DEFAULT as LIMITS
@@ -146,6 +151,8 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
     """Mount the /api/sources and /api/secrets routes. `release(pid)` closes the API's open
     handles on a platform's database (before it's replaced or deleted)."""
     runner = JobRunner(cfg)
+    auth = OAuth()
+    app.state.oauth = auth
 
     def connector_cls(pid: str) -> type[Connector]:
         cls = platforms.CONNECTORS.get(pid)
@@ -166,6 +173,8 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
             "can": {"upload": m.auth == "file", "fetch": _overrides(cls, "fetch"), "enrich": _overrides(cls, "enrich")},
             "status": {**_status(cfg, path_for(m.id)), "files": _files(cfg.platform_dir(m.id))},
             "job": runner.jobs[m.id].to_dict() if m.id in runner.jobs else None,
+            "oauth": {"connected": auth.connected(m.id), "scopes": list(m.oauth.scopes),
+                      "device": bool(m.oauth.device_url), "redirect_path": "/oauth/callback"} if m.oauth else None,
         }
 
     def start(pid: str, step: str, before=None) -> dict:
@@ -267,6 +276,9 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
             raise HTTPException(409, "cancel the running job first")
         release(pid)
         removed = []
+        if cls.manifest.oauth and auth.connected(pid):
+            auth.disconnect(pid, cls.manifest.oauth)      # revoke at the provider, then wipe the tokens
+            removed.append("sign-in")
         db_path = path_for(pid)
         for p in (db_path, db_path.with_name(db_path.name + "-wal"), db_path.with_name(db_path.name + "-shm")):
             if p.exists():
@@ -284,6 +296,59 @@ def add_routes(app: FastAPI, cfg: Config, path_for: Callable[[str], Path], relea
                 removed.append(s)
         runner.jobs.pop(pid, None)
         return removed
+
+    # -- OAuth sign-ins (the person signs in themselves, in their own browser) ----------
+    def spec_of(pid: str) -> OAuthSpec:
+        spec = connector_cls(pid).manifest.oauth
+        if spec is None:
+            raise HTTPException(404, "this platform doesn't use a sign-in")
+        return spec
+
+    def specs() -> dict[str, OAuthSpec]:
+        return {pid: cls.manifest.oauth for pid, cls in platforms.CONNECTORS.items() if cls.manifest.oauth}
+
+    @app.post("/api/oauth/{pid}/start")
+    def oauth_start(pid: str, request: Request):
+        spec = spec_of(pid)
+        # RFC 8252: loopback IP literal, the port this app is on
+        redirect = f"http://127.0.0.1:{request.url.port or 80}/oauth/callback"
+        try:
+            return {"authorize_url": auth.start(pid, spec, redirect), "redirect_uri": redirect}
+        except OAuthError as e:
+            raise HTTPException(400, str(e)) from None
+
+    @app.get("/oauth/callback", include_in_schema=False)
+    def oauth_callback(state: str | None = None, code: str | None = None, error: str | None = None):
+        try:
+            pid = auth.finish(state, code, error, specs())
+            name = platforms.PLATFORMS[pid].name
+            title, text, status = f"Connected to {name}", "You can close this tab and go back to Wrapped.", 200
+        except OAuthError as e:
+            title, text, status = "Sign-in didn't work", str(e), 400
+        page = (f"<!doctype html><meta charset=utf-8><title>{html.escape(title)}</title>"
+                "<body style=\"font-family:system-ui;background:#0c0c0e;color:#f4f4f5;display:grid;place-items:center;"
+                "min-height:100vh;margin:0\"><main style=\"max-width:28rem;padding:1.5rem;text-align:center\">"
+                f"<h1>{html.escape(title)}</h1><p style=\"color:#aaaab2\">{html.escape(text)}</p>"
+                "<p><a href=\"/sources\" style=\"color:#f4f4f5\">Back to Data sources</a></p></main>")
+        return HTMLResponse(page, status_code=status, headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/oauth/{pid}/device/start")
+    def oauth_device_start(pid: str):
+        try:
+            return auth.device_start(pid, spec_of(pid))
+        except OAuthError as e:
+            raise HTTPException(400, str(e)) from None
+
+    @app.post("/api/oauth/{pid}/device/poll")
+    def oauth_device_poll(pid: str):
+        try:
+            return {"status": auth.device_poll(pid, spec_of(pid))}
+        except OAuthError as e:
+            raise HTTPException(400, str(e)) from None
+
+    @app.post("/api/oauth/{pid}/disconnect")
+    def oauth_disconnect(pid: str):
+        return {"revoked": auth.disconnect(pid, spec_of(pid)), "connected": False}
 
     @app.delete("/api/sources/{pid}")
     def delete_source(pid: str):

@@ -34,6 +34,8 @@ This creates `backend/ytw/connectors/<id>/__init__.py` (a manifest plus a workin
 
 Network calls go through `ytw/net.py`, secrets through `ytw/secrets.py` (list their names in the manifest).
 
+Platforms with a sign-in (Spotify, Trakt, Google, Strava…) declare an `OAuthSpec` in the manifest: https endpoints, the **fewest scopes** the stats need, and the secret name of the user's own app client ID (also listed in `secrets`). `ytw/oauth.py` does the rest: PKCE with a single-use `state`, the loopback redirect `http://127.0.0.1:<port>/oauth/callback` (register that in the provider's developer console), the device-code flow, refresh and revoke. A connector gets a token with `OAuth.access_token(id, spec)`. Never sign in to a real account in tests: use a fake provider like `tests/test_oauth.py`.
+
 ## Dependencies
 
 Prefer the standard library. Before adding any package:

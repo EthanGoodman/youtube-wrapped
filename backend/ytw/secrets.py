@@ -91,7 +91,10 @@ class Store:
         if not value:
             raise SecretsError("Empty value; use `secrets delete` to remove a secret")
         if self.kr:
-            self.kr.set_password(SERVICE, name, value)
+            try:
+                self.kr.set_password(SERVICE, name, value)
+            except Exception as e:  # keyring backends raise their own types (e.g. a value too big)
+                raise SecretsError(f"The keychain refused {name} ({type(e).__name__}); nothing changed") from None
             if self.kr.get_password(SERVICE, name) != value:
                 raise SecretsError(f"The keychain didn't keep {name}; nothing changed")
             names = set(self._index()) | {name}

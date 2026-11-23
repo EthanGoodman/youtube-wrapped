@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from .. import db
+from ..oauth import OAuthSpec
 
 if TYPE_CHECKING:
     from ..config import Config
@@ -66,6 +67,7 @@ class Manifest:
     auth: str = "file"
     secrets: tuple[str, ...] = ()   # names in the secrets store this connector reads
     official: bool = True           # False when the data comes from an unofficial method (say so in the UI)
+    oauth: OAuthSpec | None = None  # for "Connect" sign-ins: endpoints + least-privilege scopes
     order: int = 100                # position on the hub page
 
     def __post_init__(self):
@@ -76,6 +78,8 @@ class Manifest:
         unknown = set(self.capabilities) - CAPABILITIES
         if unknown:
             raise ValueError(f"{self.id}: unknown capabilities {sorted(unknown)}")
+        if self.oauth and self.oauth.client_id_name not in self.secrets:
+            raise ValueError(f"{self.id}: list {self.oauth.client_id_name} in secrets so it can be entered")
 
     def has(self, capability: str) -> bool:
         return capability in self.capabilities
