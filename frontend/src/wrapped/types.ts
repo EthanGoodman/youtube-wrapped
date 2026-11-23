@@ -1,3 +1,4 @@
+import { appToken } from "../api";
 import type { HourPoint, RankedItem, WatchInfo } from "../api";
 
 export interface Personality {
@@ -85,6 +86,8 @@ export interface NetflixWrappedData {
 export type AnyWrapped = (WrappedData & { platform?: undefined }) | NetflixWrappedData;
 
 /** Route every YouTube image through the local relay so cards can be exported as PNG. */
-export const img = (url: string | null | undefined) => (url ? `/api/img?u=${encodeURIComponent(url)}` : undefined);
+// <img src> can't send headers, so the relay takes the app token as a query parameter
+export const img = (url: string | null | undefined) =>
+  (url ? `/api/img?u=${encodeURIComponent(url)}&t=${encodeURIComponent(appToken)}` : undefined);
 export const thumbOf = (videoId: string, stored?: string | null) =>
   img(stored ?? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`);

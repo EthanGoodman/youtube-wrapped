@@ -3,6 +3,8 @@
     python run.py              # build if needed + serve + open the browser
     python run.py --rebuild    # force a fresh frontend build
     python run.py --port 9000 --no-browser
+    python run.py --dev        # for `npm run dev`: API docs on, no app token needed (still localhost only)
+    python run.py --lan        # also answer other devices on your network (app token still required)
 """
 from __future__ import annotations
 
@@ -53,6 +55,8 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--rebuild", action="store_true", help="force a frontend rebuild")
+    ap.add_argument("--dev", action="store_true", help="development: API docs on, no app token (localhost only)")
+    ap.add_argument("--lan", action="store_true", help="listen on your network too (other devices need the app token)")
     args = ap.parse_args()
 
     sys.path.insert(0, str(ROOT / "backend"))
@@ -69,12 +73,18 @@ def main() -> None:
     import uvicorn
     from ytw.api import create_app
 
+    if args.dev and args.lan:
+        sys.exit("--dev turns the app token off, so it can't be combined with --lan.")
+    if args.lan:
+        print("WARNING: --lan is on. Other devices on your network can reach this app. Every API call still "
+              "needs the app token, but only use this on a network you trust.")
     url = f"http://localhost:{args.port}"
     print(f"\nYouTube Wrapped is running at {url}  (Ctrl+C to stop)")
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    # bind to localhost only: your history is never exposed to the network
-    uvicorn.run(create_app(cfg), host="127.0.0.1", port=args.port, log_level="warning")
+    # localhost only unless --lan: your history is never exposed to the network by default
+    uvicorn.run(create_app(cfg, dev=args.dev, lan=args.lan), host="0.0.0.0" if args.lan else "127.0.0.1",
+                port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":

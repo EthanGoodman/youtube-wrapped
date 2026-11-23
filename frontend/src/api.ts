@@ -8,8 +8,11 @@ export class ApiError extends Error {
   }
 }
 
+/** The per-install token the server put in this page (it guards every /api call against other sites). */
+export const appToken: string = document.querySelector<HTMLMetaElement>('meta[name="wrapped-token"]')?.content ?? "";
+
 export async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+  const res = await fetch(path, { headers: { "X-Wrapped-Token": appToken } });
   if (!res.ok) {
     let detail = res.statusText;
     try {

@@ -1,3 +1,4 @@
+from conftest import make_client  # noqa: E402
 from datetime import date
 from pathlib import Path
 
@@ -131,7 +132,7 @@ def client(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(images, "getter", lambda u: calls.append(u) or (b"\x89PNG", "image/png"))
     monkeypatch.setattr(images, "_cache", images.OrderedDict())
-    client = TestClient(create_app(load_config(), db_path=path, static_dir=tmp_path / "nodist"))
+    client = make_client(create_app(load_config(), db_path=path, static_dir=tmp_path / "nodist"))
     client.calls = calls
     return client
 

@@ -1,3 +1,4 @@
+from conftest import make_client  # noqa: E402
 import pytest
 from fastapi.testclient import TestClient
 
@@ -20,7 +21,7 @@ def client(tmp_path_factory):
     # other platforms point at files that don't exist, so tests never read real data
     others = {p: path.parent / f"no-{p}.db" for p in ("netflix", "spotify", "prime_video", "tiktok", "instagram",
                                                        "crunchyroll")}
-    return TestClient(create_app(load_config(), db_path=path, static_dir=static, db_paths=others))
+    return make_client(create_app(load_config(), db_path=path, static_dir=static, db_paths=others))
 
 
 def test_meta(client):
@@ -83,9 +84,58 @@ def test_errors(client, path, code):
 
 
 def test_spa_fallback(client):
-    assert client.get("/channel/UCa").text == "<html>app</html>"
-    assert client.get("/channel/UCa").headers["cache-control"] == "no-cache"
+    page = client.get("/channel/UCa")
+    assert "<html>app</html>" in page.text
+    assert page.headers["cache-control"] == "no-store"            # carries the install token: never cached
     assert client.get("/api/unknown").status_code == 404
+
+
+# ------------------------------------------------------------------ local server protection (#8)
+
+from conftest import TEST_TOKEN  # noqa: E402
+
+
+def test_page_carries_the_token(client):
+    assert f'<meta name="wrapped-token" content="{TEST_TOKEN}">' in client.get("/").text
+
+
+def test_dns_rebinding_host_refused(client):
+    r = client.get("/api/meta", headers={"host": "evil.example"})
+    assert r.status_code == 400
+    assert client.get("/api/meta", headers={"host": "localhost:8000"}).status_code == 200
+
+
+def test_api_needs_the_token(client):
+    assert client.get("/api/meta", headers={"X-Wrapped-Token": "wrong"}).status_code == 401
+    plain = TestClient(client.app, base_url="http://127.0.0.1")  # a page that doesn't have the token
+    assert plain.get("/api/meta").status_code == 401
+    assert plain.get("/api/build").status_code == 200               # nothing personal: no token needed
+    assert plain.get("/api/img?u=https://i.ytimg.com/vi/x/mqdefault.jpg").status_code == 401
+    assert plain.get(f"/api/img?u=https://evil.example/x.png&t={TEST_TOKEN}").status_code == 400  # token ok, host refused
+
+
+def test_cross_origin_writes_refused(client):
+    r = client.post("/api/meta", headers={"origin": "https://evil.example"})
+    assert r.status_code == 403
+
+
+def test_security_headers(client):
+    for path in ("/", "/api/meta", "/api/nope"):
+        h = client.get(path).headers
+        assert "frame-ancestors 'self'" in h["content-security-policy"] and h["x-frame-options"] == "SAMEORIGIN"
+        assert h["x-content-type-options"] == "nosniff" and h["referrer-policy"] == "no-referrer"
+
+
+def test_api_docs_off(client):
+    assert client.get("/api/docs").status_code == 404 and client.get("/api/openapi.json").status_code == 404
+
+
+def test_dev_mode_skips_token(tmp_path):
+    from ytw.api import create_app as _make
+    app = _make(load_config(), db_paths={}, static_dir=tmp_path / "none", dev=True)
+    c = TestClient(app, base_url="http://127.0.0.1")
+    assert c.get("/api/platforms").status_code == 200 and c.get("/api/openapi.json").status_code == 200
+    assert c.get("/api/platforms", headers={"host": "evil.example"}).status_code == 400   # host check stays on
 
 
 def test_cache_clears_on_new_build():
@@ -131,8 +181,8 @@ def test_build_endpoint(tmp_path):
     dist = tmp_path / "dist"
     (dist / "assets").mkdir(parents=True)
     (dist / "index.html").write_text('<script type="module" crossorigin src="/assets/index-AbC123.js"></script>')
-    client = TestClient(create_app(load_config(), db_paths={}, static_dir=dist))
+    client = make_client(create_app(load_config(), db_paths={}, static_dir=dist))
     assert client.get("/api/build").json() == {"build": "/assets/index-AbC123.js"}
     # no frontend built: nothing to compare against
-    client2 = TestClient(create_app(load_config(), db_paths={}, static_dir=tmp_path / "none"))
+    client2 = make_client(create_app(load_config(), db_paths={}, static_dir=tmp_path / "none"))
     assert client2.get("/api/build").json() == {"build": None}

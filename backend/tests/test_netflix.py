@@ -1,3 +1,4 @@
+from conftest import make_client  # noqa: E402
 from datetime import date
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -153,7 +154,7 @@ def test_api_on_netflix(tmp_path):
     nf.build(conn, NY, {})
     db.init_db(conn)
     conn.close()
-    client = TestClient(create_app(load_config(), db_paths={"netflix": tmp_path / "netflix.db"},
+    client = make_client(create_app(load_config(), db_paths={"netflix": tmp_path / "netflix.db"},
                                    static_dir=tmp_path / "nodist"))
     m = client.get("/api/meta?platform=netflix").json()
     assert m["platform"]["vocab"]["creators"] == "shows"

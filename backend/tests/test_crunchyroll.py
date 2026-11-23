@@ -1,3 +1,4 @@
+from conftest import make_client  # noqa: E402
 """Crunchyroll history fetcher, against a fake Crunchyroll (never the real one)."""
 import json
 import urllib.parse
@@ -188,7 +189,7 @@ def test_anime_stats(tmp_path):
 def test_api_on_crunchyroll(tmp_path):
     conn, _ = _cr_db(tmp_path)
     conn.close()
-    client = TestClient(create_app(load_config(), db_paths={"crunchyroll": tmp_path / "crunchyroll.db"},
+    client = make_client(create_app(load_config(), db_paths={"crunchyroll": tmp_path / "crunchyroll.db"},
                                    static_dir=tmp_path / "nodist"))
     caps = client.get("/api/meta?platform=crunchyroll").json()["platform"]["capabilities"]
     assert {"series", "anime", "time_of_day", "genres"} <= set(caps) and "estimated_time" not in caps
@@ -367,7 +368,7 @@ def test_image_relay_allows_crunchyroll_images_only():
 def test_wrapped_uses_stored_capabilities(tmp_path):
     conn, _ = _cr_db(tmp_path)
     conn.close()
-    client = TestClient(create_app(load_config(), db_paths={"crunchyroll": tmp_path / "crunchyroll.db"},
+    client = make_client(create_app(load_config(), db_paths={"crunchyroll": tmp_path / "crunchyroll.db"},
                                    static_dir=tmp_path / "nodist"))
     w = client.get("/api/wrapped/2026?platform=crunchyroll").json()
     assert w["has_times"] is True and w["clock"] and w["anime"]["sub"] == 2

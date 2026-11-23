@@ -24,7 +24,9 @@ import tomllib
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import db, images, platforms
+import logging
+
+from . import db, images, platforms, security
 from .config import Config
 from .stats import ads, details, evolution, overview, patterns, records, search, shows, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, data_bounds, resolve_range
@@ -77,13 +79,23 @@ class ResultCache:
         return value
 
 
+log = logging.getLogger("ytw.api")
+
+
 def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None = None,
-               db_paths: dict[str, Path] | None = None) -> FastAPI:
-    """db_path / db_paths override where a platform's database is (tests); default data/<platform>.db."""
+               db_paths: dict[str, Path] | None = None, token: str | None = None,
+               dev: bool = False, lan: bool = False) -> FastAPI:
+    """db_path / db_paths override where a platform's database is (tests); default data/<platform>.db.
+    token: the per-install app token (default: data/.app_token). dev: API docs on and no token needed
+    (for the Vite dev server). lan: answer other devices on the network (token still required)."""
     overrides = dict(db_paths or {})
     if db_path:
         overrides.setdefault(platforms.DEFAULT, db_path)
-    app = FastAPI(title="YouTube Wrapped", docs_url="/api/docs", openapi_url="/api/openapi.json")
+    app = FastAPI(title="Wrapped", docs_url="/api/docs" if dev else None, redoc_url=None,
+                  openapi_url="/api/openapi.json" if dev else None)
+    app_token = token or security.load_or_create_token(cfg.data_root / ".app_token")
+    app.state.token = app_token
+    app.add_middleware(security.SecurityMiddleware, token=app_token, require_token=not dev, any_host=lan)
     caches: dict[str, ResultCache] = {}
     local = threading.local()
 
@@ -364,8 +376,8 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
 
     @app.exception_handler(sqlite3.OperationalError)
     def db_error(_request, exc):
-        return JSONResponse({"detail": f"database error: {exc}. Try `python backend/cli.py build`."},
-                            status_code=500)
+        log.warning("database error: %s", exc)  # details stay in the local log, not in responses
+        return JSONResponse({"detail": "Database error. Try `python backend/cli.py build`."}, status_code=500)
 
     # ------------------------------------------------------------------ frontend
 
@@ -391,8 +403,9 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             file = static_dir / path
             if path and file.is_file() and static_dir in file.resolve().parents:
                 return FileResponse(file)
-            # always recheck the page so a rebuilt frontend shows up on a normal refresh
-            # (the hashed files under /assets it points to can be cached forever)
-            return FileResponse(static_dir / "index.html", headers={"Cache-Control": "no-cache"})
+            # the app's page carries the install token; never cache it, and recheck it so a rebuilt
+            # frontend shows up on a normal refresh (the hashed /assets files can be cached forever)
+            html = security.inject_token((static_dir / "index.html").read_text(encoding="utf-8"), app_token)
+            return Response(html, media_type="text/html", headers={"Cache-Control": "no-store"})
 
     return app

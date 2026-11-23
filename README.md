@@ -105,7 +105,7 @@ Click **Wrapped** in the top bar, pick a year, and get a Spotify-Wrapped-style s
 
 To export cards with thumbnails, the server relays YouTube images through `/api/img` (browsers block exporting images from other sites). It only fetches from YouTube's image hosts.
 
-**Developing the frontend:** run `python run.py --no-browser` in one terminal and `npm run dev` in `frontend/` in another, then open http://localhost:5173 (hot reload; API calls are forwarded to port 8000).
+**Developing the frontend:** run `python run.py --no-browser --dev` in one terminal and `npm run dev` in `frontend/` in another, then open http://localhost:5173 (hot reload; API calls are forwarded to port 8000).
 
 ## Netflix
 

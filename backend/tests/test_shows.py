@@ -1,3 +1,4 @@
+from conftest import make_client  # noqa: E402
 """Netflix-only stats: show progress, binges, big episode days, rewatches, episodes vs movies."""
 from fastapi.testclient import TestClient
 
@@ -99,7 +100,7 @@ def test_api(tmp_path):
     conn, _, _ = _built(tmp_path)
     db.init_db(conn)
     conn.close()
-    client = TestClient(create_app(load_config(), db_paths={"netflix": tmp_path / "netflix.db"},
+    client = make_client(create_app(load_config(), db_paths={"netflix": tmp_path / "netflix.db"},
                                    static_dir=tmp_path / "nodist"))
     assert "series" in client.get("/api/meta?platform=netflix").json()["platform"]["capabilities"]
     for kind in ("progress", "binges", "days", "rewatches", "split"):
@@ -128,7 +129,7 @@ def test_netflix_wrapped_api(tmp_path):
     conn, _, _ = _built(tmp_path)
     db.init_db(conn)
     conn.close()
-    client = TestClient(create_app(load_config(), db_paths={"netflix": tmp_path / "netflix.db"},
+    client = make_client(create_app(load_config(), db_paths={"netflix": tmp_path / "netflix.db"},
                                    static_dir=tmp_path / "nodist"))
     d = client.get("/api/wrapped/2026?platform=netflix").json()
     assert d["platform"] == "netflix" and d["personality"]["name"]
