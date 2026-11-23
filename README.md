@@ -29,7 +29,10 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
+python run.py
 ```
+
+The first time, the app opens on **Data sources**: for each platform it shows how to download your data, a drop zone for the file (the `.zip`, `.json` or `.csv` exactly as downloaded), fields for API keys or cookies (saved in your OS keychain, never shown again), buttons to re-import or look up details, live progress, and **Delete data** (its database, its `data/<platform>/` folder and its keys). No terminal needed. The command-line steps below do the same thing.
 
 ## 1. Get your Takeout data
 

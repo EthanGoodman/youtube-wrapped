@@ -14,7 +14,7 @@ MANIFEST = Manifest(
                "categories", "genres", "tags"}),
     ("takeout.google.com → Deselect all → YouTube and YouTube Music",
      "All YouTube data included → only history; Multiple formats → History: JSON",
-     "Put the Takeout .zip (or watch-history.json and search-history.json) in data/youtube/"),
+     "Export, then download the .zip (no need to unzip it)"),
     "minutes to hours",
     image_hosts=(("i.ytimg.com", "/"), ("i1.ytimg.com", "/"), ("i2.ytimg.com", "/"), ("i3.ytimg.com", "/"),
                  ("i4.ytimg.com", "/"), ("i9.ytimg.com", "/"), ("yt3.ggpht.com", "/"),

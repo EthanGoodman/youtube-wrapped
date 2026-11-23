@@ -8,11 +8,11 @@ from ..base import Connector, ConnectorError, Manifest, vocab
 MANIFEST = Manifest(
     "crunchyroll", "Crunchyroll", True, "crunchyroll", vocab("series", "series", "episode", "episodes"),
     frozenset({"genres", "series", "anime"}),
-    ("No official export. Log in at crunchyroll.com, open DevTools (F12) > Application > Cookies and copy etp_rt",
-     "Save it with: python backend/cli.py secrets set CRUNCHYROLL_ETP_RT (treat it like a password)",
-     "Run: python backend/cli.py fetch --platform crunchyroll (unofficial: reads your own history from Crunchyroll's site)"),
+    ("No official export, so this reads your own history from Crunchyroll's site (unofficial)",
+     "Log in at crunchyroll.com on your profile, open DevTools (F12) > Application > Cookies and copy etp_rt",
+     "Save it as the Crunchyroll cookie (treat it like a password), then fetch your history"),
     "a minute (unofficial)", issue=7, image_hosts=(("www.crunchyroll.com", "/imgsrv/"),),
-    auth="cookie", secrets=("CRUNCHYROLL_ETP_RT",), order=7)
+    auth="cookie", secrets=("CRUNCHYROLL_ETP_RT",), order=7, official=False)
 
 
 class Crunchyroll(Connector):
