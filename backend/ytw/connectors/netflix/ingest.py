@@ -10,6 +10,7 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from ... import db
+from ...imports import Source
 from .. import store
 from ..base import finish_build
 from ..store import Creator, Item, View
@@ -57,7 +58,10 @@ def ingest(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo, profile: str | 
     paths = find_files(folder)
     if not paths:
         raise FileNotFoundError(f"No NetflixViewingHistory.csv or ViewingActivity.csv in {folder}")
-    texts = [p.read_text(encoding="utf-8-sig") for p in paths]
+    texts = []
+    for p in paths:
+        with Source(p) as src:
+            texts.append(src.read_text(src.names()[0]))
     if not profile:
         for p, text in zip(paths, texts):
             names = profiles_in(text)

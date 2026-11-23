@@ -9,6 +9,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ... import db
+from ...imports import Source
 from .parser import Entry, Search, parse_search_history, parse_watch_history
 
 _ENTRY_COLS = [f.name for f in fields(Entry)]
@@ -28,8 +29,16 @@ def insert_entries(conn: sqlite3.Connection, entries: list[Entry]) -> int:
     return conn.total_changes - before
 
 
-def ingest_watch_history(conn: sqlite3.Connection, path: Path, tz: ZoneInfo) -> dict:
-    entries = parse_watch_history(path.read_bytes(), tz)
+def _load(source):
+    """A path to a JSON export (read with the import limits) or already-parsed data."""
+    if isinstance(source, (str, Path)):
+        with Source(Path(source)) as src:
+            return src.read_json(src.names()[0])
+    return source
+
+
+def ingest_watch_history(conn: sqlite3.Connection, source, tz: ZoneInfo) -> dict:
+    entries = parse_watch_history(_load(source), tz)
     added = insert_entries(conn, entries)
     db.set_meta(conn, "watch_history_ingested_at", datetime.now(timezone.utc).isoformat())
     db.set_meta(conn, "timezone", str(tz))
@@ -37,8 +46,8 @@ def ingest_watch_history(conn: sqlite3.Connection, path: Path, tz: ZoneInfo) -> 
     return {"parsed": len(entries), "added": added}
 
 
-def ingest_search_history(conn: sqlite3.Connection, path: Path, tz: ZoneInfo) -> dict:
-    searches = parse_search_history(path.read_bytes(), tz)
+def ingest_search_history(conn: sqlite3.Connection, source, tz: ZoneInfo) -> dict:
+    searches = parse_search_history(_load(source), tz)
     before = conn.total_changes
     conn.executemany(
         f"INSERT OR IGNORE INTO searches ({', '.join(_SEARCH_COLS)}) "

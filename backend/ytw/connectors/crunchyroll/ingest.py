@@ -15,6 +15,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ... import db
+from ...imports import ImportRejected, Source
 from .. import store
 from ..base import finish_build
 from ..store import Creator, Item, View
@@ -112,7 +113,10 @@ def build(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo) -> dict:
     path = folder / HISTORY_FILE
     if not path.exists():
         raise FileNotFoundError(f"No {HISTORY_FILE} in {folder}. Run `python backend/cli.py fetch --platform crunchyroll` first.")
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    with Source(path) as src:
+        raw = src.read_json(src.names()[0])
+    if not isinstance(raw, dict):
+        raise ImportRejected(f"{HISTORY_FILE} isn't a Crunchyroll history file")
     plays = parse(raw.get("items") or [], tz)
     db.init_db(conn)
 

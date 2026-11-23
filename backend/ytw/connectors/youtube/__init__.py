@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 from ... import db, secrets
+from ...imports import Source, locate
 from ..base import Connector, ConnectorError, Manifest, finish_build, vocab
 
 MANIFEST = Manifest(
@@ -13,7 +14,7 @@ MANIFEST = Manifest(
                "categories", "genres", "tags"}),
     ("takeout.google.com → Deselect all → YouTube and YouTube Music",
      "All YouTube data included → only history; Multiple formats → History: JSON",
-     "Put watch-history.json (and search-history.json) in data/youtube/"),
+     "Put the Takeout .zip (or watch-history.json and search-history.json) in data/youtube/"),
     "minutes to hours",
     image_hosts=(("i.ytimg.com", "/"), ("i1.ytimg.com", "/"), ("i2.ytimg.com", "/"), ("i3.ytimg.com", "/"),
                  ("i4.ytimg.com", "/"), ("i9.ytimg.com", "/"), ("yt3.ggpht.com", "/"),
@@ -35,20 +36,21 @@ class YouTube(Connector):
             conn.execute("DELETE FROM entries")
             conn.execute("DELETE FROM searches")
 
-        watch_path = Path(watch) if watch else self.folder / "watch-history.json"
-        if not watch_path.exists():
-            raise ConnectorError(f"Not found: {watch_path}\nPut your Takeout watch-history.json in {self.folder}")
         t = time.perf_counter()
-        res = ingest_watch_history(conn, watch_path, cfg.tz)
+        history = self._read(watch, "watch-history.json")
+        if history is None:
+            raise ConnectorError(f"Not found: {watch or self.folder / 'watch-history.json'}\n"
+                                 f"Put your Takeout watch-history.json (or the whole Takeout .zip) in {self.folder}")
+        res = ingest_watch_history(conn, history, cfg.tz)
         out(f"Watch history: parsed {res['parsed']:,}, added {res['added']:,} new "
             f"({time.perf_counter() - t:.1f}s)")
 
         n = link_prerolls(conn, cfg.section("ads").get("preroll_window_seconds", 60))
         out(f"Pre-roll ads linked to a video: {n:,}")
 
-        search_path = Path(search) if search else self.folder / "search-history.json"
-        if search_path.exists():
-            res = ingest_search_history(conn, search_path, cfg.tz)
+        searches = self._read(search, "search-history.json")
+        if searches is not None:
+            res = ingest_search_history(conn, searches, cfg.tz)
             out(f"Search history: parsed {res['parsed']:,} ({res['searches']:,} real searches), "
                 f"added {res['added']:,} new")
         else:
@@ -61,6 +63,27 @@ class YouTube(Connector):
         out(f"\nRange: {row[0]}  ->  {row[1]}")
         self._derive(conn)
         conn.close()
+
+    def _read(self, explicit: str | None, basename: str):
+        """The export as parsed JSON: from --watch/--search, else data/youtube/<basename>, else
+        inside a Takeout .zip there. None when it isn't anywhere."""
+        if explicit:
+            p = Path(explicit)
+            if not p.is_file():
+                return None
+            src = Source(p)
+            hits = src.find(basename) if src.kind == "zip" else src.names()
+            if not hits:
+                src.close()
+                return None
+            member = hits[0]
+        else:
+            found = locate(self.folder, basename)
+            if found is None:
+                return None
+            src, member = found
+        with src:
+            return src.read_json(member)
 
     def _derive(self, conn) -> None:
         """Recompute derived tables (watch time, sessions, rollups)."""

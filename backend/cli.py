@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ytw import db, platforms, secrets  # noqa: E402
 from ytw.config import force_utf8_stdout, load_config, migrate_legacy_layout  # noqa: E402
 from ytw.connectors.base import ConnectorError  # noqa: E402
+from ytw.imports import ImportRejected  # noqa: E402
 
 # CLI options a connector step may use; each connector takes the ones it understands
 STEP_OPTIONS = ("watch", "search", "profile", "retry_missing", "skip_ads", "budget")
@@ -35,7 +36,7 @@ def run_step(step: str):
         opts = {k: getattr(args, k) for k in STEP_OPTIONS if getattr(args, k, None) is not None}
         try:
             getattr(c, step)(**opts)
-        except ConnectorError as e:
+        except (ConnectorError, ImportRejected) as e:
             sys.exit(str(e))
     return cmd
 

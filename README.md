@@ -36,10 +36,12 @@ pip install -r requirements.txt
 1. Go to [takeout.google.com](https://takeout.google.com), click **Deselect all**, then select **YouTube and YouTube Music**.
 2. Click **All YouTube data included**, deselect everything except **history**.
 3. Click **Multiple formats** and set **History** to **JSON**.
-4. Export, download, unzip.
-5. Copy these from `Takeout/YouTube and YouTube Music/history/` into this repo's `data/youtube/` folder:
+4. Export and download.
+5. Put the downloaded `.zip` in this repo's `data/youtube/` folder as it is (no need to unzip). Or, if you prefer, copy these from `Takeout/YouTube and YouTube Music/history/` instead:
    - `watch-history.json` (required)
    - `search-history.json` (optional, enables search stats)
+
+Exports are read without unpacking anything to disk, with limits on size, file count and nesting, so a broken or hostile file is refused with a message instead of crashing the import.
 
 `data/` is gitignored, so your history is never committed. Each platform has its own folder (`data/youtube/`, …) and its own processed database (`data/youtube.db`), which can always be rebuilt from the exports. If you used an older version that kept files directly in `data/`, they're moved automatically on the next run.
 
