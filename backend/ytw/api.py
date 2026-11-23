@@ -219,6 +219,29 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             out.append(d)
         return out
 
+    @app.get("/api/hub/years")
+    def get_hub_years():
+        """Hours per year across every platform with data (the hub's year boxes). Same counting as
+        each platform's overview: background-audio time counts as zero."""
+        years: dict[int, dict[str, int]] = {}
+        for p in platforms.PLATFORMS.values():
+            path = path_for(p.id)
+            if not p.implemented or not path.exists():
+                continue
+            try:
+                c = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+                try:
+                    rows = c.execute("SELECT year, SUM(CASE WHEN is_background = 1 THEN 0 ELSE est_s END) "
+                                     "FROM watches GROUP BY year").fetchall()
+                finally:
+                    c.close()
+            except sqlite3.Error:
+                continue
+            for year, est in rows:
+                if est:
+                    years.setdefault(int(year), {})[p.id] = int(est)
+        return [{"year": y, "est_s": sum(by.values()), "by_platform": by} for y, by in sorted(years.items())]
+
     @app.get("/api/meta")
     def meta(request: Request):
         c = conn(request)

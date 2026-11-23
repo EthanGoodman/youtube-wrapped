@@ -12,6 +12,10 @@ import "@fontsource/roboto/900.css";
 import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/700.css";
+// Hub shelf: Bebas Neue (display) and DM Mono (numbers); DM Sans is above
+import "@fontsource/bebas-neue/400.css";
+import "@fontsource/dm-mono/400.css";
+import "@fontsource/dm-mono/500.css";
 import "@fontsource/bricolage-grotesque/700.css";
 import "@fontsource/bricolage-grotesque/800.css";
 // Netflix theme: Inter

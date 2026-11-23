@@ -306,3 +306,18 @@ body {
 :root[data-theme="crunchyroll"] .story-card .rounded-xl,
 :root[data-theme="crunchyroll"] .story-card .rounded-\[3px\] { border-radius: 0; }
 
+
+/* ---------------------------------------------------------------- hub shelf */
+.shelf-page { animation: shelf-in 300ms ease-out; }
+@keyframes shelf-in { from { opacity: 0; } to { opacity: 1; } }
+.shelf-lift { transition: transform 150ms ease-out, border-color 150ms ease-out; }
+.shelf-lift:hover, .shelf-lift:focus-visible, .shelf-lift[aria-pressed="true"] { transform: translateY(-8px); }
+.shelf-focus:focus-visible { outline: 3px solid #7FB2FF; outline-offset: 3px; }
+.shelf-slot:hover, .shelf-slot:focus-visible { border-color: #EDE7DC; }
+.shelf-vertical { writing-mode: vertical-rl; transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) {
+  .shelf-page { animation: none; }
+  .shelf-lift { transition: none; }
+  .shelf-lift:hover, .shelf-lift:focus-visible { transform: none; }
+  .shelf-lift[aria-pressed="true"] { transform: translateY(-8px); }  /* selected stays lifted: not color alone */
+}
