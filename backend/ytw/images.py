@@ -6,11 +6,11 @@ size-capped. Results are kept in a small in-memory cache.
 from __future__ import annotations
 
 import threading
-import urllib.error
-import urllib.request
 from collections import OrderedDict
 from typing import Callable
 from urllib.parse import urlparse
+
+from . import net
 
 ALLOWED_HOSTS = ("i.ytimg.com", "i1.ytimg.com", "i2.ytimg.com", "i3.ytimg.com", "i4.ytimg.com",
                  "i9.ytimg.com", "yt3.ggpht.com", "yt3.googleusercontent.com",
@@ -41,27 +41,20 @@ def check_url(url: str) -> None:
         raise NotAllowed("only the platforms' image hosts are allowed")
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args, **kwargs):  # never follow a redirect off the allowlist
-        return None
-
-
-_opener = urllib.request.build_opener(_NoRedirect)
-
-
 def _http_get(url: str) -> tuple[bytes, str]:
-    req = urllib.request.Request(url, headers={"User-Agent": "youtube-wrapped-local"})
+    # one attempt, no redirects (a redirect could leave the allowlist), size-capped, images only
     try:
-        with _opener.open(req, timeout=15) as r:
-            ctype = r.headers.get_content_type()
-            data = r.read(MAX_BYTES + 1)
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        r = net.request("GET", url, headers={"Accept": "image/*"}, timeout=15, max_bytes=MAX_BYTES,
+                        retries=0, follow_redirects=False)
+    except net.TooLarge:
+        raise FetchFailed("image too large") from None
+    except net.NetError as e:
         raise FetchFailed(f"could not fetch image: {e}") from None
-    if len(data) > MAX_BYTES:
-        raise FetchFailed("image too large")
-    if not ctype.startswith("image/"):
+    if r.status != 200:
+        raise FetchFailed(f"could not fetch image: HTTP {r.status}")
+    if not r.content_type.startswith("image/"):
         raise FetchFailed("not an image")
-    return data, ctype
+    return r.body, r.content_type
 
 
 _cache: OrderedDict[str, tuple[bytes, str]] = OrderedDict()

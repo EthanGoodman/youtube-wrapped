@@ -10,15 +10,13 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Iterable
 from zoneinfo import ZoneInfo
 
+from . import net
 from .parser import clean_text
 
 API_BASE = "https://www.googleapis.com/youtube/v3/"
@@ -77,34 +75,23 @@ Fetcher = Callable[[str, dict], dict]
 
 def http_fetch(endpoint: str, params: dict) -> dict:
     """GET an API endpoint. Raises QuotaExceeded / ApiKeyError / ApiError."""
-    url = API_BASE + endpoint + "?" + urllib.parse.urlencode(params)
-    for attempt in range(4):
-        try:
-            with urllib.request.urlopen(url, timeout=30) as r:
-                return json.loads(r.read())
-        except urllib.error.HTTPError as e:
-            try:
-                err = json.loads(e.read()).get("error", {})
-            except Exception:
-                err = {}
-            reasons = {x.get("reason") for x in err.get("errors", [])}
-            msg = err.get("message", str(e))
-            if reasons & {"quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded"}:
-                raise QuotaExceeded(msg) from None
-            if e.code in (400, 403) and (reasons & {"keyInvalid", "accessNotConfigured", "forbidden",
-                                                     "ipRefererBlocked", "keyExpired"}
-                                         or "API key" in msg):
-                raise ApiKeyError(msg) from None
-            if e.code >= 500 and attempt < 3:
-                time.sleep(2 ** attempt)
-                continue
-            raise ApiError(f"HTTP {e.code}: {msg}") from None
-        except urllib.error.URLError as e:
-            if attempt < 3:
-                time.sleep(2 ** attempt)
-                continue
-            raise ApiError(f"Network error: {e.reason}") from None
-    raise ApiError("unreachable")
+    try:
+        r = net.request("GET", API_BASE + endpoint, params=params)
+    except net.NetError as e:
+        raise ApiError(str(e)) from None
+    body = r.json({})
+    if r.ok:
+        return body
+    err = body.get("error", {}) if isinstance(body, dict) else {}
+    err = err if isinstance(err, dict) else {}
+    reasons = {x.get("reason") for x in err.get("errors", []) if isinstance(x, dict)}
+    msg = err.get("message") or f"HTTP {r.status}"
+    if reasons & {"quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded"}:
+        raise QuotaExceeded(msg)
+    if r.status in (400, 403) and (reasons & {"keyInvalid", "accessNotConfigured", "forbidden",
+                                              "ipRefererBlocked", "keyExpired"} or "API key" in msg):
+        raise ApiKeyError(msg)
+    raise ApiError(f"HTTP {r.status}: {msg}")
 
 
 # ------------------------------------------------------------------ quota

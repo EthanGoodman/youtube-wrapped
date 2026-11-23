@@ -18,13 +18,13 @@ from __future__ import annotations
 import base64
 import json
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
+
+from .. import net
 
 API = "https://beta-api.crunchyroll.com"
 # Public client id of Crunchyroll's web app (no secret). Override with [crunchyroll] client_id if it changes.
@@ -50,21 +50,12 @@ class WrongProfile(CrunchyrollError):
 
 
 def http_transport(method: str, url: str, headers: dict, form: dict | None) -> tuple[int, dict | None]:
-    data = urllib.parse.urlencode(form).encode() if form is not None else None
-    req = urllib.request.Request(url, data=data, method=method,
-                                 headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json", **headers})
+    # Client retries itself (with its own pacing), so one attempt here
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            body = r.read()
-            return r.status, (json.loads(body) if body else None)
-    except urllib.error.HTTPError as e:
-        try:
-            body = json.loads(e.read() or b"null")
-        except ValueError:
-            body = None
-        return e.code, body
-    except urllib.error.URLError as e:
-        raise CrunchyrollError(f"Network error: {e.reason}") from None
+        r = net.request(method, url, headers={"User-Agent": "Mozilla/5.0", **headers}, form=form, retries=0)
+    except net.NetError as e:
+        raise CrunchyrollError(str(e)) from None
+    return r.status, r.json()
 
 
 class Client:

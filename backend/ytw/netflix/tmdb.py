@@ -15,11 +15,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-import time
 import tomllib
-import urllib.error
-import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -27,6 +23,7 @@ from typing import Callable
 API = "https://api.themoviedb.org/3/"
 IMG = "https://image.tmdb.org/t/p/"
 
+from .. import net
 from .parser import UNKNOWN_SHOW
 
 SCHEMA = """
@@ -79,28 +76,21 @@ class TmdbError(Exception):
 
 def http_fetcher(token: str) -> Fetcher:
     def fetch(path: str, params: dict) -> dict:
-        url = API + path + ("?" + urllib.parse.urlencode(params) if params else "")
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "accept": "application/json"})
-        for attempt in range(5):
-            try:
-                with urllib.request.urlopen(req, timeout=20) as r:
-                    return json.loads(r.read())
-            except urllib.error.HTTPError as e:
-                if e.code == 401:
-                    raise TmdbError("TMDB rejected the token - save it again with python backend/cli.py secrets set TMDB_TOKEN "
-                                    "(use the API Read Access Token)") from None
-                if e.code == 404:
-                    return {}
-                if e.code == 429 or e.code >= 500:
-                    time.sleep(float(e.headers.get("Retry-After", 2 ** attempt)))
-                    continue
-                raise TmdbError(f"TMDB HTTP {e.code}") from None
-            except urllib.error.URLError as e:
-                if attempt < 4:
-                    time.sleep(2 ** attempt)
-                    continue
-                raise TmdbError(f"Network error: {e.reason}") from None
-        raise TmdbError("TMDB kept rate-limiting; try again later")
+        try:
+            r = net.request("GET", API + path, params=params or None, headers={"Authorization": f"Bearer {token}"},
+                            timeout=20, retries=4)
+        except net.NetError as e:
+            raise TmdbError(str(e)) from None
+        if r.status == 401:
+            raise TmdbError("TMDB rejected the token - save it again with python backend/cli.py secrets set TMDB_TOKEN "
+                            "(use the API Read Access Token)")
+        if r.status == 404:
+            return {}
+        if r.status == 429:
+            raise TmdbError("TMDB kept rate-limiting; try again later")
+        if not r.ok:
+            raise TmdbError(f"TMDB HTTP {r.status}")
+        return r.json({})
     return fetch
 
 

@@ -16,11 +16,11 @@ import sqlite3
 import time
 import tomllib
 import unicodedata
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
+
+from .. import net
 
 API = "https://graphql.anilist.co"
 PAUSE_S = 2.1
@@ -50,28 +50,17 @@ class AniListError(Exception):
 
 
 def http_poster(query: str, variables: dict) -> dict:
-    body = json.dumps({"query": query, "variables": variables}).encode()
-    for attempt in range(5):
-        req = urllib.request.Request(API, data=body, method="POST",
-                                     headers={"Content-Type": "application/json", "Accept": "application/json",
-                                              # AniList refuses Python's default user agent
-                                              "User-Agent": "wrapped-stats/1.0 (personal stats app)"})
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return json.loads(r.read())
-        except urllib.error.HTTPError as e:
-            if e.code == 429 or e.code >= 500:
-                time.sleep(float(e.headers.get("Retry-After") or 2 ** (attempt + 2)))
-                continue
-            if e.code == 404:
-                return {"data": {"Media": None}}
-            raise AniListError(f"AniList HTTP {e.code}") from None
-        except urllib.error.URLError as e:
-            if attempt < 4:
-                time.sleep(2 ** attempt)
-                continue
-            raise AniListError(f"Network error: {e.reason}") from None
-    raise AniListError("AniList kept rate-limiting; try again later")
+    try:
+        r = net.request("POST", API, json={"query": query, "variables": variables}, retries=4)
+    except net.NetError as e:
+        raise AniListError(str(e)) from None
+    if r.status == 404:
+        return {"data": {"Media": None}}
+    if r.status == 429:
+        raise AniListError("AniList kept rate-limiting; try again later")
+    if not r.ok:
+        raise AniListError(f"AniList HTTP {r.status}")
+    return r.json({})
 
 
 def norm(s: str | None) -> str:
