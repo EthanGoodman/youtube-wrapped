@@ -18,6 +18,22 @@ pre-commit run --all-files
 cd frontend && npm run build && npm audit --audit-level=high
 ```
 
+## Adding a platform
+
+```bash
+python scripts/new_connector.py letterboxd "Letterboxd" --family video
+python -m pytest backend/tests/test_connectors.py
+```
+
+This creates `backend/ytw/connectors/<id>/__init__.py` (a manifest plus a working CSV importer) and `backend/tests/fixtures/<id>/history.csv`. Then:
+
+1. Replace the sample fixture with a small, **made-up** file in the platform's real export format (never a real export).
+2. Adapt `build()` to parse it into `View` / `Item` / `Creator` rows (`connectors/store.py`) and fill in the manifest's TODOs.
+3. Keep `pytest` green: the contract in `backend/tests/connector_contract.py` checks re-imports don't duplicate, unknown fields don't break the import, there's no network use, and the API and Wrapped answer for the platform.
+4. Add its theme in `frontend/src/index.css` and its Wrapped personalities in `personalities-<id>.toml` if it needs its own.
+
+Network calls go through `ytw/net.py`, secrets through `ytw/secrets.py` (list their names in the manifest).
+
 ## Dependencies
 
 Prefer the standard library. Before adding any package:
