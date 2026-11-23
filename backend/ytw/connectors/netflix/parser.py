@@ -249,4 +249,5 @@ def profiles_in(text: str) -> list[str]:
 def find_files(folder: Path) -> list[Path]:
     """Every history file under folder: full exports (ViewingActivity.csv, any depth) first,
     then quick downloads (NetflixViewingHistory*.csv, e.g. one per account)."""
-    return sorted(folder.rglob("ViewingActivity.csv")) + sorted(folder.glob("NetflixViewingHistory*.csv"))
+    quick = [p for p in folder.rglob("NetflixViewingHistory*.csv") if ".incoming" not in p.parts]
+    return sorted(folder.rglob("ViewingActivity.csv")) + sorted(quick)

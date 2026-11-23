@@ -65,6 +65,7 @@ class Manifest:
     family: str = "video"
     auth: str = "file"
     secrets: tuple[str, ...] = ()   # names in the secrets store this connector reads
+    official: bool = True           # False when the data comes from an unofficial method (say so in the UI)
     order: int = 100                # position on the hub page
 
     def __post_init__(self):
@@ -107,6 +108,7 @@ class Connector:
     def __init__(self, cfg: "Config", out: Callable[[str], None] = print):
         self.cfg = cfg
         self.out = out
+        self._conns: list[sqlite3.Connection] = []
 
     @property
     def id(self) -> str:
@@ -123,7 +125,18 @@ class Connector:
         return self.cfg.section(self.id)
 
     def connect(self) -> sqlite3.Connection:
-        return db.connect(self.cfg.platform_db(self.id))
+        conn = db.connect(self.cfg.platform_db(self.id))
+        self._conns.append(conn)
+        return conn
+
+    def close(self) -> None:
+        """Close every database connection the steps opened (Windows can't delete open files)."""
+        for c in self._conns:
+            try:
+                c.close()
+            except sqlite3.Error:
+                pass
+        self._conns.clear()
 
     # -- steps ----------------------------------------------------------------
     def fetch(self, **opts) -> None:

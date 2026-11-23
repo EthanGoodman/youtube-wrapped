@@ -12,7 +12,7 @@ MANIFEST = Manifest(
      "Save it with: python backend/cli.py secrets set CRUNCHYROLL_ETP_RT (treat it like a password)",
      "Run: python backend/cli.py fetch --platform crunchyroll (unofficial: reads your own history from Crunchyroll's site)"),
     "a minute (unofficial)", issue=7, image_hosts=(("www.crunchyroll.com", "/imgsrv/"),),
-    auth="cookie", secrets=("CRUNCHYROLL_ETP_RT",), order=7)
+    auth="cookie", secrets=("CRUNCHYROLL_ETP_RT",), order=7, official=False)
 
 
 class Crunchyroll(Connector):

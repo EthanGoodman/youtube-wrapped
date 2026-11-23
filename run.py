@@ -1,4 +1,4 @@
-"""Start YouTube Wrapped: builds the frontend if needed, then serves it at http://localhost:8000.
+"""Start Wrapped: builds the frontend if needed, then serves it at http://localhost:8000.
 
     python run.py              # build if needed + serve + open the browser
     python run.py --rebuild    # force a fresh frontend build
@@ -65,9 +65,8 @@ def main() -> None:
     cfg = load_config()
     for m in migrate_legacy_layout(cfg):
         print(f"Moved {m}")
-    if not cfg.db_path.exists():
-        sys.exit("No database yet. Put your Takeout files in data/youtube/ and run:\n"
-                 "  python backend/cli.py ingest\n  python backend/cli.py enrich   (optional, needs an API key)")
+    # no data yet: open on the Data sources page, where it can all be added from the browser
+    first_run = not any(cfg.platform_db(pid).exists() for pid in ("youtube", "netflix", "crunchyroll"))
     build_frontend(args.rebuild)
 
     import uvicorn
@@ -78,8 +77,8 @@ def main() -> None:
     if args.lan:
         print("WARNING: --lan is on. Other devices on your network can reach this app. Every API call still "
               "needs the app token, but only use this on a network you trust.")
-    url = f"http://localhost:{args.port}"
-    print(f"\nYouTube Wrapped is running at {url}  (Ctrl+C to stop)")
+    url = f"http://localhost:{args.port}" + ("/sources" if first_run else "")
+    print(f"\nWrapped is running at {url}  (Ctrl+C to stop)")
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     # localhost only unless --lan (opt-in): your history is never exposed to the network by default

@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 
 import logging
 
-from . import db, images, platforms, secrets, security
+from . import db, images, platforms, secrets, security, sources
 from .config import Config
 from .stats import ads, details, evolution, overview, patterns, records, search, shows, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, check_year, data_bounds, resolve_range
@@ -113,21 +113,39 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             raise HTTPException(404, f"{p.name} isn't supported yet" + (f" (issue #{p.issue})" if p.issue else ""))
         return p
 
+    opened: dict[str, list[sqlite3.Connection]] = {}   # every read connection, to close on delete
+    generation: dict[str, int] = {}
+    open_lock = threading.Lock()
+
     def conn(request: Request) -> sqlite3.Connection:
         """Read-only connection to the request's platform database (one per thread per platform)."""
         p = platform_of(request)
         conns = getattr(local, "conns", None)
         if conns is None:
             conns = local.conns = {}
-        c = conns.get(p.id)
+        key = (p.id, generation.get(p.id, 0))
+        c = conns.get(key)
         if c is None:
             path = path_for(p.id)
             if not path.exists():
-                raise HTTPException(503, f"No {p.name} data yet. Run `python backend/cli.py ingest --platform {p.id}`.")
+                raise HTTPException(503, f"No {p.name} data yet. Add it on the Data sources page.")
             c = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
             c.row_factory = sqlite3.Row
-            conns[p.id] = c
+            conns[key] = c
+            with open_lock:
+                opened.setdefault(p.id, []).append(c)
         return c
+
+    def release(pid: str) -> None:
+        """Close every read connection to a platform's database (before it's deleted)."""
+        with open_lock:
+            generation[pid] = generation.get(pid, 0) + 1
+            for c in opened.pop(pid, []):
+                try:
+                    c.close()
+                except sqlite3.Error:
+                    pass
+        caches.pop(pid, None)
 
     def require(request: Request, capability: str) -> None:
         p = platform_of(request)
@@ -398,6 +416,8 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     # ------------------------------------------------------------------ frontend
 
     static_dir = static_dir or cfg.root / "frontend" / "dist"
+
+    app.state.jobs = sources.add_routes(app, cfg, path_for, release)
 
     @app.get("/api/build")
     def get_build():

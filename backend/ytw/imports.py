@@ -173,7 +173,11 @@ class Source:
         if self.kind == "binary":
             raise ImportRejected(f"{self.path.name} isn't a ZIP, JSON or CSV file")
         if self.kind == "zip":
-            self._open_zip()
+            try:
+                self._open_zip()
+            except BaseException:
+                self.close()          # a refused archive mustn't stay open (Windows couldn't delete it)
+                raise
         else:
             self._members[self.path.name] = None
 
@@ -277,31 +281,43 @@ def safe_basename(name: str) -> str:
     return (base or "upload")[:100]
 
 
-def store_original(src: Path, platform_dir: Path, limits: Limits = DEFAULT) -> Path:
-    """Keep a copy of an upload under data/<platform>/imports/<random>/ (data/ is never served)."""
+def store_original(src: Path, platform_dir: Path, limits: Limits = DEFAULT, move: bool = False,
+                   name: str | None = None) -> Path:
+    """Keep an upload under data/<platform>/imports/<random>/ (data/ is never served).
+    Connectors look there too (see locate()). move=True moves instead of copying."""
     if src.stat().st_size > limits.max_upload:
         raise ImportRejected(f"{src.name} is over {limits.max_upload // GiB} GiB")
-    dest = platform_dir / "imports" / secrets.token_hex(8) / safe_basename(src.name)
+    dest = platform_dir / "imports" / secrets.token_hex(8) / safe_basename(name or src.name)
     dest.parent.mkdir(parents=True)
-    shutil.copyfile(src, dest)
+    (shutil.move if move else shutil.copyfile)(src, dest)
     return dest
 
 
+def candidates(folder: Path) -> list[Path]:
+    """Export files for a platform, newest first: in data/<platform>/ and its uploads
+    (imports/<random>/), skipping uploads still arriving."""
+    found = [p for p in [*folder.glob("*"), *folder.glob("imports/*/*")]
+             if p.is_file() and ".incoming" not in p.parts]
+    return sorted(found, key=lambda p: p.stat().st_mtime, reverse=True)
+
+
 def locate(folder: Path, basename: str, limits: Limits = DEFAULT) -> tuple[Source, str] | None:
-    """Find an export file in data/<platform>/: the file itself, else inside a .zip there
-    (newest zip first). Returns an open Source and the member name; the caller closes it."""
-    plain = folder / basename
-    if plain.is_file():
-        src = Source(plain, limits)
-        return src, src.names()[0]
-    for z in sorted(folder.glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True):
-        src = Source(z, limits)
-        hits = src.find(basename)
-        if hits:
-            return src, hits[0]
-        src.close()
+    """Find an export: the newest `basename` file or .zip containing it, in data/<platform>/ or
+    its uploads. Returns an open Source and the member name; the caller closes it."""
+    b = basename.lower()
+    for p in candidates(folder):
+        if p.name.lower() == b:
+            src = Source(p, limits)
+            return src, src.names()[0]
+        if p.suffix.lower() == ".zip":
+            src = Source(p, limits)
+            hits = src.find(basename)
+            if hits:
+                return src, hits[0]
+            src.close()
     return None
 
 
-__all__ = ["DEFAULT", "ImportRejected", "Limits", "READERS", "Source", "check_name", "decode_text", "locate",
+__all__ = ["DEFAULT", "ImportRejected", "Limits", "READERS", "Source", "candidates", "check_name", "decode_text",
+           "locate", "safe_basename",
            "parse_csv", "parse_json", "sniff", "store_original"]
