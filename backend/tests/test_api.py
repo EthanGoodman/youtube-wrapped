@@ -1,4 +1,4 @@
-from conftest import make_client  # noqa: E402
+from conftest import make_client
 import pytest
 from fastapi.testclient import TestClient
 

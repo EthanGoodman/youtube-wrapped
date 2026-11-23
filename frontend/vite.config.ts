@@ -8,6 +8,11 @@ export default defineConfig({
   server: { proxy: { "/api": "http://127.0.0.1:8000" } },
   build: {
     chunkSizeWarningLimit: 1500,
-    rollupOptions: { output: { manualChunks: { echarts: ["echarts", "echarts-for-react"] } } },
+    rollupOptions: {
+      output: {
+        // charts are big: keep them in their own cached chunk
+        manualChunks: (id: string) => (/node_modules[\/](echarts|echarts-for-react|zrender)[\/]/.test(id) ? "echarts" : undefined),
+      },
+    },
   },
 });

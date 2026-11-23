@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from .. import db
 from . import tmdb
-from .parser import FULL, SIMPLE, find_files, parse_files, profiles_in
+from .parser import find_files, parse_files, profiles_in
 
 VIEWS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS views (

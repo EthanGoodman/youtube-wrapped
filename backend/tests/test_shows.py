@@ -1,6 +1,5 @@
-from conftest import make_client  # noqa: E402
 """Netflix-only stats: show progress, binges, big episode days, rewatches, episodes vs movies."""
-from fastapi.testclient import TestClient
+from conftest import make_client
 
 from test_netflix import NY, FakeTmdb, _db
 from ytw import db

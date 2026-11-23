@@ -1,7 +1,6 @@
 """Loads config.toml and .env from the repo root."""
 from __future__ import annotations
 
-import os
 import sys
 import tomllib
 from dataclasses import dataclass, field

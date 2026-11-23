@@ -1,0 +1,6 @@
+target-version = "py312"
+line-length = 120
+
+[lint]
+# real bugs only: syntax/import/undefined-name errors (pyflakes + core pycodestyle), no style churn
+select = ["E4", "E7", "E9", "F"]

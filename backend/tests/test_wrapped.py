@@ -1,9 +1,8 @@
-from conftest import make_client  # noqa: E402
+from conftest import make_client
 from datetime import date
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from ytw import db, images
 from ytw.api import create_app

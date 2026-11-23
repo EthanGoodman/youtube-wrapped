@@ -214,3 +214,5 @@ An environment variable (or a line in `.env`) with the same name still overrides
 python -m pytest
 python scripts/crosscheck.py   # compares database totals against the raw JSON
 ```
+
+Dependencies are locked with hashes (`requirements.txt`, `frontend/package-lock.json`). CI runs the tests, the frontend build, ruff, bandit, gitleaks, CodeQL and dependency audits on every push; see [CONTRIBUTING.md](CONTRIBUTING.md).

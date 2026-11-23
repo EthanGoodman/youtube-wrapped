@@ -1,10 +1,8 @@
-from conftest import make_client  # noqa: E402
+from conftest import make_client
 from datetime import date
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
-from fastapi.testclient import TestClient
 
 from ytw import db
 from ytw.api import create_app

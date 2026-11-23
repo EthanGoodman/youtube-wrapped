@@ -1,0 +1,5 @@
+-r requirements.in
+
+# development and CI only
+pre-commit
+pip-audit

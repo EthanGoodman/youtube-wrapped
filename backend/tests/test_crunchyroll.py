@@ -1,5 +1,5 @@
-from conftest import make_client  # noqa: E402
 """Crunchyroll history fetcher, against a fake Crunchyroll (never the real one)."""
+from conftest import make_client
 import json
 import urllib.parse
 
@@ -120,7 +120,6 @@ def test_only_the_chosen_profile(tmp_path):
 
 from zoneinfo import ZoneInfo  # noqa: E402
 
-from fastapi.testclient import TestClient  # noqa: E402
 
 from ytw import db  # noqa: E402
 from ytw.api import create_app  # noqa: E402

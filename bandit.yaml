@@ -1,0 +1,6 @@
+# bandit runs in CI and pre-commit; medium severity and up fails.
+# Skipped:
+#   B608  The stats SQL is assembled from code constants, `?` placeholders and allowlist-checked
+#         filter values only; every user value is a bound parameter (audited query by query in #12).
+skips: ["B608"]
+exclude_dirs: ["backend/tests", ".venv", "frontend", "data"]

@@ -1,7 +1,6 @@
 """Records and fun stats."""
 from __future__ import annotations
 
-import sqlite3
 from datetime import date, datetime, timedelta, timezone
 
 from .common import Filters, Range, time_expr, where

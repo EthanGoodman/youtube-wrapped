@@ -57,7 +57,6 @@ def netflix_build(conn, cfg) -> None:
 
 
 def netflix_enrich(args, cfg) -> None:
-    import os
     from ytw.netflix import tmdb
     token = secrets.get("TMDB_TOKEN")
     if not token:
@@ -94,7 +93,6 @@ def crunchyroll_enrich(args, cfg) -> None:
     """Posters + episode lists from Crunchyroll's catalog, then studios / season / tags from AniList."""
     from ytw.crunchyroll import anilist, catalog
     from ytw.crunchyroll.fetch import WEB_CLIENT_ID, Client, CrunchyrollError
-    from ytw.crunchyroll import ingest as cr
     conn = db.connect(cfg.platform_db("crunchyroll"))
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'watches'").fetchone() or \
             not conn.execute("SELECT 1 FROM watches LIMIT 1").fetchone():

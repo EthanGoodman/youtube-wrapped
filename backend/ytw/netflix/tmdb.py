@@ -20,11 +20,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
+from .. import net
+from .parser import UNKNOWN_SHOW
+
 API = "https://api.themoviedb.org/3/"
 IMG = "https://image.tmdb.org/t/p/"
 
-from .. import net
-from .parser import UNKNOWN_SHOW
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tmdb_titles (
