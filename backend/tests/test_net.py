@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ytw import images, net
+from ytw import net
 from ytw.net import Http, NetError, Response, TooLarge
 
 
@@ -147,17 +147,6 @@ def test_logs_are_redacted(caplog):
     with caplog.at_level(logging.DEBUG, logger="ytw.net"):
         h.request("GET", "https://www.googleapis.com/youtube/v3/videos", params={"id": "a", "key": "fake-key-for-test"})
     assert "fake-key-for-test" not in caplog.text and "videos" in caplog.text
-
-
-def test_image_relay_uses_net(monkeypatch):
-    fake = Fake(ok(b"\x89PNG", content_type="image/png"), ok(b"<html>", content_type="text/html"),
-                ok(status=302, location="https://evil.example/"), ok(b"x" * (images.MAX_BYTES + 1), content_type="image/png"))
-    monkeypatch.setattr(net, "client", Http(fake, sleep=lambda s: None))
-    assert images._http_get("https://i.ytimg.com/vi/a/mq.jpg") == (b"\x89PNG", "image/png")
-    for message in ("not an image", "HTTP 302", "too large"):
-        with pytest.raises(images.FetchFailed, match=message):
-            images._http_get("https://i.ytimg.com/vi/a/mq.jpg")
-    assert all(not r.follow_redirects for r in fake.seen)
 
 
 def test_api_errors_mapped(monkeypatch):

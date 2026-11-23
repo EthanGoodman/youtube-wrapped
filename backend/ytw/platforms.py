@@ -5,7 +5,7 @@ can show what's coming (each links to its GitHub issue).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 # Features a platform can have. The UI shows or hides parts of the dashboard by these.
 CAPABILITIES = {
@@ -35,6 +35,8 @@ class Platform:
     export_steps: tuple[str, ...] = ()
     export_wait: str = ""
     issue: int | None = None        # GitHub issue tracking it
+    # where its posters/thumbnails live: (exact host, path prefix). The image relay allows only these.
+    image_hosts: tuple[tuple[str, str], ...] = ()
 
     def has(self, capability: str) -> bool:
         return capability in self.capabilities
@@ -42,8 +44,7 @@ class Platform:
     def with_extra(self, extra: str | None) -> "Platform":
         """Add capabilities the imported data turned out to have (recorded by the build)."""
         more = {c for c in (extra or "").split(",") if c in CAPABILITIES}
-        return Platform(self.id, self.name, self.implemented, self.theme, self.vocab, self.capabilities | more,
-                        self.export_steps, self.export_wait, self.issue) if more else self
+        return replace(self, capabilities=self.capabilities | more) if more else self
 
     def to_dict(self) -> dict:
         return {"id": self.id, "name": self.name, "implemented": self.implemented, "theme": self.theme,
@@ -65,7 +66,10 @@ PLATFORMS: dict[str, Platform] = {p.id: p for p in (
         ("takeout.google.com → Deselect all → YouTube and YouTube Music",
          "All YouTube data included → only history; Multiple formats → History: JSON",
          "Put watch-history.json (and search-history.json) in data/youtube/"),
-        "minutes to hours"),
+        "minutes to hours",
+        image_hosts=(("i.ytimg.com", "/"), ("i1.ytimg.com", "/"), ("i2.ytimg.com", "/"), ("i3.ytimg.com", "/"),
+                     ("i4.ytimg.com", "/"), ("i9.ytimg.com", "/"), ("yt3.ggpht.com", "/"),
+                     ("yt3.googleusercontent.com", "/"))),
     Platform(
         "netflix", "Netflix", True, "netflix", _vocab("show", "shows", "title", "titles"),
         frozenset({"genres", "series"}),
@@ -73,7 +77,7 @@ PLATFORMS: dict[str, Platform] = {p.id: p for p in (
          "Full (adds times and durations): netflix.com/account → Download your personal information "
          "→ CONTENT_INTERACTION/ViewingActivity.csv",
          "Put either file in data/netflix/, then: python backend/cli.py ingest --platform netflix"),
-        "instant (quick) or a few days (full)", issue=2),
+        "instant (quick) or a few days (full)", issue=2, image_hosts=(("image.tmdb.org", "/t/p/"),)),
     Platform(
         "spotify", "Spotify", False, "spotify",
         _vocab("artist", "artists", "track", "tracks", "listen", "listened", "listening time"),
@@ -105,7 +109,7 @@ PLATFORMS: dict[str, Platform] = {p.id: p for p in (
         ("No official export. Log in at crunchyroll.com, open DevTools (F12) > Application > Cookies and copy etp_rt",
          "Save it with: python backend/cli.py secrets set CRUNCHYROLL_ETP_RT (treat it like a password)",
          "Run: python backend/cli.py fetch --platform crunchyroll (unofficial: reads your own history from Crunchyroll's site)"),
-        "a minute (unofficial)", issue=7),
+        "a minute (unofficial)", issue=7, image_hosts=(("www.crunchyroll.com", "/imgsrv/"),)),
 )}
 
 DEFAULT = "youtube"

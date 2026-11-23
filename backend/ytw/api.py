@@ -364,9 +364,9 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
 
     @app.get("/api/img")
     def get_image(u: str):
-        """Relay a YouTube thumbnail/avatar so the browser can export Wrapped cards as PNG
-        (images from other origins can't be drawn into an exportable canvas).
-        Only YouTube's image hosts are allowed: this is not an open proxy."""
+        """Relay a poster/thumbnail/avatar so the browser can export Wrapped cards as PNG
+        (images from other origins can't be drawn into an exportable canvas). Not an open proxy:
+        see images.py (platform-declared hosts only, public IPs only, real images only)."""
         try:
             data, ctype = images.fetch(u)
         except images.NotAllowed as e:
