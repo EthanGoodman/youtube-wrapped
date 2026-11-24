@@ -1,16 +1,17 @@
-/* The home page: a shelf. Every app with data is a tape spine as thick as its hours; apps not added yet
-   are empty slots that say how long their data takes to arrive; below, a shelf of year boxes.
+/* The home page: a shelf, and nothing else. Every app with data is a book spine as thick as its hours;
+   clicking one pulls it off the shelf and opens it into the app's stats page (book.ts). Apps not added
+   yet are empty slots that say how long their data takes to arrive.
    Design spec: "The shelf" (flat color, no gradients/shadows/rounding, our own spine colors, self-hosted fonts). */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ApiError, getJson, usePlatforms } from "../api";
-import { num } from "../format";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { PlatformSummary, usePlatforms } from "../api";
+import { compact, num } from "../format";
 import { HubLink } from "../platform";
 import { shelfColors } from "../themes";
 import { EmptySlot } from "../components/shelf/EmptySlot";
-import { Spine, hoursOf } from "../components/shelf/Spine";
-import { SpineDetail } from "../components/shelf/SpineDetail";
-import { HubYear, YearBoxes } from "../components/shelf/YearBoxes";
+import { Spine, hoursOf, monthYear } from "../components/shelf/Spine";
+import { openBook, prefersReducedMotion } from "../components/shelf/book";
 import { SHELF_MAX_H, shelfHeight, slotHeight, waitRank } from "../components/shelf/scale";
 
 function useMedia(query: string): boolean {
@@ -24,36 +25,38 @@ function useMedia(query: string): boolean {
   return on;
 }
 
-/** The tallest spine that keeps the whole shelf (plank and caption included) inside the window, so a
- *  laptop sees heading, intro and shelf without scrolling. Re-measured when the window changes. */
-function useShelfHeight(enabled: boolean) {
+/** The tallest spine that keeps the whole shelf (plank included) inside the window, so a laptop sees
+ *  heading, intro and shelf without scrolling. Re-measured when the window changes. */
+function useShelfHeight(enabled: boolean, below: number) {
   const ref = useRef<HTMLDivElement>(null);
   const [h, setH] = useState(SHELF_MAX_H);
   useLayoutEffect(() => {
     if (!enabled) return;
     const measure = () => {
       const top = (ref.current?.getBoundingClientRect().top ?? 0) + window.scrollY;
-      setH(shelfHeight(window.innerHeight - top - 88));   // 88 = lift room + plank + caption + breathing room
+      setH(shelfHeight(window.innerHeight - top - below));
     };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [enabled]);
+  }, [enabled, below]);
   return [ref, h] as const;
 }
 
-/** "YouTube, Netflix or Crunchyroll" */
-function orList(names: string[]): string {
-  return names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+/** Resolves once the new page has fetched what it needs (nothing in flight), so the cover opens onto it. */
+function settled(qc: ReturnType<typeof useQueryClient>): Promise<void> {
+  return new Promise((res) => {
+    const check = () => (qc.isFetching() === 0 ? res() : setTimeout(check, 50));
+    setTimeout(check, 50);
+  });
 }
 
 export function Hub() {
   const q = usePlatforms();
-  const yearsQ = useQuery<HubYear[], ApiError>({ queryKey: ["hub-years"], queryFn: () => getJson("/api/hub/years") });
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const phone = useMedia("(max-width: 639px)");
   const tablet = useMedia("(max-width: 1023px)");
-  const [shelfRef, maxH] = useShelfHeight(!phone && !q.isLoading);
-  const [picked, setPicked] = useState<string | null>(null);
 
   const list = q.data ?? [];
   const ready = list.filter((p) => p.has_data).sort((a, b) => (b.est_s ?? 0) - (a.est_s ?? 0));
@@ -62,28 +65,40 @@ export function Hub() {
     ...list.filter((p) => !p.implemented && p.issue),
   ];
   const firstVisit = !!q.data && ready.length === 0;
+  // room under the shelf: lift room + plank + page padding (+ the "Add your first app" button)
+  const [shelfRef, maxH] = useShelfHeight(!phone && !q.isLoading, firstVisit ? 136 : 64);
   const slots = notYet.slice(0, firstVisit ? 5 : tablet && !phone ? 2 : 3);
   const more = notYet.length - slots.length;
   const colors = shelfColors(ready.map((p) => p.id));
   const max = Math.max(1, ...ready.map(hoursOf));
   const total = ready.reduce((s, p) => s + hoursOf(p), 0);
-  const selected = ready.find((p) => p.id === picked) ?? ready[0];
-  const years = yearsQ.data ?? [];
-  const latestYear = (id: string) => [...years].reverse().find((y) => y.by_platform[id])?.year ?? null;
-  const names = Object.fromEntries(list.map((p) => [p.id, p.name]));
+
+  const open = (p: PlatformSummary, spine: HTMLElement) => {
+    const to = `/${p.id}`;
+    if (prefersReducedMotion()) return navigate(to);
+    void openBook({
+      spine, axis: phone ? "x" : "y", color: colors[p.id],
+      cover: {
+        name: p.name,
+        hours: `${num(hoursOf(p))} hours`,
+        line: [`${compact(p.items ?? 0)} ${p.vocab.items}`, p.first_date ? `since ${monthYear(p.first_date)}` : ""].filter(Boolean).join(" · "),
+      },
+      onCovered: () => navigate(to),
+      ready: () => settled(qc),
+    });
+  };
 
   const slotSize = { w: tablet ? 72 : 84, h: slotHeight(tablet ? Math.min(maxH, 400) : maxH, firstVisit) };
   const pad = phone ? "px-4" : tablet ? "px-6" : "px-12";
 
   return (
     <div className="min-h-screen bg-[#141312] font-shelf-sans text-[#EDE7DC]">
-      <div className={`shelf-page mx-auto max-w-[1344px] pb-14 pt-8 ${pad}`}>
+      <div className={`shelf-page mx-auto max-w-[1344px] pb-8 pt-8 ${pad}`}>
         <header className="flex flex-wrap items-center justify-between gap-4">
           <HubLink to="/" className="shelf-focus font-shelf-display text-[30px] uppercase leading-none tracking-[0.06em] text-[#EDE7DC] no-underline">
             Wrapped
           </HubLink>
           <nav aria-label="Main" className="flex gap-6 text-[15px] font-medium">
-            {years.length > 0 && <a href="#years" className="shelf-focus text-[#EDE7DC] underline underline-offset-4">Your years</a>}
             <HubLink to="/sources" className="shelf-focus text-[#EDE7DC] underline underline-offset-4">Add an app</HubLink>
           </nav>
         </header>
@@ -95,8 +110,8 @@ export function Hub() {
           </h1>
           <p className={`m-0 max-w-[420px] text-[18px] leading-normal text-[#C9C2B5] ${tablet ? "basis-full" : ""}`}>
             {firstVisit
-              ? "Every app you add becomes a tape on the shelf, as thick as the time you gave it. Your history stays on this computer."
-              : <>Every app you add becomes a tape on the shelf, as thick as the time you gave it. {num(total)} hours so far. Pull one out to see its stats and its Wrapped.</>}
+              ? "Every app you add becomes a book on the shelf. Your history stays on this computer."
+              : <>Every app you add becomes a book on the shelf. {num(total)} hours so far. Pull one off and open it.</>}
           </p>
         </section>
 
@@ -114,7 +129,7 @@ export function Hub() {
                   <>
                     {ready.map((p) => (
                       <Spine key={p.id} p={p} max={max} color={colors[p.id]} flat={phone} maxW={tablet ? 180 : 220} maxH={maxH}
-                             selected={selected?.id === p.id} onSelect={() => setPicked(p.id)} />
+                             onOpen={(el) => open(p, el)} />
                     ))}
                     {slots.map((p, i) => (
                       <div key={p.id} className={!phone && i === 0 && ready.length ? "ml-6" : phone ? "w-full" : ""}>
@@ -125,26 +140,15 @@ export function Hub() {
                   </>
                 )}
               </Shelf>
-              <p className="mb-0 mt-4 font-shelf-mono text-[13px] text-[#A39B8D]">
-                Thickness = hours. Empty slots are apps you haven't added yet; each one says how long its data takes to arrive.
-              </p>
               {firstVisit && (
                 <HubLink to="/sources"
                          className="shelf-focus mt-6 inline-flex h-12 items-center bg-[#EDE7DC] px-6 text-[16px] font-bold text-[#141312] hover:bg-white">
                   Add your first app
                 </HubLink>
               )}
-              {selected && <SpineDetail p={selected} totalHours={total} latestYear={latestYear(selected.id)} />}
             </>
           )}
         </section>
-
-        {!firstVisit && <YearBoxes years={years} names={names} currentYear={new Date().getFullYear()} scroll={phone} />}
-
-        <footer className="mt-12 text-[13px] text-[#8F887C]">
-          Made on this computer from files you exported.
-          {ready.length > 0 && <> Not affiliated with {orList(ready.map((p) => p.name))}.</>}
-        </footer>
       </div>
     </div>
   );

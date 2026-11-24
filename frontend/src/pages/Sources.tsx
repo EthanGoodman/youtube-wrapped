@@ -66,6 +66,9 @@ export function Sources() {
       </div>
       {q.data && planned.length > 0 && <ComingSoon planned={planned} highlight={add} />}
       {q.data && <DeleteEverything />}
+      <footer className="mt-12 text-xs text-sub">
+        Made on this computer from files you exported. Not affiliated with any of the apps above.
+      </footer>
     </div>
   );
 }
