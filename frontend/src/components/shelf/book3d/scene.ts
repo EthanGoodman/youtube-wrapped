@@ -2,9 +2,8 @@
 
    The book is built in CSS pixels at the size of the spine you clicked and starts exactly on top of it
    (tipped as far as the hover tipped it). It tips out of the shelf, turns to its cover, and the cover
-   swings open while you move into the right-hand page: a blank page in the stats page's own background
-   color. Once it fills the window, the real page (swapped in underneath while the backdrop hid it)
-   fades in over the same color. */
+   swings open while you move into the right-hand page: a blank grey-black page. Once it fills the
+   window, the real page (swapped in underneath while the backdrop hid it) fades in. */
 import * as THREE from "three";
 import { Axis, FADE_MS, T_END, T_NAVIGATE, T_OPEN, T_TURNED, clamp, frustum, plan, tiltPivot } from "./timeline";
 import { BookText, Colors, PAPER, coverCanvas, edgeCanvas, loadFonts, spineCanvas } from "./textures";
@@ -21,6 +20,7 @@ export interface OpenBook3d {
 }
 
 const BACKDROP = 0x141312;
+const PAGE_BLACK = 0x141414; // the open pages: Netflix's grey-black, for every app
 let busy = false;
 
 /** Plays the book. Resolves false (having done nothing) when WebGL isn't available. */
@@ -96,7 +96,7 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
     const geo = <G extends THREE.BufferGeometry>(g: G) => (disposables.push(g), g);
 
     const boardMat = mat({ color: new THREE.Color(o.color.bg) });
-    const endMat = mat({ color: new THREE.Color(0x141312) }); // inside of the cover: black, like the page it opens to
+    const endMat = mat({ color: new THREE.Color(PAGE_BLACK) }); // inside of the cover: the same grey-black as the page
     const paperMat = mat({ color: new THREE.Color(PAPER) });
 
     // the book: hinge (spine) along x = 0, cover facing +z, centered on y and z
@@ -118,17 +118,8 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
     const blockT = T - 2 * board;
     const edgeX = texture(edgeCanvas(blockT / 1.6, false));  // fore-edge: lines vary across the thickness (u)
     const edgeY = texture(edgeCanvas(blockT / 1.6, true));   // head and tail: thickness runs along v
-    // the page you open to: blank, in the background color of the page that is (or will be) underneath
-    const pageMat = mat({ color: new THREE.Color(0x141312) });
-    let printed = "";
-    const print = () => {
-      const bg = getComputedStyle(document.body).backgroundColor || "#141312";
-      if (bg === printed) return;
-      printed = bg;
-      pageMat.color.setStyle(bg);
-      endMat.color.setStyle(bg);
-    };
-    print();
+    // the page you open to: blank, the same grey-black for every app
+    const pageMat = mat({ color: new THREE.Color(PAGE_BLACK) });
     const block = new THREE.Mesh(geo(new THREE.BoxGeometry(pageW, pageH, blockT)), [
       mat({ map: edgeX }), paperMat, mat({ map: edgeY }), mat({ map: edgeY }), pageMat, paperMat,
     ]);
@@ -159,7 +150,6 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
       for (let i = 0; i < 4; i++) mats[i] = edge;
       setEye(s.eye);
       renderer.setClearColor(BACKDROP, s.backdrop);
-      if (covered && t <= T_OPEN) print();   // the real page's colors arrive a frame or two after the swap
       renderer.render(scene, camera);
     };
 
