@@ -312,23 +312,17 @@ body {
 @keyframes shelf-in { from { opacity: 0; } to { opacity: 1; } }
 .shelf-lift { transition: transform 150ms ease-out, border-color 150ms ease-out; }
 .shelf-lift:hover, .shelf-lift:focus-visible { transform: translateY(-8px); }
+/* a standing spine tips its top toward you, as if a finger hooked it to pull it out; the same
+   perspective as the 3D book (--book-d), so clicking carries on from exactly this pose */
+.shelf-tip { transform-origin: 50% 100%; transition: transform 160ms ease-out; }
+.shelf-tip:hover, .shelf-tip:focus-visible { transform: perspective(var(--book-d, 1500px)) rotateX(-10deg); }
 .shelf-focus:focus-visible { outline: 3px solid #7FB2FF; outline-offset: 3px; }
 .shelf-slot:hover, .shelf-slot:focus-visible { border-color: #EDE7DC; }
 .shelf-vertical { writing-mode: vertical-rl; transform: rotate(180deg); }
-
-/* opening a book (components/shelf/book.ts): a 3D stage over everything, removed when the cover opens */
-.book-stage { position: fixed; inset: 0; z-index: 100; perspective-origin: 50% 50%; overflow: hidden; }
-.book-backdrop { position: absolute; inset: 0; background: #141312; opacity: 0; }
-.book { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform-style: preserve-3d; will-change: transform; }
-.book-cover, .book-spine { position: absolute; left: 0; top: 0; backface-visibility: hidden; overflow: hidden; }
-.book-spine { transform-origin: 0 0; }
-.book-cover { inset: 0; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }
-.book-title { font-family: "Bebas Neue", sans-serif; text-transform: uppercase; line-height: 0.85; overflow-wrap: anywhere; }
-.book-hours { font-family: "Bebas Neue", sans-serif; line-height: 0.9; }
-.book-line { margin-top: 10px; font-family: "DM Mono", monospace; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
-.book-shade { position: absolute; inset: 0; background: #000; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .shelf-page { animation: none; }
   .shelf-lift { transition: none; }
   .shelf-lift:hover, .shelf-lift:focus-visible { transform: none; }
+  .shelf-tip { transition: none; }
+  .shelf-tip:hover, .shelf-tip:focus-visible { transform: none; }
 }

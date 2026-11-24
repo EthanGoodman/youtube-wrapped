@@ -1,5 +1,5 @@
 /* The home page: a shelf, and nothing else. Every app with data is a book spine as thick as its hours;
-   clicking one pulls it off the shelf and opens it into the app's stats page (book.ts). Apps not added
+   clicking one pulls it off the shelf and opens it into the app's stats page (book3d/, WebGL, loaded on demand). Apps not added
    yet are empty slots that say how long their data takes to arrive.
    Design spec: "The shelf" (flat color, no gradients/shadows/rounding, our own spine colors, self-hosted fonts). */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -11,8 +11,8 @@ import { HubLink } from "../platform";
 import { shelfColors } from "../themes";
 import { EmptySlot } from "../components/shelf/EmptySlot";
 import { Spine, hoursOf, monthYear } from "../components/shelf/Spine";
-import { openBook, prefersReducedMotion } from "../components/shelf/book";
-import { SHELF_MAX_H, shelfHeight, slotHeight, waitRank } from "../components/shelf/scale";
+import { SHELF_MAX_H, hoursLabel, shelfHeight, slotHeight, waitRank } from "../components/shelf/scale";
+import { cameraDistance, tiltFromHeight } from "../components/shelf/book3d/timeline";
 
 function useMedia(query: string): boolean {
   const [on, setOn] = useState(() => window.matchMedia(query).matches);
@@ -42,6 +42,9 @@ function useShelfHeight(enabled: boolean, below: number) {
   }, [enabled, below]);
   return [ref, h] as const;
 }
+
+const loadBook = () => import("../components/shelf/book3d/scene");
+const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Resolves once the new page has fetched what it needs (nothing in flight), so the cover opens onto it. */
 function settled(qc: ReturnType<typeof useQueryClient>): Promise<void> {
@@ -73,26 +76,44 @@ export function Hub() {
   const max = Math.max(1, ...ready.map(hoursOf));
   const total = ready.reduce((s, p) => s + hoursOf(p), 0);
 
-  const open = (p: PlatformSummary, spine: HTMLElement) => {
+  // fetch the 3D code while the shelf sits idle, so the first click starts at once
+  useEffect(() => {
+    if (!ready.length || prefersReducedMotion()) return;
+    const id = setTimeout(() => void loadBook().catch(() => {}), 1200);
+    return () => clearTimeout(id);
+  }, [ready.length]);
+
+  const open = async (p: PlatformSummary, spine: HTMLElement) => {
     const to = `/${p.id}`;
     if (prefersReducedMotion()) return navigate(to);
-    void openBook({
-      spine, axis: phone ? "x" : "y", color: colors[p.id],
-      cover: {
-        name: p.name,
-        hours: `${num(hoursOf(p))} hours`,
-        line: [`${compact(p.items ?? 0)} ${p.vocab.items}`, p.first_date ? `since ${monthYear(p.first_date)}` : ""].filter(Boolean).join(" · "),
-      },
-      onCovered: () => navigate(to),
-      ready: () => settled(qc),
-    });
+    const items = `${compact(p.items ?? 0)} ${p.vocab.items}`;
+    const since = p.first_date ? `since ${monthYear(p.first_date)}` : "";
+    try {
+      const { openBook3d } = await loadBook();
+      // how far the hover has tipped it (none on touch; maybe partway if the click came quickly)
+      const view = { w: window.innerWidth, h: window.innerHeight };
+      const tilt0 = phone ? 0 : tiltFromHeight(spine.getBoundingClientRect().height, spine.offsetHeight, cameraDistance(view));
+      const played = await openBook3d({
+        spine, axis: phone ? "x" : "y", color: colors[p.id], tilt0,
+        text: {
+          name: p.name, hours: `${num(hoursOf(p))} hours`, line: [items, since].filter(Boolean).join(" · "),
+          spineHours: hoursLabel(num(hoursOf(p))), spineMeta: [items, since].filter(Boolean),
+        },
+        onCovered: () => navigate(to),
+        ready: () => settled(qc),
+      });
+      if (!played) navigate(to);   // no WebGL: just go
+    } catch {
+      navigate(to);
+    }
   };
 
   const slotSize = { w: tablet ? 72 : 84, h: slotHeight(tablet ? Math.min(maxH, 400) : maxH, firstVisit) };
   const pad = phone ? "px-4" : tablet ? "px-6" : "px-12";
 
   return (
-    <div className="min-h-screen bg-[#141312] font-shelf-sans text-[#EDE7DC]">
+    <div className="min-h-screen bg-[#141312] font-shelf-sans text-[#EDE7DC]"
+         style={{ "--book-d": `${cameraDistance({ w: window.innerWidth, h: window.innerHeight })}px` } as React.CSSProperties}>
       <div className={`shelf-page mx-auto max-w-[1344px] pb-8 pt-8 ${pad}`}>
         <header className="flex flex-wrap items-center justify-between gap-4">
           <HubLink to="/" className="shelf-focus font-shelf-display text-[30px] uppercase leading-none tracking-[0.06em] text-[#EDE7DC] no-underline">
@@ -129,7 +150,7 @@ export function Hub() {
                   <>
                     {ready.map((p) => (
                       <Spine key={p.id} p={p} max={max} color={colors[p.id]} flat={phone} maxW={tablet ? 180 : 220} maxH={maxH}
-                             onOpen={(el) => open(p, el)} />
+                             onOpen={(el) => void open(p, el)} />
                     ))}
                     {slots.map((p, i) => (
                       <div key={p.id} className={!phone && i === 0 && ready.length ? "ml-6" : phone ? "w-full" : ""}>
