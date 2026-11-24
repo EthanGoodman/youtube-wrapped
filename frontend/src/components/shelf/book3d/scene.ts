@@ -7,7 +7,7 @@
    fades in over the same color. */
 import * as THREE from "three";
 import { Axis, FADE_MS, T_END, T_NAVIGATE, T_OPEN, T_TURNED, clamp, frustum, plan, tiltPivot } from "./timeline";
-import { BookText, Colors, PAPER, coverCanvas, edgeCanvas, loadFonts, mix, spineCanvas } from "./textures";
+import { BookText, Colors, PAPER, coverCanvas, edgeCanvas, loadFonts, spineCanvas } from "./textures";
 
 export interface OpenBook3d {
   spine: HTMLElement;
@@ -96,7 +96,7 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
     const geo = <G extends THREE.BufferGeometry>(g: G) => (disposables.push(g), g);
 
     const boardMat = mat({ color: new THREE.Color(o.color.bg) });
-    const endMat = mat({ color: new THREE.Color(mix(PAPER, o.color.bg, 0.22)) }); // endpaper: paper tinted by the cover
+    const endMat = mat({ color: new THREE.Color(0x141312) }); // inside of the cover: black, like the page it opens to
     const paperMat = mat({ color: new THREE.Color(PAPER) });
 
     // the book: hinge (spine) along x = 0, cover facing +z, centered on y and z
@@ -126,6 +126,7 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
       if (bg === printed) return;
       printed = bg;
       pageMat.color.setStyle(bg);
+      endMat.color.setStyle(bg);
     };
     print();
     const block = new THREE.Mesh(geo(new THREE.BoxGeometry(pageW, pageH, blockT)), [
@@ -152,6 +153,10 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
       const c = Math.cos(s.roll), sn = Math.sin(s.roll);
       book.position.set(s.pos[0] + ox * c - oy * sn, s.pos[1] + ox * sn + oy * c, s.pos[2] + oz);
       hinge.rotation.y = s.cover;
+      // once the cover is past halfway open its edges face you: black like the pages, not a light seam
+      const edge = s.cover < -Math.PI / 2 ? endMat : boardMat;
+      const mats = cover.material as THREE.Material[];
+      for (let i = 0; i < 4; i++) mats[i] = edge;
       setEye(s.eye);
       renderer.setClearColor(BACKDROP, s.backdrop);
       if (covered && t <= T_OPEN) print();   // the real page's colors arrive a frame or two after the swap

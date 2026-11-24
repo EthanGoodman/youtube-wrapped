@@ -125,10 +125,3 @@ export function edgeCanvas(lines: number, across: boolean) {
   }
   return cv;
 }
-
-/** Mixes two colors (k of b into a). */
-export function mix(a: string, b: string, k: number): string {
-  const p = (h: string) => [0, 2, 4].map((i) => parseInt(h.replace("#", "").slice(i, i + 2), 16));
-  const [x, y] = [p(a), p(b)];
-  return `#${x.map((v, i) => Math.round(v + (y[i] - v) * k).toString(16).padStart(2, "0")).join("")}`;
-}
