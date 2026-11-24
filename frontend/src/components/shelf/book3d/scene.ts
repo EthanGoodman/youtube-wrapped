@@ -96,7 +96,11 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
     const geo = <G extends THREE.BufferGeometry>(g: G) => (disposables.push(g), g);
 
     const boardMat = mat({ color: new THREE.Color(o.color.bg) });
-    const endMat = mat({ color: new THREE.Color(PAGE_BLACK) }); // inside of the cover: the same grey-black as the page
+    // the inside of the cover, its edges once open, and the page: unlit, so they stay exactly PAGE_BLACK
+    // at every angle (lit, they shade darker as the cover swings away from the light)
+    const blackMat = new THREE.MeshBasicMaterial({ color: PAGE_BLACK });
+    disposables.push(blackMat);
+    const endMat = blackMat;
     const paperMat = mat({ color: new THREE.Color(PAPER) });
 
     // the book: hinge (spine) along x = 0, cover facing +z, centered on y and z
@@ -119,7 +123,7 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
     const edgeX = texture(edgeCanvas(blockT / 1.6, false));  // fore-edge: lines vary across the thickness (u)
     const edgeY = texture(edgeCanvas(blockT / 1.6, true));   // head and tail: thickness runs along v
     // the page you open to: blank, the same grey-black for every app
-    const pageMat = mat({ color: new THREE.Color(PAGE_BLACK) });
+    const pageMat = blackMat;
     const block = new THREE.Mesh(geo(new THREE.BoxGeometry(pageW, pageH, blockT)), [
       mat({ map: edgeX }), paperMat, mat({ map: edgeY }), mat({ map: edgeY }), pageMat, paperMat,
     ]);
