@@ -319,11 +319,40 @@ body {
 .shelf-focus:focus-visible { outline: 3px solid #7FB2FF; outline-offset: 3px; }
 .shelf-slot:hover, .shelf-slot:focus-visible { border-color: #EDE7DC; }
 .shelf-vertical { writing-mode: vertical-rl; transform: rotate(180deg); }
-.shelf-plank {
-  height: 26px;
-  border-top: 3px solid #5E3D28;                       /* the top edge, a touch lighter */
-  background: linear-gradient(180deg, #46291A, #321D12);   /* dark walnut, softly shaded */
+/* A book: shading across the spine makes it read as rounded, and thin bands near the head and tail
+   (in the spine's own ink color) are the printed rules of a hardcover. Kept in step with spineCanvas()
+   in book3d/textures.ts, so the 3D book starts as a pixel match. */
+.shelf-book {
+  border-radius: 2px 2px 1px 1px;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);               /* where it stands on the shelf */
+  background-image:
+    linear-gradient(180deg, transparent 8px, color-mix(in srgb, currentColor 35%, transparent) 8px 9px, transparent 9px),
+    linear-gradient(0deg, transparent 8px, color-mix(in srgb, currentColor 35%, transparent) 8px 9px, transparent 9px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.1) 24%, rgba(255, 255, 255, 0.03) 42%,
+                    rgba(0, 0, 0, 0.05) 72%, rgba(0, 0, 0, 0.22));
 }
+/* lying in the stack (phone): head at the left, rounded the other way */
+.shelf-book-flat {
+  border-radius: 1px 2px 2px 1px;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);
+  background-image:
+    linear-gradient(90deg, transparent 8px, color-mix(in srgb, currentColor 35%, transparent) 8px 9px, transparent 9px),
+    linear-gradient(270deg, transparent 8px, color-mix(in srgb, currentColor 35%, transparent) 8px 9px, transparent 9px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03) 30%, rgba(0, 0, 0, 0.05) 65%, rgba(0, 0, 0, 0.22));
+}
+/* the shelf: a top you see slightly from above, darkest at the back where the books stand,
+   a darker front edge, and a soft shadow on the wall beneath */
+.shelf-top {
+  height: 10px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 5px), linear-gradient(180deg, #4A2D1C, #57372A);
+}
+.shelf-front {
+  height: 16px;
+  background: linear-gradient(180deg, #3A2316, #2B190F);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+/* the wall just above the shelf, in the shelf's shadow (shows between the books) */
+.shelf-wall { background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.35), transparent 48px); }
 @media (prefers-reduced-motion: reduce) {
   .shelf-page { animation: none; }
   .shelf-lift { transition: none; }

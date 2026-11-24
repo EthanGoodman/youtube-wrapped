@@ -34,13 +34,12 @@ function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContex
 export function spineCanvas(t: BookText, c: Colors, thick: number, length: number, lying: boolean, scale = 2) {
   const [cv, g] = canvas(thick * scale, length * scale);
   g.scale(scale, scale);
-  g.fillStyle = c.bg;
-  g.fillRect(0, 0, thick, length);
-  g.fillStyle = c.fg;
   if (lying) {
     // DOM (dx right, dy down) -> face (x = dy, y = length - dx)
     g.transform(0, -1, 1, 0, 0, length);
     const w = length, h = thick;
+    bookFinish(g, c, w, h, true);
+    g.fillStyle = c.fg;
     g.textBaseline = "middle";
     g.font = `36px ${DISPLAY}`;
     g.textAlign = "left";
@@ -51,6 +50,8 @@ export function spineCanvas(t: BookText, c: Colors, thick: number, length: numbe
     return cv;
   }
   const w = thick, h = length;
+  bookFinish(g, c, w, h, false);
+  g.fillStyle = c.fg;
   const hs = hoursFontSize(w, t.spineHours);
   const ns = nameFontSize(w, h, t.name);
   const meta = w >= 120 && h >= 300 ? t.spineMeta : [];
@@ -76,6 +77,25 @@ export function spineCanvas(t: BookText, c: Colors, thick: number, length: numbe
     meta.forEach((m, i) => g.fillText(m.toUpperCase(), w / 2, h - 14 - metaH + i * 11 * 1.375 + 2));
   }
   return cv;
+}
+
+/** The spine's finish, as the shelf's CSS draws it (.shelf-book / .shelf-book-flat in index.css):
+ *  color, rounded shading across it, and thin bands near head and tail in its ink color. */
+function bookFinish(g: CanvasRenderingContext2D, c: Colors, w: number, h: number, lying: boolean) {
+  g.fillStyle = c.bg;
+  g.fillRect(0, 0, w, h);
+  const stops: [number, string][] = lying
+    ? [[0, "rgba(255,255,255,0.1)"], [0.3, "rgba(255,255,255,0.03)"], [0.65, "rgba(0,0,0,0.05)"], [1, "rgba(0,0,0,0.22)"]]
+    : [[0, "rgba(0,0,0,0.2)"], [0.24, "rgba(255,255,255,0.1)"], [0.42, "rgba(255,255,255,0.03)"], [0.72, "rgba(0,0,0,0.05)"], [1, "rgba(0,0,0,0.22)"]];
+  const gr = lying ? g.createLinearGradient(0, 0, 0, h) : g.createLinearGradient(0, 0, w, 0);
+  stops.forEach(([o, col]) => gr.addColorStop(o, col));
+  g.fillStyle = gr;
+  g.fillRect(0, 0, w, h);
+  g.fillStyle = c.fg;
+  g.globalAlpha = 0.35;
+  if (lying) { g.fillRect(8, 0, 1, h); g.fillRect(w - 9, 0, 1, h); }
+  else { g.fillRect(0, 8, w, 1); g.fillRect(0, h - 9, w, 1); }
+  g.globalAlpha = 1;
 }
 
 /** Fits text to a width: the largest size (<= max) at which it is no wider than `width`. */
