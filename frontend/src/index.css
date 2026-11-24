@@ -319,6 +319,15 @@ body {
 .shelf-focus:focus-visible { outline: 3px solid #7FB2FF; outline-offset: 3px; }
 .shelf-slot:hover, .shelf-slot:focus-visible { border-color: #EDE7DC; }
 .shelf-vertical { writing-mode: vertical-rl; transform: rotate(180deg); }
+.shelf-plank {
+  height: 26px;
+  border-top: 4px solid #B07B4C;                       /* the top edge catching the light */
+  background:
+    repeating-linear-gradient(178.6deg, rgba(40, 20, 8, 0.2) 0 1px, transparent 1px 5px),          /* grain */
+    repeating-linear-gradient(90deg, transparent 0 230px, rgba(255, 220, 170, 0.05) 230px 300px,
+                              transparent 300px 520px, rgba(40, 20, 8, 0.12) 520px 610px),         /* soft streaks */
+    linear-gradient(180deg, #80532F, #5A381E);
+}
 @media (prefers-reduced-motion: reduce) {
   .shelf-page { animation: none; }
   .shelf-lift { transition: none; }

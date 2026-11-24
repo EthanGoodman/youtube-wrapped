@@ -69,7 +69,7 @@ export function Hub() {
   ];
   const firstVisit = !!q.data && ready.length === 0;
   // room under the shelf: lift room + plank + page padding (+ the "Add your first app" button)
-  const [shelfRef, maxH] = useShelfHeight(!phone && !q.isLoading, firstVisit ? 136 : 64);
+  const [shelfRef, maxH] = useShelfHeight(!phone && !q.isLoading, firstVisit ? 144 : 72);
   const slots = notYet.slice(0, firstVisit ? 5 : tablet && !phone ? 2 : 3);
   const more = notYet.length - slots.length;
   const colors = shelfColors(ready.map((p) => p.id));
@@ -181,7 +181,8 @@ function Shelf({ phone, busy, minH, children }: { phone: boolean; busy: boolean;
     <div aria-busy={busy}>
       <div className={phone ? "flex flex-col gap-2 pt-2" : "flex flex-wrap items-end gap-[10px] pt-3"}
            style={phone ? undefined : { minHeight: minH }}>{children}</div>
-      <div aria-hidden className="h-[14px] bg-[#3A332A]" />
+      {/* a wooden plank: a lit top edge, the grained front, and its shadow on the wall */}
+      <div aria-hidden className="shelf-plank" />
       <div aria-hidden className="h-[6px] bg-[#0B0A09]" />
     </div>
   );
