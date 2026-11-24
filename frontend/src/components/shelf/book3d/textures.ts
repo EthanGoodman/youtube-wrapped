@@ -104,11 +104,6 @@ export function coverCanvas(t: BookText, c: Colors, W: number, H: number, scale 
   g.font = `${Math.max(7, Math.round(W * 0.03))}px ${MONO}`;
   g.globalAlpha = 0.8;
   g.fillText(t.line.toUpperCase(), pad, H - pad);
-  // a thin rule framing the cover, like a stamped board
-  g.globalAlpha = 0.25;
-  g.strokeStyle = c.fg;
-  g.lineWidth = 1;
-  g.strokeRect(pad * 0.45, pad * 0.45, W - pad * 0.9, H - pad * 0.9);
   return cv;
 }
 
