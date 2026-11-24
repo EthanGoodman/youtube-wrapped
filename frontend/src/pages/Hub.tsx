@@ -179,11 +179,9 @@ export function Hub() {
 function Shelf({ phone, busy, minH, children }: { phone: boolean; busy: boolean; minH: number; children: React.ReactNode }) {
   return (
     <div aria-busy={busy}>
-      {/* the books stand a few pixels onto the shelf's top, not on its edge */}
-      <div className={`shelf-wall relative z-10 -mb-[6px] ${phone ? "flex flex-col gap-2 pt-2" : "flex flex-wrap items-end gap-[10px] pt-3"}`}
+      <div className={phone ? "flex flex-col gap-2 pt-2" : "flex flex-wrap items-end gap-[10px] pt-3"}
            style={phone ? undefined : { minHeight: minH }}>{children}</div>
-      <div aria-hidden className="shelf-top" />
-      <div aria-hidden className="shelf-front" />
+      <div aria-hidden className={`shelf-line ${phone ? "-mx-2" : "-mx-6"}`} />
     </div>
   );
 }

@@ -319,19 +319,8 @@ body {
 .shelf-focus:focus-visible { outline: 3px solid #7FB2FF; outline-offset: 3px; }
 .shelf-slot:hover, .shelf-slot:focus-visible { border-color: #EDE7DC; }
 .shelf-vertical { writing-mode: vertical-rl; transform: rotate(180deg); }
-/* the shelf: a top you see slightly from above, darkest at the back where the books stand,
-   a darker front edge, and a soft shadow on the wall beneath */
-.shelf-top {
-  height: 10px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 5px), linear-gradient(180deg, #4A2D1C, #57372A);
-}
-.shelf-front {
-  height: 16px;
-  background: linear-gradient(180deg, #3A2316, #2B190F);
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.5);
-}
-/* the wall just above the shelf, in the shelf's shadow (shows between the books) */
-.shelf-wall { background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.35), transparent 48px); }
+/* the shelf: a flat walnut line, running a little past the books on both sides */
+.shelf-line { height: 12px; background: #46291A; }
 @media (prefers-reduced-motion: reduce) {
   .shelf-page { animation: none; }
   .shelf-lift { transition: none; }
