@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SHELF_MIN_H, flatSpineHeight, hoursFontSize, nameFontSize, shelfHeight, shortWait, slotHeight, spineSize, waitRank, yearBoxHeight } from "./scale";
+import { SHELF_MIN_H, hoursLabel, flatSpineHeight, hoursFontSize, nameFontSize, shelfHeight, shortWait, slotHeight, spineSize, waitRank, yearBoxHeight } from "./scale";
 
 const GLYPH = 0.42; // Bebas Neue's average advance, in em
 
@@ -28,11 +28,15 @@ describe("labels never leave the spine", () => {
       });
     }
   }
-  it("hours fit across the spine", () => {
-    for (const pct of [0.01, 0.5, 1]) {
+  it("hours fit across the spine, even a long label on the thinnest spine", () => {
+    for (const pct of [0, 0.01, 0.5, 1]) {
       const { w } = spineSize(pct * 1000, 1000);
-      expect("12,345 H".length * GLYPH * hoursFontSize(w)).toBeLessThanOrEqual(w + 1);
+      for (const label of [hoursLabel("176"), hoursLabel("4,135"), hoursLabel("12,345")]) {
+        expect(label.length * GLYPH * hoursFontSize(w, label)).toBeLessThanOrEqual(w - 6);
+      }
     }
+    expect(hoursLabel("4,135")).toBe("4,135 Hrs");
+    expect(hoursFontSize(220, hoursLabel("4,135"))).toBe(44);   // wide spines keep the full size
   });
 });
 

@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { PlatformSummary } from "../../api";
 import { compact, num } from "../../format";
 import { HubLink } from "../../platform";
-import { flatSpineHeight, hoursFontSize, nameFontSize, spineSize } from "./scale";
+import { flatSpineHeight, hoursFontSize, hoursLabel, nameFontSize, spineSize } from "./scale";
 
 export const hoursOf = (p: PlatformSummary) => Math.round((p.est_s ?? 0) / 3600);
 
@@ -50,15 +50,15 @@ export function Spine({ p, max, color, onOpen, maxW = 220, maxH, flat = false }:
       <HubLink {...common} className="shelf-lift shelf-focus flex w-full items-center justify-between px-4 text-left no-underline"
               style={{ height: flatSpineHeight(hours, max), background: color.bg, color: color.fg }}>
         <span aria-hidden className="font-shelf-display text-[36px] uppercase leading-none">{p.name}</span>
-        <span aria-hidden className="font-shelf-display text-[28px] leading-none">{num(hours)} H</span>
+        <span aria-hidden className="font-shelf-display text-[28px] leading-none">{hoursLabel(num(hours))}</span>
       </HubLink>
     );
   }
   const { w, h } = spineSize(hours, max, maxW, maxH);
   return (
-    <HubLink {...common} className="shelf-lift shelf-focus flex shrink-0 flex-col items-center justify-between py-[14px] no-underline"
+    <HubLink {...common} className="shelf-tip shelf-focus flex shrink-0 flex-col items-center justify-between py-[14px] no-underline"
             style={{ width: w, height: h, background: color.bg, color: color.fg }}>
-      <span aria-hidden className="font-shelf-display leading-none" style={{ fontSize: hoursFontSize(w) }}>{num(hours)} H</span>
+      <span aria-hidden className="font-shelf-display leading-none" style={{ fontSize: hoursFontSize(w, hoursLabel(num(hours))) }}>{hoursLabel(num(hours))}</span>
       <span aria-hidden className="shelf-vertical font-shelf-display uppercase leading-none"
             style={{ fontSize: nameFontSize(w, h, p.name) }}>{p.name}</span>
       {w >= 120 && h >= 300 ? (

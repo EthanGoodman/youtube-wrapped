@@ -26,10 +26,15 @@ export function slotHeight(maxH: number, full = false): number {
   return full ? maxH : Math.round((maxH * 380) / SHELF_MAX_H);
 }
 
-/** Hours label across the top of a spine. */
-export function hoursFontSize(w: number): number {
-  return Math.max(16, Math.round(w * 0.2));
+/** Hours label across the top of a spine ("4,135 Hrs"): a fifth of the spine's thickness, smaller if the
+ *  label would otherwise run past its edges. */
+export function hoursFontSize(w: number, label = ""): number {
+  const fits = Math.floor((w - 8) / (Math.max(1, label.length) * 0.42));
+  return Math.max(10, Math.min(Math.max(16, Math.round(w * 0.2)), fits));
 }
+
+/** "4,135 Hrs" */
+export const hoursLabel = (hours: string) => `${hours} Hrs`;
 
 /** App name running up the spine: fits its thickness and its length (top and bottom labels reserved). */
 export function nameFontSize(w: number, h: number, name: string): number {
