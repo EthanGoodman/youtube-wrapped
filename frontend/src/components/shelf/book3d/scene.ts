@@ -20,7 +20,7 @@ export interface OpenBook3d {
 }
 
 const BACKDROP = 0x141312;
-const PAGE_BLACK = 0x1c1c1c; // the open pages: a soft grey-black, for every app
+const PAGE_BLACK = 0x141414; // the open pages: Netflix's grey-black, for every app
 let busy = false;
 
 /** Plays the book. Resolves false (having done nothing) when WebGL isn't available. */
