@@ -321,12 +321,8 @@ body {
 .shelf-vertical { writing-mode: vertical-rl; transform: rotate(180deg); }
 .shelf-plank {
   height: 26px;
-  border-top: 4px solid #B07B4C;                       /* the top edge catching the light */
-  background:
-    repeating-linear-gradient(178.6deg, rgba(40, 20, 8, 0.2) 0 1px, transparent 1px 5px),          /* grain */
-    repeating-linear-gradient(90deg, transparent 0 230px, rgba(255, 220, 170, 0.05) 230px 300px,
-                              transparent 300px 520px, rgba(40, 20, 8, 0.12) 520px 610px),         /* soft streaks */
-    linear-gradient(180deg, #80532F, #5A381E);
+  border-top: 3px solid #5E3D28;                       /* the top edge, a touch lighter */
+  background: linear-gradient(180deg, #46291A, #321D12);   /* dark walnut, softly shaded */
 }
 @media (prefers-reduced-motion: reduce) {
   .shelf-page { animation: none; }
