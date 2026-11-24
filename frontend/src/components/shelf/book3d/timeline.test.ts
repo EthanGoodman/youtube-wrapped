@@ -55,8 +55,8 @@ describe("it ends inside the title page", () => {
       const { pageW, pageH, T, board } = P.dims;
       const zTop = T / 2 - board;
       const end = T_END;
-      const tl = screenPoint(spine, view, axis, end, [1, pageH / 2, zTop]);
-      const br = screenPoint(spine, view, axis, end, [1 + pageW, -pageH / 2, zTop]);
+      const tl = screenPoint(spine, view, axis, end, [0, pageH / 2, zTop]);
+      const br = screenPoint(spine, view, axis, end, [pageW, -pageH / 2, zTop]);
       expect(tl[0]).toBeLessThanOrEqual(0);
       expect(tl[1]).toBeLessThanOrEqual(0);
       expect(br[0]).toBeGreaterThanOrEqual(view.w);

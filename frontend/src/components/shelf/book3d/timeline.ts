@@ -123,7 +123,7 @@ export function plan(spine: Rect, view: View, axis: Axis, tilt0 = 0): Plan {
 
   const closedScale = Math.min((view.h * 0.72) / H, (view.w * 0.8) / W, 1.6);
   const fill = Math.max((view.w * 1.04) / pageW, (view.h * 1.04) / pageH);
-  const pageCx = 1 + pageW / 2;
+  const pageCx = pageW / 2;
 
   // one continuous move: turn the cover to you, then open it while moving into the right-hand page
   const xKeys: [number, number][] = [[0, sx], [T_PULL, sx], [T_TURNED, -W / 2], [T_END, -pageCx]];

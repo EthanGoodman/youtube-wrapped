@@ -20,7 +20,7 @@ export interface OpenBook3d {
 }
 
 const BACKDROP = 0x141312;
-const PAGE_BLACK = 0x141414; // the open pages: Netflix's grey-black, for every app
+const PAGE_BLACK = 0x1c1c1c; // the open pages: a soft grey-black, for every app
 let busy = false;
 
 /** Plays the book. Resolves false (having done nothing) when WebGL isn't available. */
@@ -127,8 +127,16 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
     const block = new THREE.Mesh(geo(new THREE.BoxGeometry(pageW, pageH, blockT)), [
       mat({ map: edgeX }), paperMat, mat({ map: edgeY }), mat({ map: edgeY }), pageMat, paperMat,
     ]);
-    block.position.set(1 + pageW / 2, 0, 0);
+    block.position.set(pageW / 2, 0, 0);   // starts right at the hinge: no gap to see through
     book.add(block);
+
+    // the step at the hinge between the page and the open cover (one board thick on each side): filled
+    // in the page color once the cover is open, or the background shows through as a dark line
+    const gutter = new THREE.Mesh(geo(new THREE.PlaneGeometry(2 * board + 1, H)), blackMat);
+    gutter.rotation.y = Math.PI / 2;   // faces the page side (+x)
+    gutter.position.set(0.05, 0, T / 2);
+    gutter.visible = false;
+    book.add(gutter);
 
     // the front cover, on its hinge at the spine's outer edge
     const hinge = new THREE.Group();
@@ -152,6 +160,7 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
       const edge = s.cover < -Math.PI / 2 ? endMat : boardMat;
       const mats = cover.material as THREE.Material[];
       for (let i = 0; i < 4; i++) mats[i] = edge;
+      gutter.visible = s.cover < -Math.PI / 2;
       setEye(s.eye);
       renderer.setClearColor(BACKDROP, s.backdrop);
       renderer.render(scene, camera);
