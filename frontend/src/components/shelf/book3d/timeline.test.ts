@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { tiltFromHeight, Axis, HOVER_TILT_DEG, T_END, T_NAVIGATE, T_OPEN, T_TURNED, cameraDistance, frustum, plan, tiltPivot, track } from "./timeline";
+import { T_COVER, tiltFromHeight, Axis, HOVER_TILT_DEG, T_END, T_NAVIGATE, T_OPEN, cameraDistance, frustum, plan, tiltPivot, track } from "./timeline";
 
 /** Where a point of the book lands on screen (CSS px) at time t, using three's own math, posed exactly
  *  as scene.ts poses it. */
@@ -97,7 +97,10 @@ describe("timing", () => {
     const P = plan({ left: 0, top: 0, width: 100, height: 400 }, { w: 1200, h: 800 }, "y");
     expect(P.pose(T_NAVIGATE).backdrop).toBe(1);
     expect(P.pose(T_NAVIGATE).cover).toBe(0);
-    expect(P.pose(T_TURNED - 140).cover).toBe(0);
+    expect(P.pose(T_COVER).cover).toBe(0);
+    // fully turned to you before the cover moves, so the spine can't show while it opens
+    expect(P.pose(T_COVER).yaw).toBe(0);
+    for (let t = T_COVER; t <= T_OPEN; t += 10) expect(P.pose(t).yaw).toBe(0);
     expect(P.pose(T_OPEN).cover).toBeCloseTo(-Math.PI);
     expect(P.pose(0).backdrop).toBe(0);
     expect(T_END).toBeLessThanOrEqual(1500);

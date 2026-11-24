@@ -156,11 +156,12 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
       const c = Math.cos(s.roll), sn = Math.sin(s.roll);
       book.position.set(s.pos[0] + ox * c - oy * sn, s.pos[1] + ox * sn + oy * c, s.pos[2] + oz);
       hinge.rotation.y = s.cover;
-      // once the cover is past halfway open its edges face you: black like the pages, not a light seam
-      const edge = s.cover < -Math.PI / 2 ? endMat : boardMat;
+      // once the cover starts to open its edges are black like the pages: in the cover color they show
+      // as a strip running along its free edge as it swings
+      const edge = s.cover < 0 ? endMat : boardMat;
       const mats = cover.material as THREE.Material[];
       for (let i = 0; i < 4; i++) mats[i] = edge;
-      gutter.visible = s.cover < -Math.PI / 2;
+      gutter.visible = s.cover < 0;
       setEye(s.eye);
       renderer.setClearColor(BACKDROP, s.backdrop);
       renderer.render(scene, camera);

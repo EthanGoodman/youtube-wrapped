@@ -86,6 +86,7 @@ export function bookDims(spine: Rect, axis: Axis): BookDims {
 export const T_PULL = 200;      // tipped out of the shelf
 export const T_TURNED = 650;    // cover facing you
 export const T_NAVIGATE = 420;  // swap the page underneath (the backdrop is opaque by then)
+export const T_COVER = 510;     // the cover starts to open
 export const T_OPEN = 950;      // cover open
 export const T_END = 1150;      // the blank page fills the window
 export const FADE_MS = 350;     // then the real page's content fades in over it
@@ -129,10 +130,11 @@ export function plan(spine: Rect, view: View, axis: Axis, tilt0 = 0): Plan {
   const xKeys: [number, number][] = [[0, sx], [T_PULL, sx], [T_TURNED, -W / 2], [T_END, -pageCx]];
   const yKeys: [number, number][] = [[0, sy], [T_PULL, sy], [T_TURNED, 0]];
   const zKeys: [number, number][] = [[0, 0], [T_PULL, 40], [T_TURNED, zAt(closedScale, d)], [T_END, zAt(fill, d)]];
-  const yawKeys: [number, number][] = [[0, Math.PI / 2], [T_PULL, Math.PI / 2], [T_TURNED, 0.16], [T_OPEN, 0]];
+  // fully turned to you by the time the cover starts to open, so the spine is behind it
+  const yawKeys: [number, number][] = [[0, Math.PI / 2], [T_PULL, Math.PI / 2], [T_COVER, 0]];
   const tiltKeys: [number, number][] = [[0, tilt0], [T_PULL, axis === "y" ? 0.24 : 0.08], [T_TURNED, 0.05], [T_OPEN, 0]];
   const rollKeys: [number, number][] = [[0, roll0], [T_PULL, roll0], [T_TURNED, 0]];
-  const coverKeys: [number, number][] = [[0, 0], [T_TURNED - 140, 0], [T_OPEN, -Math.PI]];
+  const coverKeys: [number, number][] = [[0, 0], [T_COVER, 0], [T_OPEN, -Math.PI]];
   const eyeX: [number, number][] = [[0, eye0[0]], [T_PULL, eye0[0]], [T_TURNED, 0]];
   const eyeY: [number, number][] = [[0, eye0[1]], [T_PULL, eye0[1]], [T_TURNED, 0]];
   const backKeys: [number, number][] = [[0, 0], [40, 0], [380, 1]];
