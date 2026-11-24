@@ -47,8 +47,8 @@ export function Spine({ p, max, color, onOpen, maxW = 220, maxH, flat = false }:
   };
   if (flat) {
     return (
-      <HubLink {...common} className="shelf-lift shelf-focus shelf-book-flat flex w-full items-center justify-between px-4 text-left no-underline"
-              style={{ height: flatSpineHeight(hours, max), backgroundColor: color.bg, color: color.fg }}>
+      <HubLink {...common} className="shelf-lift shelf-focus flex w-full items-center justify-between px-4 text-left no-underline"
+              style={{ height: flatSpineHeight(hours, max), background: color.bg, color: color.fg }}>
         <span aria-hidden className="font-shelf-display text-[36px] uppercase leading-none">{p.name}</span>
         <span aria-hidden className="font-shelf-display text-[28px] leading-none">{hoursLabel(num(hours))}</span>
       </HubLink>
@@ -56,8 +56,8 @@ export function Spine({ p, max, color, onOpen, maxW = 220, maxH, flat = false }:
   }
   const { w, h } = spineSize(hours, max, maxW, maxH);
   return (
-    <HubLink {...common} className="shelf-tip shelf-focus shelf-book flex shrink-0 flex-col items-center justify-between py-[14px] no-underline"
-            style={{ width: w, height: h, backgroundColor: color.bg, color: color.fg }}>
+    <HubLink {...common} className="shelf-tip shelf-focus flex shrink-0 flex-col items-center justify-between py-[14px] no-underline"
+            style={{ width: w, height: h, background: color.bg, color: color.fg }}>
       <span aria-hidden className="font-shelf-display leading-none" style={{ fontSize: hoursFontSize(w, hoursLabel(num(hours))) }}>{hoursLabel(num(hours))}</span>
       <span aria-hidden className="shelf-vertical font-shelf-display uppercase leading-none"
             style={{ fontSize: nameFontSize(w, h, p.name) }}>{p.name}</span>
