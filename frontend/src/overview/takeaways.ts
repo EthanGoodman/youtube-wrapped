@@ -1,5 +1,5 @@
 /* The Overview's plain-language takeaways: pure functions, so they're easy to test. */
-import type { HourPoint, MonthPoint, RankedItem } from "../api";
+import type { HourPoint, MonthPoint } from "../api";
 import type { Filters } from "../filters";
 
 /** Filters for rankings: long videos and music only, unless Shorts are all you asked for (Wrapped does the same). */
@@ -8,17 +8,37 @@ export function rankingFilters(f: Filters): Filters {
   return sat.length ? { ...f, buckets: sat } : f;
 }
 
-/** "56% less than 2025": how this period's hours compare with the one before (null when there's nothing to compare). */
-export function changeLine(change: number | null, range: string, days: number): string | null {
-  if (change == null || !isFinite(change) || range === "all") return null;
+/** What this period is compared with. "This year" compares with the same dates last year, so "less than this time
+ *  last year" is literally true; other periods use the API's previous period of the same length. */
+export interface Comparison { label: string; start?: string; end?: string }
+
+export function comparison(f: { range: string }, today: string | undefined): Comparison | null {
+  if (f.range === "all") return null;
+  if (f.range === "this_year") {
+    if (!today) return null;
+    const y = Number(today.slice(0, 4)) - 1;
+    const md = today.slice(4) === "-02-29" ? "-02-28" : today.slice(4);
+    return { label: "this time last year", start: `${y}-01-01`, end: `${y}${md}` };
+  }
+  if (/^\d{4}$/.test(f.range)) return { label: String(Number(f.range) - 1) };
+  if (f.range === "4w") return { label: "the 4 weeks before" };
+  if (f.range === "6m") return { label: "the 6 months before" };
+  return { label: "the period before" };
+}
+
+/** "56% less than this time last year." (null when there's nothing to compare with). */
+export function changeLine(current: number, previous: number | null | undefined, label: string): string | null {
+  if (previous == null || previous <= 0) return null;
+  const change = current / previous - 1;
   const pct = Math.round(Math.abs(change) * 100);
-  if (pct === 0) return "About the same as before.";
-  const dir = change < 0 ? "less" : "more";
-  const before = /^\d{4}$/.test(range) ? String(Number(range) - 1)
-    : range === "4w" ? "the 4 weeks before"
-    : range === "6m" ? "the 6 months before"
-    : `the ${days} days before`;
-  return `${pct}% ${dir} than ${before}.`;
+  if (pct === 0) return `About the same as ${label}.`;
+  return `${pct}% ${change < 0 ? "less" : "more"} than ${label}.`;
+}
+
+/** Hours for a list: one decimal under 10 ("9.8 h"), whole hours above. */
+export function hoursShort(seconds: number): string {
+  const h = seconds / 3600;
+  return h < 10 ? `${(Math.round(h * 10) / 10).toString()} h` : `${Math.round(h)} h`;
 }
 
 /** Hour 0-23 as "12 AM" / "3 PM". */
@@ -48,21 +68,23 @@ export function oneIn(share: number): string {
   return `1 in ${Math.max(1, Math.round(1 / share))}`;
 }
 
-/** A small badge for a top channel: what makes it notable this period. */
-export function channelBadge(c: RankedItem, periodYear: number | null): string | null {
-  if (c.rank === 1 && c.prev_rank === 1) return "#1 before too";
-  if (c.is_new) return "new";
-  if (c.rank_change != null && c.rank_change > 0) return `↑ ${c.rank_change} ${c.rank_change === 1 ? "place" : "places"}`;
-  const since = c.first_watched ? Number(c.first_watched.slice(0, 4)) : null;
-  if (since && periodYear && since === periodYear - 1) return `found in ${since}`;
-  if (since) return `since ${since}`;
-  return null;
+/** How a channel moved since the comparison period: one kind of fact, colored by direction.
+ *  `prevRank` undefined = nothing to compare with (no badge); null = it wasn't ranked then. */
+export type Move = { text: string; tone: "up" | "down" | "new" | "same" };
+
+export function rankMove(rank: number, prevRank: number | null | undefined): Move | null {
+  if (prevRank === undefined) return null;
+  if (prevRank === null) return { text: "new", tone: "new" };
+  const d = prevRank - rank;
+  if (d > 0) return { text: `↑ ${d}`, tone: "up" };
+  if (d < 0) return { text: `↓ ${-d}`, tone: "down" };
+  return { text: "same spot", tone: "same" };
 }
 
-/** Headline for the top channels card: "JomezPro, again" when it was #1 before too. */
-export function topHeadline(top: RankedItem): string {
-  const name = top.title ?? "Your #1";
-  return top.prev_rank === 1 ? `${name}, again` : `${name}, your #1`;
+/** Headline for the top channels card: "JomezPro, again" when it was #1 then too. */
+export function topHeadline(title: string | null | undefined, prevRank: number | null | undefined): string {
+  const name = title ?? "Your #1";
+  return prevRank === 1 ? `${name}, again` : `${name}, your #1`;
 }
 
 /** Hours per calendar year from monthly totals, oldest first. */

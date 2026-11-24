@@ -7,8 +7,8 @@ import { HourPoint, MonthPoint, Overview, RankedItem, TopResponse, useMeta, useS
 import { ALL_BUCKETS, Bucket, useFilters, useLinkQuery } from "../filters";
 import { compact, num } from "../format";
 import {
-  changeLine, channelBadge, clockFacts, clockLine, hourLabel, periodTitle, periodYear, rankingFilters, spanLabel, topHeadline,
-  yearlyHours,
+  Comparison, Move, changeLine, clockFacts, clockLine, comparison, hourLabel, hoursShort, periodTitle, periodYear, rankMove,
+  rankingFilters, spanLabel, topHeadline, yearlyHours,
 } from "./takeaways";
 
 /** The palette (shared by every platform; only `accent` is the app's own color). */
@@ -35,7 +35,22 @@ export function OverviewPage() {
   // like Wrapped: rank channels and videos by what you sat down to watch, so a pile of 20-second Shorts doesn't
   // outrank them (when you pick Shorts only, Shorts it is)
   const ranked = rankingFilters(filters);
-  const channels = useStats<TopResponse>("top/channels", { limit: 5 }, { filters: ranked });
+  // channels are ranked by hours, the number they show most
+  const byTime = { ...ranked, metric: "time" as const };
+  const channels = useStats<TopResponse>("top/channels", { limit: 5 }, { filters: byTime });
+  // "this year" compares with the same dates last year; other periods use the API's previous period
+  const cmp = comparison(filters, meta.data?.today);
+  const sameSpan = cmp?.start ? { ...filters, range: "custom", start: cmp.start, end: cmp.end } : null;
+  const lastOv = useStats<Overview>("overview", {}, { filters: sameSpan ?? filters, enabled: !!sameSpan });
+  const lastTop = useStats<TopResponse>("top/channels", { limit: 200 },
+                                        { filters: sameSpan ? { ...byTime, ...sameSpan, metric: "time" } : byTime, enabled: !!sameSpan });
+  const prevRank = (c: RankedItem): number | null | undefined => {
+    if (!cmp) return undefined;
+    if (!sameSpan) return c.prev_rank;
+    if (!lastTop.data) return undefined;
+    return lastTop.data.items.find((x) => x.key === c.key)?.rank ?? null;
+  };
+  const prevHours = sameSpan ? lastOv.data?.est_s : ov.data?.previous.est_s;
   const clock = useStats<{ data: HourPoint[] }>("patterns/clock");
   const records = useStats<RecordsResponse>("records");
   const videos = useStats<TopResponse>("top/videos", { limit: 10 }, { filters: ranked });
@@ -50,10 +65,10 @@ export function OverviewPage() {
       {meta.error ? (
         <p className="mx-auto max-w-[1400px] p-6">Can't reach your data. {meta.error.message}</p>
       ) : (
-        <main className={`mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-6 [@media(min-height:760px)]:gap-3.5 [@media(min-height:760px)]:py-4 [@media(min-width:1024px)_and_(min-height:600px)]:grid [@media(min-width:1024px)_and_(min-height:600px)]:h-[calc(100dvh-66px)] [@media(min-width:1024px)_and_(min-height:600px)]:grid-rows-[minmax(0,1.5fr)_minmax(0,1fr)_auto]`}>
+        <main className={`mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-3 sm:px-6 [@media(min-height:760px)]:gap-3.5 [@media(min-height:760px)]:py-4 [@media(min-width:1024px)_and_(min-height:600px)]:grid [@media(min-width:1024px)_and_(min-height:600px)]:h-[calc(100dvh-66px)] [@media(min-width:1024px)_and_(min-height:600px)]:grid-rows-[minmax(0,1.25fr)_minmax(0,1fr)_auto]`}>
           <div className={`flex min-h-0 flex-col gap-3.5 lg:flex-row`}>
-            <HoursCard o={ov.data} range={filters.range} />
-            <TopChannels items={channels.data?.items} year={year} />
+            <HoursCard o={ov.data} prev={prevHours} cmp={cmp} />
+            <TopChannels items={channels.data?.items} prevRank={prevRank} cmp={cmp} />
           </div>
           <div className="grid min-h-0 grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
             <WhenCard clock={clock.data?.data} />
@@ -205,11 +220,11 @@ function Skeleton() {
   return <div className="h-full min-h-24 animate-pulse rounded-xl" style={{ background: "rgba(26,23,20,0.08)" }} />;
 }
 
-function HoursCard({ o, range }: { o?: Overview; range: string }) {
+function HoursCard({ o, prev, cmp }: { o?: Overview; prev?: number | null; cmp: Comparison | null }) {
   const { filters } = useFilters();
   const today = useMeta().data?.today;
   const hours = o ? Math.round(o.est_s / 3600) : null;
-  const change = o ? changeLine(o.change.est_s, range, o.range.days) : null;
+  const change = o && cmp ? changeLine(o.est_s, prev, cmp.label) : null;
   return (
     <Card bg={OV.accent} fg={OV.paper} className="shrink-0 gap-2 p-5 lg:basis-[34%] [@media(min-height:760px)]:p-7">
       <span className={kicker}>{periodTitle(filters, today)}</span>
@@ -220,7 +235,7 @@ function HoursCard({ o, range }: { o?: Overview; range: string }) {
             <span className="text-[clamp(22px,3.4vh,32px)]">hours</span>
           </h1>
           <p className="max-w-[440px] text-[clamp(15px,2.3vh,22px)] leading-snug">
-            On {num(o.active_days)} of {num(o.days)} days.{change ? ` ${change}` : ""}
+            On {num(o.active_days)} days.{change ? ` ${change}` : ""}
           </p>
           <div className="mt-auto flex flex-wrap gap-2 pt-1">
             <Pill bg={OV.paper} fg={OV.ink}>{compact(o.videos)} videos</Pill>
@@ -242,18 +257,33 @@ function Pic({ src, size, name }: { src?: string | null; size: string; name?: st
               className="shrink-0 rounded-full border-2 object-cover" style={box} />;
 }
 
-const BADGE_COLORS: [string, string][] = [[OV.teal, OV.paper], [OV.sand, OV.ink], [OV.mustard, OV.ink], [OV.sand, OV.ink]];
+const MOVE_COLORS: Record<Move["tone"], [string, string]> = {
+  up: [OV.teal, OV.paper], new: [OV.mustard, OV.ink], down: [OV.sand, OV.ink], same: [OV.sand, OV.ink],
+};
 
-function TopChannels({ items, year }: { items?: RankedItem[]; year: number | null }) {
+function MoveBadge({ m }: { m: Move | null }) {
+  if (!m) return null;
+  const [bg, fg] = MOVE_COLORS[m.tone];
+  return <span className="w-fit whitespace-nowrap rounded-full px-2 py-px font-shelf-mono text-[11px]" style={{ background: bg, color: fg }}>{m.text}</span>;
+}
+
+function TopChannels({ items, prevRank, cmp }: {
+  items?: RankedItem[]; prevRank: (c: RankedItem) => number | null | undefined; cmp: Comparison | null;
+}) {
   const q = useLinkQuery();
   const [top, ...rest] = items ?? [];
   return (
     <Card className="min-w-0 flex-1 gap-3 p-5 [@media(min-height:760px)]:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <h2 className="font-ov-display text-[clamp(20px,3vh,26px)] font-extrabold tracking-[-0.01em]">
-          {top ? topHeadline(top) : "Your top channels"}
+          {top ? topHeadline(top.title, prevRank(top)) : "Your top channels"}
         </h2>
-        <Link to={"/top/channels" + q} className="inline-flex min-h-10 items-center font-shelf-mono text-[13px] underline underline-offset-4">All your channels ›</Link>
+        {top && (
+          <p className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>
+            By hours watched{cmp ? ` · arrows: since ${cmp.label}` : ""}
+          </p>
+        )}
+        <Link to={"/top/channels" + q} className="ml-auto inline-flex min-h-10 items-center font-shelf-mono text-[13px] underline underline-offset-4">All your channels ›</Link>
       </div>
       {!items ? <Skeleton /> : !top ? <p style={{ color: OV.soft }}>No channels in this period.</p> : (
         <div className="flex min-h-0 flex-1 flex-col gap-4 sm:flex-row">
@@ -264,20 +294,18 @@ function TopChannels({ items, year }: { items?: RankedItem[]; year: number | nul
                     style={{ background: OV.mustard, borderColor: OV.ink }} aria-hidden>1</span>
             </span>
             <span className="font-ov-display text-[clamp(20px,3vh,26px)] font-extrabold leading-tight">{top.title}</span>
-            <span className="font-shelf-mono text-[13px]" style={{ color: OV.soft }}>{num(top.count)} videos · {Math.round(top.time_s / 3600)} h</span>
+            <span className="font-shelf-mono text-[13px]" style={{ color: OV.soft }}>{hoursShort(top.time_s)} · {num(top.count)} videos</span>
           </Link>
           <ol start={2} className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:grid-rows-2">
-            {rest.map((c, i) => {
-              const badge = channelBadge(c, year);
-              const [bg, fg] = BADGE_COLORS[i % BADGE_COLORS.length];
+            {rest.map((c) => {
               return (
                 <li key={c.key} className="min-h-0">
                   <Link to={`/channel/${encodeURIComponent(c.key)}${q}`} className="flex h-full items-center gap-3 rounded-xl p-2.5 hover:brightness-[0.97]" style={{ background: OV.bg }}>
                     <Pic src={c.avatar_url} name={c.title} size="clamp(40px,7vh,88px)" />
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="truncate text-[clamp(15px,2.1vh,20px)] font-bold">{c.rank}. {c.title}</span>
-                      <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{num(c.count)} videos · {Math.round(c.time_s / 3600)} h</span>
-                      {badge && <span className="w-fit rounded-full px-2 py-px font-shelf-mono text-[11px]" style={{ background: bg, color: fg }}>{badge}</span>}
+                      <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{hoursShort(c.time_s)} · {num(c.count)} videos</span>
+                      <MoveBadge m={rankMove(c.rank, prevRank(c))} />
                     </span>
                   </Link>
                 </li>
@@ -315,11 +343,14 @@ function WhenCard({ clock }: { clock?: HourPoint[] }) {
         <>
           <span className={big}>{hourLabel(f.peak)}</span>
           <span className={line}>{clockLine(f)}</span>
-          <span aria-hidden className="mt-auto grid h-[clamp(22px,5vh,44px)] items-end gap-[2px]" style={{ gridTemplateColumns: "repeat(24,minmax(0,1fr))" }}>
+          <span aria-hidden className="mt-auto grid h-[clamp(18px,4.2vh,40px)] items-end gap-[2px]" style={{ gridTemplateColumns: "repeat(24,minmax(0,1fr))" }}>
             {clock.map((h) => (
               <span key={h.hour} className="rounded-[2px]"
                     style={{ height: `${Math.max(4, (h.count / max) * 100)}%`, background: h.hour === f.peak ? OV.mustard : "#6E6558" }} />
             ))}
+          </span>
+          <span aria-hidden className="grid font-shelf-mono text-[10px]" style={{ gridTemplateColumns: "repeat(4,minmax(0,1fr))", color: "#B9AE9C" }}>
+            <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span>
           </span>
         </>
       )}
@@ -327,11 +358,17 @@ function WhenCard({ clock }: { clock?: HourPoint[] }) {
   );
 }
 
-function SplitBar({ share }: { share: number }) {
-  return (
-    <span className="flex h-3 overflow-hidden rounded-md border-2" style={{ borderColor: OV.ink }}>
+function SplitBar({ share, label }: { share: number; label?: string }) {
+  const bar = (
+    <span className="flex h-3 flex-1 overflow-hidden rounded-md border-2" style={{ borderColor: OV.ink }}>
       <span style={{ width: `${share * 100}%`, background: OV.ink }} />
       <span className="flex-1" style={{ background: OV.paper }} />
+    </span>
+  );
+  if (!label) return bar;
+  return (
+    <span className="flex items-center gap-2 font-shelf-mono text-[11px]">
+      <span className="w-[44px] uppercase tracking-[0.06em]">{label}</span>{bar}<span className="w-[30px] text-right">{Math.round(share * 100)}%</span>
     </span>
   );
 }
@@ -348,9 +385,12 @@ function WhatCard({ o, genre }: { o?: Overview; genre?: RankedItem }) {
         <>
           <span className={big}>{Math.round(shortShare * 100)}% Shorts</span>
           <span className={line}>
-            {shortTime < shortShare ? `but longer videos took ${Math.round((1 - shortTime) * 100)}% of your time.` : `and ${Math.round(shortTime * 100)}% of your time.`}
+            of your videos, {shortTime < shortShare ? "but only" : "and"} {Math.round(shortTime * 100)}% of your watch time.
           </span>
-          <span aria-hidden className="mt-auto flex flex-col gap-1"><SplitBar share={shortShare} /><SplitBar share={shortTime} /></span>
+          <span className="mt-auto flex flex-col gap-1" role="img"
+                aria-label={`Shorts: ${Math.round(shortShare * 100)}% of videos, ${Math.round(shortTime * 100)}% of watch time`}>
+            <SplitBar share={shortShare} label="Videos" /><SplitBar share={shortTime} label="Time" />
+          </span>
         </>
       ) : genre ? (
         <>
@@ -390,15 +430,11 @@ function RepeatCard({ v }: { v?: RankedItem | null }) {
       {v === undefined ? <Skeleton /> : !v ? <p className={line}>Not enough data yet.</p> : (
         <>
           <span className={big}>{v.count > 1 ? `${num(v.count)} times` : "Once"}</span>
-          <span className="text-[clamp(13px,1.9vh,16px)] leading-snug">{v.count > 1 ? "you went back to" : "Nothing twice. Your top video:"}</span>
-          <span className="truncate text-[clamp(13px,1.9vh,16px)] font-bold" title={v.title ?? undefined}>{v.title}</span>
-          <span className="relative mt-auto block">
+          <span className={line}>{v.count > 1 ? "you watched your most replayed video:" : "Nothing twice. Your top video:"}</span>
+          <span className="mt-auto flex min-h-0 items-center gap-3">
             {thumb && <img src={thumb} alt="" loading="lazy" referrerPolicy="no-referrer"
-                           className="block h-[clamp(30px,6.5vh,64px)] w-full rounded-lg border-2 object-cover" style={{ borderColor: OV.ink }} />}
-            {v.count > 1 && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border-2 px-2 font-ov-display text-[14px] font-extrabold"
-                    style={{ background: OV.mustard, borderColor: OV.ink }} aria-hidden>×{v.count}</span>
-            )}
+                           className="aspect-video h-[clamp(36px,7.5vh,72px)] shrink-0 rounded-md border-2 object-cover" style={{ borderColor: OV.ink }} />}
+            <span className="line-clamp-3 text-[clamp(12px,1.7vh,14px)] font-bold leading-snug" title={v.title ?? undefined}>{v.title}</span>
           </span>
         </>
       )}
@@ -411,6 +447,7 @@ function YearsStrip({ months, current }: { months?: MonthPoint[]; current: numbe
   const best = years?.reduce((a, b) => (b.hours > a.hours ? b : a), years[0]);
   const total = years?.reduce((s, y) => s + y.hours, 0) ?? 0;
   const max = best?.hours || 1;
+  const thisYear = Number(useMeta().data?.today.slice(0, 4));
   return (
     <Card className="flex-col gap-3 p-4 sm:flex-row sm:items-end sm:gap-8 sm:px-6 [@media(min-height:760px)]:py-5">
       <div className="flex shrink-0 flex-col gap-1 sm:w-[clamp(280px,34%,460px)]">
@@ -418,21 +455,23 @@ function YearsStrip({ months, current }: { months?: MonthPoint[]; current: numbe
         {years && best ? (
           <>
             <h2 className="font-ov-display text-[clamp(18px,2.8vh,26px)] font-extrabold leading-tight">{best.year} was your biggest year: {num(best.hours)} hours.</h2>
-            <p className="text-[14px]" style={{ color: OV.soft }}>{num(total)} hours in all. Pick a year to open its Wrapped.</p>
+            <p className="text-[14px]" style={{ color: OV.soft }}>{num(total)} hours in all. * {thisYear} isn't over yet. Pick a year to open its Wrapped.</p>
           </>
         ) : <Skeleton />}
       </div>
       {years && (
         <div className="grid flex-1 items-end gap-1.5" style={{ gridTemplateColumns: `repeat(${years.length},minmax(0,1fr))` }}>
           {years.map((y) => (
-            <Link key={y.year} to={`/wrapped?year=${y.year}`} aria-label={`${y.year}: ${num(y.hours)} hours. Open its Wrapped`}
-                  className="group flex flex-col items-stretch gap-1">
-              <span className="flex h-[clamp(30px,8vh,110px)] items-end">
-                <span className="block w-full rounded-t-md border-2 group-hover:brightness-95"
-                      style={{ height: `${Math.max(8, (y.hours / max) * 100)}%`, borderColor: OV.ink,
+            <Link key={y.year} to={`/wrapped?year=${y.year}`}
+                  aria-label={`${y.year}: ${num(y.hours)} hours${y.year === thisYear ? " so far" : ""}. Open its Wrapped`}
+                  className="group flex flex-col items-stretch gap-0.5">
+              <span className="flex h-[clamp(40px,8.5vh,120px)] flex-col justify-end">
+                <span className="text-center font-shelf-mono text-[11px]">{num(y.hours)}</span>
+                <span className={`block w-full rounded-t-md border-2 group-hover:brightness-95 ${y.year === thisYear ? "border-dashed" : ""}`}
+                      style={{ height: `${Math.max(6, (y.hours / max) * 72)}%`, borderColor: OV.ink,
                                background: y.year === best?.year ? OV.accent : y.year === current ? OV.mustard : OV.sand }} />
               </span>
-              <span className="text-center font-shelf-mono text-[12px]">’{String(y.year).slice(2)}</span>
+              <span className="text-center font-shelf-mono text-[12px]">’{String(y.year).slice(2)}{y.year === thisYear ? "*" : ""}</span>
             </Link>
           ))}
         </div>

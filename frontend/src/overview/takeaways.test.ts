@@ -1,27 +1,31 @@
 import { describe, expect, it } from "vitest";
-import type { RankedItem } from "../api";
 import {
-  changeLine, channelBadge, clockFacts, clockLine, hourLabel, oneIn, periodTitle, periodYear, rankingFilters, spanLabel, topHeadline, yearlyHours,
+  changeLine, clockFacts, clockLine, comparison, hourLabel, hoursShort, oneIn, periodTitle, periodYear, rankMove,
+  rankingFilters, spanLabel, topHeadline, yearlyHours,
 } from "./takeaways";
 
-const item = (o: Partial<RankedItem>): RankedItem => ({
-  key: "k", count: 1, time_s: 0, share: 0, rank: 3, prev_rank: null, rank_change: null, comparable: true, is_new: false, ...o,
+describe("comparison", () => {
+  it("compares this year with the same dates last year", () => {
+    expect(comparison({ range: "this_year" }, "2026-11-24"))
+      .toEqual({ label: "this time last year", start: "2025-01-01", end: "2025-11-24" });
+    expect(comparison({ range: "this_year" }, "2028-02-29")?.end).toBe("2027-02-28");
+  });
+  it("names the previous year or period otherwise", () => {
+    expect(comparison({ range: "2025" }, "2026-11-24")).toEqual({ label: "2024" });
+    expect(comparison({ range: "4w" }, "2026-11-24")).toEqual({ label: "the 4 weeks before" });
+    expect(comparison({ range: "all" }, "2026-11-24")).toBeNull();
+  });
 });
 
 describe("changeLine", () => {
-  it("names the previous year for a year range", () => {
-    expect(changeLine(-0.616, "2026", 365)).toBe("62% less than 2025.");
+  it("says more or less than the comparison", () => {
+    expect(changeLine(227, 516, "this time last year")).toBe("56% less than this time last year.");
+    expect(changeLine(125, 100, "2024")).toBe("25% more than 2024.");
+    expect(changeLine(100.2, 100, "2024")).toBe("About the same as 2024.");
   });
-  it("uses the period length otherwise", () => {
-    expect(changeLine(0.25, "this_year", 328)).toBe("25% more than the 328 days before.");
-    expect(changeLine(-0.1, "4w", 28)).toBe("10% less than the 4 weeks before.");
-  });
-  it("has nothing to say for lifetime or missing data", () => {
-    expect(changeLine(0.5, "all", 3000)).toBeNull();
-    expect(changeLine(null, "this_year", 300)).toBeNull();
-  });
-  it("rounds tiny changes to about the same", () => {
-    expect(changeLine(0.002, "2025", 365)).toBe("About the same as before.");
+  it("has nothing to say without a comparison", () => {
+    expect(changeLine(10, 0, "2024")).toBeNull();
+    expect(changeLine(10, undefined, "2024")).toBeNull();
   });
 });
 
@@ -42,19 +46,22 @@ describe("clock", () => {
   });
 });
 
-describe("channel badges", () => {
-  it("prefers a repeat #1, then new, then climbing, then when found", () => {
-    expect(channelBadge(item({ rank: 1, prev_rank: 1 }), 2026)).toBe("#1 before too");
-    expect(channelBadge(item({ is_new: true, rank_change: 4 }), 2026)).toBe("new");
-    expect(channelBadge(item({ rank_change: 11 }), 2026)).toBe("↑ 11 places");
-    expect(channelBadge(item({ rank_change: 1 }), 2026)).toBe("↑ 1 place");
-    expect(channelBadge(item({ rank_change: -2, first_watched: "2025-07-17" }), 2026)).toBe("found in 2025");
-    expect(channelBadge(item({ first_watched: "2020-04-13" }), 2026)).toBe("since 2020");
-    expect(channelBadge(item({}), 2026)).toBeNull();
+describe("top channels", () => {
+  it("shows one kind of badge: places moved since the comparison", () => {
+    expect(rankMove(2, 12)).toEqual({ text: "↑ 10", tone: "up" });
+    expect(rankMove(5, 3)).toEqual({ text: "↓ 2", tone: "down" });
+    expect(rankMove(1, 1)).toEqual({ text: "same spot", tone: "same" });
+    expect(rankMove(4, null)).toEqual({ text: "new", tone: "new" });
+    expect(rankMove(4, undefined)).toBeNull();
   });
   it("writes the card headline", () => {
-    expect(topHeadline(item({ rank: 1, prev_rank: 1, title: "JomezPro" }))).toBe("JomezPro, again");
-    expect(topHeadline(item({ rank: 1, prev_rank: 4, title: "Yes Theory" }))).toBe("Yes Theory, your #1");
+    expect(topHeadline("JomezPro", 1)).toBe("JomezPro, again");
+    expect(topHeadline("Yes Theory", 4)).toBe("Yes Theory, your #1");
+  });
+  it("formats hours so the order reads right", () => {
+    expect(hoursShort(35324)).toBe("9.8 h");
+    expect(hoursShort(40389)).toBe("11 h");
+    expect(hoursShort(3600 * 2)).toBe("2 h");
   });
 });
 
