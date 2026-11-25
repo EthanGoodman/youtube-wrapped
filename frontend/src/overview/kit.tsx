@@ -2,7 +2,7 @@
    the frame (top bar, period and content pickers), and small parts. Only `OV.accent` is the app's own color. */
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { HubLink, Link, useCapability } from "../platform";
+import { HubLink, Link, useCapability, usePlatform } from "../platform";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { ALL_BUCKETS, Bucket, Filters, useFilters, useLinkQuery } from "../filters";
 import { Comparison, Move, comparison } from "./takeaways";
@@ -13,7 +13,7 @@ export const OV = {
   mustard: "#E2A93B", teal: "#2E6B63", accent: "#B83A24", mute: "#B9AE9C",
 };
 
-type Tab = [string, string, boolean?];
+type Tab = [string, string, boolean?, string?];
 type MoreLink = [string, string, string?];
 /* Each family's tabs follow the priority table: universal + must-haves are tabs, nice-to-haves and things people only
    look for on purpose live behind "More" (the third item is a capability the platform needs for that link). */
@@ -23,8 +23,9 @@ const NAV: Record<"videos" | "shows", { tabs: Tab[]; more: MoreLink[] }> = {
     more: [["/top/videos", "Top videos"], ["/top/genres", "Top genres"], ["/ads", "Ads you saw", "ads"], ["/search", "Search history", "search"]],
   },
   shows: {
-    tabs: [["/", "Overview", true], ["/top/channels", "Top shows"], ["/shows", "How far you got"], ["/patterns", "Patterns"], ["/records", "Records"]],
-    more: [["/evolution", "Evolution"], ["/top/genres", "Top genres"], ["/top/movies", "Top movies"]],
+    // "Top shows" takes the platform's word (Top series); Anime is Crunchyroll's own tab
+    tabs: [["/", "Overview", true], ["/top/channels", "Top shows"], ["/shows", "How far you got"], ["/anime", "Anime", false, "anime"], ["/patterns", "Patterns"], ["/records", "Records"]],
+    more: [["/evolution", "Evolution"], ["/top/genres", "Top genres"], ["/top/movies", "Top movies", "!anime"]],
   },
 };
 
@@ -33,18 +34,28 @@ export function useFamily(): "videos" | "shows" {
   return useCapability("series") ? "shows" : "videos";
 }
 
-/** What one watched thing is called: a video (YouTube) or a title (an episode or a movie). */
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** What one watched thing is called, from the platform's own words: a video, a title (Netflix), an episode (Crunchyroll). */
 export function useNoun(): { one: string; many: string; Many: string } {
-  return useFamily() === "shows" ? { one: "title", many: "titles", Many: "Titles" } : { one: "video", many: "videos", Many: "Videos" };
+  const v = usePlatform()?.vocab;
+  const shows = useFamily() === "shows";
+  const one = v?.item ?? (shows ? "title" : "video");
+  const many = v?.items ?? (shows ? "titles" : "videos");
+  return { one, many, Many: cap(many) };
 }
 
-/** What the things you return to are called: channels (YouTube) or shows. */
+/** What the things you return to are called: channels, shows (Netflix), series (Crunchyroll). */
 export function useCreator(): { one: string; many: string; Many: string } {
-  return useFamily() === "shows" ? { one: "show", many: "shows", Many: "Shows" } : { one: "channel", many: "channels", Many: "Channels" };
+  const v = usePlatform()?.vocab;
+  const shows = useFamily() === "shows";
+  const one = v?.creator ?? (shows ? "show" : "channel");
+  const many = v?.creators ?? (shows ? "shows" : "channels");
+  return { one, many, Many: cap(many) };
 }
 
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
-const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A" };
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C" };
 export function useAccent(): string {
   return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
 }
@@ -58,7 +69,11 @@ export function TopBar() {
   const thisYear = meta?.today.slice(0, 4);
   const caps = meta?.platform.capabilities;
   const nav = NAV[useFamily()];
-  const more = nav.more.filter(([, , cap]) => !cap || !caps || caps.includes(cap));
+  const cr = useCreator();
+  // a link that needs a capability ("!x": one the platform must not have)
+  const has = (cap?: string) => !cap || !caps || (cap.startsWith("!") ? !caps.includes(cap.slice(1)) : caps.includes(cap));
+  const tabs = nav.tabs.filter(([, , , cap]) => has(cap));
+  const more = nav.more.filter(([, , cap]) => has(cap));
   return (
     <header style={{ background: OV.ink, color: OV.paper }}>
       <div className="mx-auto flex min-h-16 max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-8 lg:h-16 lg:flex-nowrap lg:py-0">
@@ -66,13 +81,13 @@ export function TopBar() {
         <span className="font-ov-display text-[26px] font-extrabold tracking-[-0.02em]">{meta?.platform.name ?? "YouTube"}</span>
         <ScrollRow bg={OV.ink} outer="order-last -mx-1 w-full lg:order-none lg:mx-0 lg:w-auto lg:flex-1" className="px-1 lg:overflow-visible lg:px-0">
         <nav aria-label="Sections" className="flex w-max items-center gap-1 lg:w-auto">
-          {nav.tabs.map(([to, label, end]) => {
+          {tabs.map(([to, label, end]) => {
             const on = end ? pathname.replace(/\/$/, "").split("/").length <= 2 : pathname.includes(to);
             return (
               <Link key={to} to={to + q} aria-current={on ? "page" : undefined}
                     className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium hover:underline"
                     style={on ? { background: OV.mustard, color: OV.ink } : undefined}>
-                {label}
+                {to === "/top/channels" ? `Top ${cr.many}` : label}
               </Link>
             );
           })}

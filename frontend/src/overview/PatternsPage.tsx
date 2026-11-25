@@ -97,6 +97,7 @@ function Weekdays({ grid, m }: { grid?: number[][]; m: Measure }) {
 }
 
 function HourChart({ data, m }: { data?: HourPoint[]; m: Measure }) {
+  const n = useNoun().many;
   if (!data) return <Skeleton h={320} />;
   const v = (h: HourPoint) => (m === "time" ? h.time_s : h.count);
   const f = clockFacts(data);
@@ -106,10 +107,10 @@ function HourChart({ data, m }: { data?: HourPoint[]; m: Measure }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span><span className="font-ov-display text-[34px] font-extrabold" style={{ color: OV.mustard }}>{hourLabel(peak)}</span>
           <span className="ml-2 text-[17px]">is your busiest hour</span></span>
-        {f && <span className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>{oneIn(f.night)} videos started between midnight and 5 am</span>}
+        {f && <span className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>{oneIn(f.night)} {n} started between midnight and 5 am</span>}
       </div>
       <HoverBars dark height={220} gap={4} radius={4} hint="Hover an hour to see it."
-                 ariaLabel={`${m === "time" ? "Hours" : "Videos"} by hour of day. Busiest: ${hourLabel(peak)}.`}
+                 ariaLabel={`${m === "time" ? "Hours" : n} by hour of day. Busiest: ${hourLabel(peak)}.`}
                  bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: v(h), display: amount(m, v(h)),
                                           color: h.hour === peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }))}
                  ticks={<Ticks dark labels={[0, 3, 6, 9, 12, 15, 18, 21].map(hourLabel)} />} />

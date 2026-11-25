@@ -31,6 +31,10 @@ import { HubLink, PLATFORM_IDS, setVocab, useCapability } from "./platform";
 import { setChartTheme } from "./theme";
 import { applyThemeColors, themeOf } from "./themes";
 
+/** Platforms on the new stats pages (the rest keep the old layout until they move over). */
+const SHOWS_NEW = ["netflix", "crunchyroll"];
+const NEW_LOOK = ["youtube", ...SHOWS_NEW];
+
 /** Sections of a platform. Old single-platform links (/top/channels, …) redirect to /youtube/… */
 const SECTIONS = ["top", "patterns", "records", "evolution", "ads", "search", "channel", "video", "category",
                   "genre", "year", "wrapped"];
@@ -94,16 +98,16 @@ function PlatformApp() {
   return (
     <Routes>
       {/* YouTube is first on the new Overview (its own frame); the others keep their home until we generalize it */}
-      <Route index element={platform === "youtube" ? <OverviewPage /> : platform === "netflix" ? <ShowsOverviewPage /> : <Layout><Home /></Layout>} />
-      <Route path="top/:kind" element={platform === "youtube" || platform === "netflix" ? <TopPage /> : <Layout><Top /></Layout>} />
-      <Route path="shows" element={<Gate capability="series">{platform === "netflix" ? <HowFarPage /> : <Layout><Shows /></Layout>}</Gate>} />
+      <Route index element={platform === "youtube" ? <OverviewPage /> : SHOWS_NEW.includes(platform) ? <ShowsOverviewPage /> : <Layout><Home /></Layout>} />
+      <Route path="top/:kind" element={NEW_LOOK.includes(platform) ? <TopPage /> : <Layout><Top /></Layout>} />
+      <Route path="shows" element={<Gate capability="series">{SHOWS_NEW.includes(platform) ? <HowFarPage /> : <Layout><Shows /></Layout>}</Gate>} />
       <Route path="anime" element={<Gate capability="anime"><Layout><Anime /></Layout></Gate>} />
-      <Route path="patterns" element={platform === "youtube" || platform === "netflix" ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
-      <Route path="records" element={platform === "youtube" || platform === "netflix" ? <RecordsPage /> : <Layout><Records /></Layout>} />
-      <Route path="evolution" element={platform === "youtube" || platform === "netflix" ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
+      <Route path="patterns" element={NEW_LOOK.includes(platform) ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
+      <Route path="records" element={NEW_LOOK.includes(platform) ? <RecordsPage /> : <Layout><Records /></Layout>} />
+      <Route path="evolution" element={NEW_LOOK.includes(platform) ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
       <Route path="ads" element={<Gate capability="ads">{platform === "youtube" ? <AdsPage /> : <Layout><Ads /></Layout>}</Gate>} />
       <Route path="search" element={<Gate capability="search">{platform === "youtube" ? <SearchPage /> : <Layout><Search /></Layout>}</Gate>} />
-      <Route path="channel/:id" element={platform === "netflix" ? <ShowDetailPage /> : platform === "youtube" ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
+      <Route path="channel/:id" element={SHOWS_NEW.includes(platform) ? <ShowDetailPage /> : platform === "youtube" ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
       <Route path="video/:id" element={platform === "youtube" ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
       <Route path="category/:id" element={platform === "youtube" ? <CategoryDetailPage /> : <Layout><CategoryPage /></Layout>} />
       <Route path="genre/:topic" element={platform === "youtube" ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
