@@ -197,6 +197,7 @@ const ROW = 40;
 
 function BarRace() {
   const { filters } = useFilters();
+  const cr = useCreator();
   // a few extra channels per month, so newcomers slide up from below instead of appearing out of nowhere
   const race = useStats<Race>("evolution/bar_race", { limit: 14 }, { filters: { ...rankingFilters(filters), metric: "time" } });
   const frames = race.data?.frames ?? [];
@@ -233,7 +234,7 @@ function BarRace() {
       {!race.data ? <Skeleton h={420} /> : (
         <>
           <div className="relative" style={{ height: ROW * 10 }} role="img"
-               aria-label={`Top channels by hours as of ${label}: ${rows.slice(0, 3).map((r) => race.data!.channels[r.channel_id]?.title).join(", ")}`}>
+               aria-label={`Top ${cr.many} by hours as of ${label}: ${rows.slice(0, 3).map((r) => race.data!.channels[r.channel_id]?.title).join(", ")}`}>
             {rows.map((r, rank) => {
               const c = race.data!.channels[r.channel_id];
               return (

@@ -66,6 +66,7 @@ export function App() {
 function HubPage({ page = <Hub /> }: { page?: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.removeAttribute("data-theme");
+    document.title = "Wrapped";
     applyThemeColors(null);
   }, []);
   return <>{page}</>;
@@ -87,6 +88,10 @@ function PlatformApp() {
     setChartTheme(theme, t?.chart);
     setVocab(info?.vocab ?? null, info?.name);
   }
+  // the browser tab says which platform you're on
+  useEffect(() => {
+    document.title = info ? `${info.name} · Wrapped` : "Wrapped";
+  }, [info]);
 
   if (!PLATFORM_IDS.includes(platform)) {
     if (!platforms) return null;  // a platform added on the server may not be known yet

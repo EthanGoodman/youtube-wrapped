@@ -54,8 +54,8 @@ export function TopPage() {
   const metric: Metric = (params.get("metric") as Metric | null) ?? (KINDS.find((x) => x.kind === kind)?.once ? "count" : "time");
   const ranked = { ...(k.shape === "none" ? filters : rankingFilters(filters)), metric };
   const [limit, setLimit] = useState(50);
-  const top = useStats<TopResponse>(`top/${kind}`, { limit }, { filters: ranked });
-  const prev = usePrevRanks(kind, ranked);
+  const top = useStats<TopResponse>(`top/${k.kind}`, { limit }, { filters: ranked });
+  const prev = usePrevRanks(k.kind, ranked);
   // single videos rarely repeat year to year, so their arrows would all say "new": only lists of things you return to get them
   const moves = !k.once;
   const cmp = moves ? prev.cmp : null;
