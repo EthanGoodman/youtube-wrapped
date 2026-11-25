@@ -76,6 +76,11 @@ class Item:
     category_id: str | None = None
     url: str | None = None
     extra: str | None = None          # JSON for platform-specific fields
+    album_id: str | None = None       # music: the track's album
+
+
+ITEM_COLS = ("item_id", "status", "title", "creator_id", "thumb_small", "thumb_large", "duration_s", "published_at",
+             "category_id", "url", "extra", "album_id")
 
 
 @dataclass(slots=True)
@@ -121,7 +126,9 @@ def write_views(conn: sqlite3.Connection, views: Iterable[View]) -> int:
 
 def write_items(conn: sqlite3.Connection, items: Iterable[Item]) -> None:
     conn.execute("DELETE FROM items")
-    conn.executemany("INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)", [astuple(i) for i in items])
+    # named columns: databases made before album_id have it last (added by migration), new ones too
+    conn.executemany(f"INSERT INTO items ({', '.join(ITEM_COLS)}) VALUES ({','.join('?' * len(ITEM_COLS))})",
+                     [astuple(i) for i in items])
 
 
 def write_creators(conn: sqlite3.Connection, creators: Iterable[Creator]) -> None:
