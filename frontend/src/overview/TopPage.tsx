@@ -2,23 +2,31 @@
    The big three first, then the ranked list; ranked like the home page (by hours, long videos unless you picked Shorts). */
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Link } from "../platform";
+import { Link, useCapability } from "../platform";
 import { Metric, useFilters, useLinkQuery } from "../filters";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { num, pct } from "../format";
-import { MoveBadge, OV, PageBody, PageHeader, Pic, Seg, Skeleton, StatsFrame, kicker, usePrevRanks } from "./kit";
+import { MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useFamily, usePrevRanks } from "./kit";
 import { hoursShort, periodTitle, rankMove, rankingFilters } from "./takeaways";
 
-type Shape = "face" | "thumb" | "none";
-interface Kind { kind: string; label: string; noun: string; shape: Shape; link?: (k: string) => string; cap?: string; music?: boolean }
-const KINDS: Kind[] = [
-  { kind: "channels", label: "Channels", noun: "channels", shape: "face", link: (k) => `/channel/${encodeURIComponent(k)}` },
-  { kind: "videos", label: "Videos", noun: "videos", shape: "thumb", link: (k) => `/video/${encodeURIComponent(k)}` },
-  { kind: "genres", label: "Genres", noun: "genres", shape: "none", link: (k) => `/genre/${encodeURIComponent(k)}` },
-  { kind: "categories", label: "Categories", noun: "categories", shape: "none", link: (k) => `/category/${k}`, cap: "categories" },
-  { kind: "tags", label: "Tags", noun: "tags", shape: "none", cap: "tags" },
-  { kind: "artists", label: "Artists", noun: "artists", shape: "face", music: true },
-  { kind: "songs", label: "Songs", noun: "songs", shape: "thumb", music: true },
+type Shape = "face" | "poster" | "thumb" | "none";
+/* `unit` is what the count counts; `once` lists are things you rarely repeat (their arrows would all say "new",
+   and they rank by rewatches unless you ask for hours) */
+interface Kind { kind: string; label: string; noun: string; shape: Shape; unit: [string, string]; once?: boolean; link?: (k: string) => string; cap?: string; music?: boolean }
+const VIDEO_KINDS: Kind[] = [
+  { kind: "channels", label: "Channels", noun: "channels", shape: "face", unit: ["video", "videos"], link: (k) => `/channel/${encodeURIComponent(k)}` },
+  { kind: "videos", label: "Videos", noun: "videos", shape: "thumb", unit: ["time", "times"], once: true, link: (k) => `/video/${encodeURIComponent(k)}` },
+  { kind: "genres", label: "Genres", noun: "genres", shape: "none", unit: ["video", "videos"], link: (k) => `/genre/${encodeURIComponent(k)}` },
+  { kind: "categories", label: "Categories", noun: "categories", shape: "none", unit: ["video", "videos"], link: (k) => `/category/${k}`, cap: "categories" },
+  { kind: "tags", label: "Tags", noun: "tags", shape: "none", unit: ["video", "videos"], cap: "tags" },
+  { kind: "artists", label: "Artists", noun: "artists", shape: "face", unit: ["song", "songs"], music: true },
+  { kind: "songs", label: "Songs", noun: "songs", shape: "thumb", unit: ["time", "times"], once: true, music: true },
+];
+const SHOW_KINDS: Kind[] = [
+  { kind: "channels", label: "Shows", noun: "shows", shape: "poster", unit: ["episode", "episodes"], link: (k) => `/channel/${encodeURIComponent(k)}` },
+  { kind: "movies", label: "Movies", noun: "movies", shape: "poster", unit: ["time", "times"], once: true, link: (k) => `/video/${encodeURIComponent(k)}` },
+  { kind: "videos", label: "Titles", noun: "titles", shape: "thumb", unit: ["time", "times"], once: true, link: (k) => `/video/${encodeURIComponent(k)}` },
+  { kind: "genres", label: "Genres", noun: "genres", shape: "none", unit: ["title", "titles"], link: (k) => `/genre/${encodeURIComponent(k)}` },
 ];
 
 export function TopPage() {
@@ -29,21 +37,23 @@ export function TopPage() {
   const navigate = useNavigate();
   const q = useLinkQuery();
   const caps = meta?.platform.capabilities;
+  const shorts = useCapability("shorts");
+  const KINDS = useFamily() === "shows" ? SHOW_KINDS : VIDEO_KINDS;
   const kinds = KINDS.filter((k) => (!k.music || meta?.has_music) && (!k.cap || !caps || caps.includes(k.cap)));
   const k = kinds.find((x) => x.kind === kind) ?? KINDS[0];
   // hours by default (like the home page); videos rank by rewatches unless you ask for hours
-  const metric: Metric = (params.get("metric") as Metric | null) ?? (kind === "videos" ? "count" : "time");
+  const metric: Metric = (params.get("metric") as Metric | null) ?? (KINDS.find((x) => x.kind === kind)?.once ? "count" : "time");
   const ranked = { ...(k.shape === "none" ? filters : rankingFilters(filters)), metric };
   const [limit, setLimit] = useState(50);
   const top = useStats<TopResponse>(`top/${kind}`, { limit }, { filters: ranked });
   const prev = usePrevRanks(kind, ranked);
   // single videos rarely repeat year to year, so their arrows would all say "new": only lists of things you return to get them
-  const moves = kind !== "videos" && kind !== "songs";
+  const moves = !k.once;
   const cmp = moves ? prev.cmp : null;
   const prevRank = (c: RankedItem) => (moves ? prev.prevRank(c) : undefined);
   const items = top.data?.items;
   const setMetric = (m: Metric) => setParams((p) => { const n = new URLSearchParams(p); n.set("metric", m); return n; }, { replace: true });
-  const value = (c: RankedItem) => (metric === "time" ? hoursShort(c.time_s) : `${num(c.count)} ${kind === "videos" ? (c.count === 1 ? "time" : "times") : "videos"}`);
+  const value = (c: RankedItem) => (metric === "time" ? hoursShort(c.time_s) : `${num(c.count)} ${k.unit[c.count === 1 ? 0 : 1]}`);
   const max = items?.length ? Math.max(1, metric === "time" ? items[0].time_s : items[0].count) : 1;
   const share = (c: RankedItem) => (metric === "time" ? c.time_s : c.count) / max;
 
@@ -54,11 +64,11 @@ export function TopPage() {
           <Seg label="List" dark value={k.kind} options={kinds.map((x) => [x.kind, x.label])}
                onChange={(v) => { setLimit(50); navigate(`/${meta?.platform.id ?? "youtube"}/top/${v}${q}`); }} />
           <span className="ml-2 font-shelf-mono text-[12px] uppercase tracking-[0.1em]" style={{ color: OV.mute }} aria-hidden>Rank by</span>
-          <Seg label="Rank by" dark value={metric} options={[["time", "Hours"], ["count", kind === "videos" ? "Rewatches" : "Videos"]]} onChange={setMetric} />
+          <Seg label="Rank by" dark value={metric} options={[["time", "Hours"], ["count", k.once ? "Rewatches" : k.unit[1].charAt(0).toUpperCase() + k.unit[1].slice(1)]]} onChange={setMetric} />
         </div>
         <p className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>
-          Ranked by {metric === "time" ? "hours watched" : kind === "videos" ? "how often you watched it" : "videos watched"}
-          {k.shape !== "none" && filters.buckets.includes("long") ? " · long videos only (pick Shorts in the top bar to rank those)" : ""}
+          Ranked by {metric === "time" ? `hours watched${shorts ? "" : " (estimated)"}` : k.once ? "how often you watched it" : `${k.unit[1]} watched`}
+          {shorts && k.shape !== "none" && filters.buckets.includes("long") ? " · long videos only (pick Shorts in the top bar to rank those)" : ""}
           {cmp ? ` · arrows since ${cmp.label}` : ""}
         </p>
       </PageHeader>
@@ -94,10 +104,11 @@ function href(k: Kind, c: RankedItem, q: string): string | null {
   return k.link ? k.link(c.key) + q : null;
 }
 
-function Picture({ c, k, size }: { c: RankedItem; k: Kind; size: number }) {
+function Picture({ c, k, size }: { c: RankedItem & { poster?: string | null }; k: Kind; size: number }) {
   if (k.shape === "face") return <Pic src={c.avatar_url} name={c.title} size={`${size}px`} />;
+  if (k.shape === "poster") return <Poster src={c.avatar_url ?? c.poster ?? c.thumb} name={c.title} width={`${Math.round(size * 0.78)}px`} className={size < 60 ? "!rounded-md !border-2" : ""} />;
   if (k.shape === "thumb") {
-    const src = c.thumb ?? (c.key ? `https://i.ytimg.com/vi/${c.key}/mqdefault.jpg` : null);
+    const src = c.thumb ?? (c.key && !c.key.includes(":") ? `https://i.ytimg.com/vi/${c.key}/mqdefault.jpg` : null);
     return src
       ? <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" className="shrink-0 rounded-lg border-2 object-cover"
              style={{ width: Math.round(size * 1.6), aspectRatio: "16 / 9", borderColor: OV.ink }} />
@@ -132,7 +143,7 @@ function Podium({ items, k, value, move }: {
             </span>
             <Picture c={c} k={k} size={k.shape === "thumb" ? p.thumb : p.pic} />
             <span className="line-clamp-2 font-bold leading-snug" style={{ fontSize: p.name }}>{c.title ?? "Unknown"}</span>
-            {k.kind === "videos" && c.channel && <span className="text-[13px]" style={{ color: c.rank === 1 ? OV.ink : OV.soft }}>{c.channel}</span>}
+            {k.shape === "thumb" && c.channel && <span className="text-[13px]" style={{ color: c.rank === 1 ? OV.ink : OV.soft }}>{c.channel}</span>}
             <span className="font-ov-display font-extrabold leading-none" style={{ fontSize: p.value }}>{value(c)}</span>
             {k.shape === "none" && <span className="font-shelf-mono text-[12px]">in {pct(c.share)} of what you watched</span>}
             <MoveBadge m={move(c)} />
@@ -157,7 +168,7 @@ function Row({ c, k, value, share, move }: { c: RankedItem; k: Kind; value: stri
       <Picture c={c} k={k} size={44} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-[15px] font-bold">{c.title ?? "Unknown"}</span>
-        {k.kind === "videos" && c.channel && <span className="truncate text-[12px]" style={{ color: OV.soft }}>{c.channel}</span>}
+        {k.shape === "thumb" && c.channel && <span className="truncate text-[12px]" style={{ color: OV.soft }}>{c.channel}</span>}
       </span>
       <span aria-hidden className="hidden h-2.5 w-[28%] overflow-hidden rounded-full sm:block" style={{ background: OV.sand }}>
         <span className="block h-full rounded-full" style={{ width: `${Math.max(2, share * 100)}%`, background: OV.ink }} />
