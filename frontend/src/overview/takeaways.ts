@@ -63,6 +63,17 @@ export function clockLine(f: { peak: number; night: number }): string {
   return "is your busiest hour.";
 }
 
+export const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** Totals per weekday from a weekday x hour grid (Monday first), and the busiest day's name. */
+export function weekdayFacts(grid: number[][]): { totals: number[]; busiest: string } | null {
+  const totals = grid.map((row) => row.reduce((s, n) => s + n, 0));
+  if (!totals.some(Boolean)) return null;
+  const i = totals.indexOf(Math.max(...totals));
+  return { totals, busiest: DAY_NAMES[i] };
+}
+
 /** 0.24 -> "1 in 4". */
 export function oneIn(share: number): string {
   return `1 in ${Math.max(1, Math.round(1 / share))}`;

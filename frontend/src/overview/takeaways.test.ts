@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changeLine, clockFacts, clockLine, comparison, hourLabel, hoursShort, oneIn, periodTitle, periodYear, rankMove,
-  rankingFilters, spanLabel, topHeadline, yearlyHours,
+  rankingFilters, spanLabel, topHeadline, weekdayFacts, yearlyHours,
 } from "./takeaways";
 
 describe("comparison", () => {
@@ -39,6 +39,11 @@ describe("clock", () => {
   });
   it("is null with no watches", () => {
     expect(clockFacts(clock.map((h) => ({ ...h, count: 0 })))).toBeNull();
+  });
+  it("finds the busiest weekday", () => {
+    const grid = Array.from({ length: 7 }, (_, d) => Array.from({ length: 24 }, () => (d === 5 ? 3 : 1)));
+    expect(weekdayFacts(grid)).toEqual({ totals: [24, 24, 24, 24, 24, 72, 24], busiest: "Saturday" });
+    expect(weekdayFacts(grid.map((r) => r.map(() => 0)))).toBeNull();
   });
   it("labels hours", () => {
     expect([0, 9, 12, 21].map(hourLabel)).toEqual(["12 AM", "9 AM", "12 PM", "9 PM"]);
