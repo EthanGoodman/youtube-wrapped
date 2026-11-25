@@ -14,14 +14,40 @@ export const OV = {
 };
 
 type Tab = [string, string, boolean?];
-const TABS: Tab[] = [
-  ["/", "Overview", true], ["/top/channels", "Top channels"], ["/evolution", "Evolution"], ["/patterns", "Patterns"],
-  ["/records", "Records"],
-];
-/* nice-to-haves and things people only look for on purpose live behind "More" */
-const MORE: [string, string, string?][] = [
-  ["/top/videos", "Top videos"], ["/top/genres", "Top genres"], ["/ads", "Ads you saw", "ads"], ["/search", "Search history", "search"],
-];
+type MoreLink = [string, string, string?];
+/* Each family's tabs follow the priority table: universal + must-haves are tabs, nice-to-haves and things people only
+   look for on purpose live behind "More" (the third item is a capability the platform needs for that link). */
+const NAV: Record<"videos" | "shows", { tabs: Tab[]; more: MoreLink[] }> = {
+  videos: {
+    tabs: [["/", "Overview", true], ["/top/channels", "Top channels"], ["/evolution", "Evolution"], ["/patterns", "Patterns"], ["/records", "Records"]],
+    more: [["/top/videos", "Top videos"], ["/top/genres", "Top genres"], ["/ads", "Ads you saw", "ads"], ["/search", "Search history", "search"]],
+  },
+  shows: {
+    tabs: [["/", "Overview", true], ["/top/channels", "Top shows"], ["/shows", "How far you got"], ["/patterns", "Patterns"], ["/records", "Records"]],
+    more: [["/evolution", "Evolution"], ["/top/genres", "Top genres"], ["/top/movies", "Top movies"]],
+  },
+};
+
+/** Which family's pages a platform gets: shows (Netflix) or videos (YouTube). */
+export function useFamily(): "videos" | "shows" {
+  return useCapability("series") ? "shows" : "videos";
+}
+
+/** What one watched thing is called: a video (YouTube) or a title (an episode or a movie). */
+export function useNoun(): { one: string; many: string; Many: string } {
+  return useFamily() === "shows" ? { one: "title", many: "titles", Many: "Titles" } : { one: "video", many: "videos", Many: "Videos" };
+}
+
+/** What the things you return to are called: channels (YouTube) or shows. */
+export function useCreator(): { one: string; many: string; Many: string } {
+  return useFamily() === "shows" ? { one: "show", many: "shows", Many: "Shows" } : { one: "channel", many: "channels", Many: "Channels" };
+}
+
+/** Each platform's own color, used sparingly (the hero's warm backdrop). */
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A" };
+export function useAccent(): string {
+  return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
+}
 
 // ------------------------------------------------------------------ frame
 
@@ -31,14 +57,15 @@ export function TopBar() {
   const meta = useMeta().data;
   const thisYear = meta?.today.slice(0, 4);
   const caps = meta?.platform.capabilities;
-  const more = MORE.filter(([, , cap]) => !cap || !caps || caps.includes(cap));
+  const nav = NAV[useFamily()];
+  const more = nav.more.filter(([, , cap]) => !cap || !caps || caps.includes(cap));
   return (
     <header style={{ background: OV.ink, color: OV.paper }}>
       <div className="mx-auto flex min-h-16 max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-8 lg:h-16 lg:flex-nowrap lg:py-0">
         <HubLink to="/" className="inline-flex min-h-11 items-center font-shelf-mono text-[13px] hover:underline">‹ Shelf</HubLink>
         <span className="font-ov-display text-[26px] font-extrabold tracking-[-0.02em]">{meta?.platform.name ?? "YouTube"}</span>
         <nav aria-label="Sections" className="no-scrollbar order-last -mx-1 flex w-full items-center gap-1 overflow-x-auto px-1 lg:order-none lg:mx-0 lg:w-auto lg:flex-1 lg:overflow-visible lg:px-0">
-          {TABS.map(([to, label, end]) => {
+          {nav.tabs.map(([to, label, end]) => {
             const on = end ? pathname.replace(/\/$/, "").split("/").length <= 2 : pathname.includes(to);
             return (
               <Link key={to} to={to + q} aria-current={on ? "page" : undefined}
@@ -163,6 +190,25 @@ export function Pic({ src, size, name, ring = OV.ink }: { src?: string | null; s
                  style={{ ...box, background: OV.sand, color: OV.ink }} aria-hidden>{(name ?? "?").charAt(0).toUpperCase()}</span>;
   return <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
               className="shrink-0 rounded-full border-[3px] object-cover" style={box} />;
+}
+
+/** A poster (2:3) with the ink outline; a big initial when there's no picture. TMDB posters come in small sizes,
+ *  so a bigger box asks for a bigger file. */
+export function Poster({ src, width, name, ring = OV.ink, className = "" }: { src?: string | null; width: string; name?: string | null; ring?: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  const box = { width, borderColor: ring };
+  if (!src || failed)
+    return <span className={`flex aspect-[2/3] shrink-0 items-center justify-center rounded-lg border-[3px] font-ov-display text-[28px] font-extrabold ${className}`}
+                 style={{ ...box, background: OV.sand, color: OV.ink }} aria-hidden>{(name ?? "?").charAt(0).toUpperCase()}</span>;
+  return <img src={src.replace("/w185/", "/w342/")} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
+              className={`aspect-[2/3] shrink-0 rounded-lg border-[3px] object-cover ${className}`} style={box} />;
+}
+
+/** The picture of a channel or a show: a round face, or a poster for shows (same height as the face would be). */
+export function Avatar({ src, name, size, ring }: { src?: string | null; name?: string | null; size: number; ring?: string }) {
+  return useFamily() === "shows"
+    ? <Poster src={src} name={name} width={`${Math.round(size * 0.78)}px`} ring={ring} className={size < 56 ? "!rounded-md !border-2 !text-[14px]" : ""} />
+    : <Pic src={src} name={name} size={`${size}px`} ring={ring} />;
 }
 
 export const MOVE_COLORS: Record<Move["tone"], [string, string]> = {
