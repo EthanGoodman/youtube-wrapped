@@ -83,7 +83,31 @@ export interface ShowsWrappedData {
   } | null;
 }
 
-export type AnyWrapped = (WrappedData & { platform?: undefined }) | ShowsWrappedData;
+type Song = RankedItem & { cover?: string | null; artist?: string | null };
+
+/** Music Wrapped (Spotify, …): streams are plays of 30 s or more. */
+export interface MusicWrappedData {
+  kind: "music";
+  platform: string;
+  year: number;
+  mode: "all";
+  empty: boolean;
+  overview: { videos: number; unique_videos: number; unique_channels: number; est_s: number; active_days: number; days: number;
+              change: Record<string, number | null> };
+  top_artists: RankedItem[];
+  top_tracks: Song[];
+  top_albums: Song[];
+  top_genres: RankedItem[];
+  clock: HourPoint[];
+  peak_hour: number;
+  biggest_day: { date: string; count: number; time_s: number } | null;
+  streak: { days: number; start: string; end: string } | null;
+  on_repeat: { key: string; title: string; artist: string; cover: string | null; date: string; count: number } | null;
+  discovery: { channel_id: string; title: string | null; avatar_url: string | null; first_watched: string; count: number; time_s: number } | null;
+  personality: Personality;
+}
+
+export type AnyWrapped = (WrappedData & { platform?: undefined; kind?: undefined }) | ShowsWrappedData | MusicWrappedData;
 
 /** Route every YouTube image through the local relay so cards can be exported as PNG. */
 // <img src> can't send headers, so the relay takes the app token as a query parameter

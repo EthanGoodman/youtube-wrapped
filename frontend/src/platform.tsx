@@ -97,6 +97,11 @@ export function setVocab(v: PlatformInfo["vocab"] | null, name?: string) {
   if (name) currentName = name;
 }
 
+/** The current platform's verb ("watch", "listen"), outside React (Wrapped cards). */
+export function platformVerb(): string {
+  return currentVocab?.verb ?? "watch";
+}
+
 /** The current platform's name, outside React (Wrapped cards). */
 export function platformName(): string {
   return currentName;

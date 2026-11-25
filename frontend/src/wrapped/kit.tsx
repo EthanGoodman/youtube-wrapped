@@ -132,6 +132,18 @@ export function PosterImg({ src, name, w, big = false }: { src?: string | null; 
   return <img src={url} alt="" onError={() => setFailed(true)} className="shrink-0 rounded-lg object-cover" style={box} />;
 }
 
+/** Square album art with the outline (music); a big initial when there's no picture. */
+export function CoverImg({ src, name, w }: { src?: string | null; name?: string | null; w: number }) {
+  const t = useTone();
+  const [failed, setFailed] = useState(false);
+  const url = img(src);
+  const box = { width: w, height: w, borderColor: t.line, borderWidth: w >= 100 ? 3 : 2, borderStyle: "solid" as const };
+  if (!url || failed)
+    return <div className="flex shrink-0 items-center justify-center rounded-lg font-ov-display font-extrabold"
+                style={{ ...box, background: OV.sand, color: OV.ink, fontSize: w * 0.4 }}>{(name ?? "?").charAt(0).toUpperCase()}</div>;
+  return <img src={url} alt="" onError={() => setFailed(true)} className="shrink-0 rounded-lg object-cover" style={box} />;
+}
+
 /** A 16:9 thumbnail with the outline (videos, episodes). */
 export function Thumb({ src, className = "" }: { src?: string | null; className?: string }) {
   const t = useTone();
