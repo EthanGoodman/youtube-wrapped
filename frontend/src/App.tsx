@@ -19,6 +19,7 @@ import { WrappedPage } from "./wrapped/Wrapped";
 import { OverviewPage } from "./overview/OverviewPage";
 import { ShowsOverviewPage } from "./overview/ShowsOverviewPage";
 import { HowFarPage } from "./overview/HowFarPage";
+import { ShowDetailPage } from "./overview/ShowDetailPage";
 import { TopPage } from "./overview/TopPage";
 import { PatternsPage } from "./overview/PatternsPage";
 import { RecordsPage } from "./overview/RecordsPage";
@@ -102,7 +103,7 @@ function PlatformApp() {
       <Route path="evolution" element={platform === "youtube" || platform === "netflix" ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
       <Route path="ads" element={<Gate capability="ads">{platform === "youtube" ? <AdsPage /> : <Layout><Ads /></Layout>}</Gate>} />
       <Route path="search" element={<Gate capability="search">{platform === "youtube" ? <SearchPage /> : <Layout><Search /></Layout>}</Gate>} />
-      <Route path="channel/:id" element={platform === "youtube" ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
+      <Route path="channel/:id" element={platform === "netflix" ? <ShowDetailPage /> : platform === "youtube" ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
       <Route path="video/:id" element={platform === "youtube" ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
       <Route path="category/:id" element={platform === "youtube" ? <CategoryDetailPage /> : <Layout><CategoryPage /></Layout>} />
       <Route path="genre/:topic" element={platform === "youtube" ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
