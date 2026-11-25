@@ -205,7 +205,7 @@ function Milestones({ items }: { items?: Milestone[] }) {
   if (!items.length) return null;
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1 border-b-2 pb-3" style={{ borderColor: OV.ink }}>
+      <div className="flex flex-col gap-1">
         <span className={kicker} style={{ color: OV.soft }}>Milestones · all time</span>
         <h2 className="font-ov-display text-[clamp(26px,3vw,36px)] font-extrabold leading-tight">Your 1st, 1,000th and {num(items[items.length - 1].n)}th {n.one}</h2>
       </div>
