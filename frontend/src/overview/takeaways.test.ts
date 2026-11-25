@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changeLine, clockFacts, clockLine, comparison, hourLabel, hoursShort, oneIn, periodTitle, periodYear, rankMove,
-  longestReign, rankingFilters, spanLabel, topHeadline, weekdayFacts, yearlyHours, yearsToShow,
+  groupReigns, longestReign, rankingFilters, spanLabel, topHeadline, weekdayFacts, yearlyHours, yearsToShow,
 } from "./takeaways";
 
 describe("comparison", () => {
@@ -85,6 +85,16 @@ describe("#1 channel each year", () => {
     expect(yearsToShow({ range: "custom", start: "2024-01-01", end: "2026-11-25" }, null, "2026-11-25")).toBeNull();
     expect(yearsToShow({ range: "this_year" }, "2018-11-30", "2026-11-25")).toBeNull();
     expect(yearsToShow({ range: "2025" }, "2018-11-30", "2026-11-25")).toBeNull();
+  });
+  it("merges runs of the same #1 into reigns", () => {
+    const row = (year: number, channel_id: string, h: number) => ({ year, channel_id, time_s: h * 3600 });
+    const reigns = groupReigns([row(2019, "S", 17), row(2020, "I", 93), row(2021, "I", 88), row(2022, "I", 38),
+                                row(2023, "W", 32), row(2025, "J", 50), row(2026, "J", 20)]);
+    expect(reigns.map((r) => [r.from, r.to, r.years.length, r.total_s / 3600])).toEqual([
+      [2019, 2019, 1, 17], [2020, 2022, 3, 219], [2023, 2023, 1, 32], [2025, 2026, 2, 70],
+    ]);
+    // a gap year breaks a run even for the same channel
+    expect(groupReigns([row(2020, "A", 1), row(2022, "A", 1)])).toHaveLength(2);
   });
   it("finds the longest run of the same #1", () => {
     const tops = [

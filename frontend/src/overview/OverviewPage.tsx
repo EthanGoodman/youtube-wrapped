@@ -8,8 +8,8 @@ import { HourPoint, Overview, RankedItem, TopResponse, useMeta, useStats } from 
 import { ALL_BUCKETS, Bucket, useFilters, useLinkQuery } from "../filters";
 import { compact, num } from "../format";
 import {
-  Comparison, DAYS, Move, changeLine, clockFacts, comparison, hourLabel, hoursShort, longestReign, oneIn, periodTitle, rankMove,
-  rankingFilters, spanLabel, topHeadline, weekdayFacts, yearsToShow,
+  Comparison, DAYS, Move, changeLine, clockFacts, comparison, hourLabel, hoursShort, groupReigns, longestReign, oneIn, periodTitle, rankMove,
+  monthDay, rankingFilters, spanLabel, topHeadline, weekdayFacts, yearsToShow,
 } from "./takeaways";
 
 /** The palette (shared by every platform; only `accent` is the app's own color). */
@@ -391,33 +391,62 @@ function Evolution() {
   const rows = tops.data?.filter((t) => years.includes(t.year));
   const reign = rows ? longestReign(rows) : null;
   const thisYear = Number(meta?.today.slice(0, 4));
+  // your history may start mid-year: say so, or that year's small number looks odd
+  const firstYear = Number(meta?.first_date?.slice(0, 4));
+  const firstMd = meta?.first_date?.slice(5) ?? "01-01";
   const title = reign && reign.years >= 2 ? `${reign.title} was your #1 ${reign.years} years running.` : "A different #1 almost every year.";
   return (
     <Band label="Your #1 channel each year" title={title} link={["/evolution", "See how it changed"]}>
       {/* about the channels: each year's hours here are that channel's, never your total */}
       {!rows ? <Skeleton h={160} /> : (
         <>
+          {/* a timeline of reigns: a run of years with the same #1 is one block, as wide as the run */}
           <div className="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <ol className="grid min-w-[560px] gap-3" style={{ gridTemplateColumns: `repeat(${rows.length},minmax(0,1fr))` }}>
-              {rows.map((t) => {
-                const now = t.year === thisYear;
-                return (
-                  <li key={t.year} className="min-w-0">
-                    <Link to={`/wrapped?year=${t.year}`} className="group flex h-full flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center hover:bg-black/[0.03]"
-                          style={{ borderColor: now ? OV.mustard : "#D9CDB6" }}
-                          aria-label={`${t.year}: your #1 was ${t.title ?? "unknown"}, ${hoursShort(t.time_s)}${now ? " so far" : ""}. Open ${t.year} Wrapped`}>
-                      <span className="font-shelf-mono text-[12px] font-medium">{t.year}{now ? " so far" : ""}</span>
-                      <Pic src={t.avatar_url} name={t.title} size="56px" />
-                      <span className="w-full truncate text-[13px] font-bold group-hover:underline">{t.title}</span>
-                      <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{hoursShort(t.time_s)}</span>
+              {groupReigns(rows).map((g) => {
+                const star = reign != null && reign.years >= 2 && g.years.length === reign.years && g.first.title === reign.title;
+                const live = g.to === thisYear;
+                const partial = g.from === firstYear && firstMd !== "01-01";
+                const span = g.from === g.to
+                  ? `${g.from}${live ? " so far" : ""}`
+                  : `${g.from}–${live ? "now" : g.to}`;
+                const body = (
+                  <>
+                    <span className="flex flex-col font-shelf-mono text-[12px] font-medium">{span}{partial && <span className="text-[11px] font-normal" style={{ color: OV.soft }}>from {monthDay(meta?.first_date)}</span>}</span>
+                    <Pic src={g.first.avatar_url} name={g.first.title} size={star ? "68px" : "48px"} />
+                    <span className="w-full truncate text-[14px] font-bold">{g.first.title}</span>
+                    <span className="font-ov-display text-[20px] font-extrabold leading-none">{hoursShort(g.total_s)}</span>
+                    {g.years.length > 1 && (
+                      <span className="mt-1 flex flex-wrap justify-center gap-1.5">
+                        {g.years.map((y) => (
+                          <Link key={y.year} to={`/wrapped?year=${y.year}`}
+                                className="rounded-full border px-2 py-0.5 font-shelf-mono text-[11px] hover:underline"
+                                style={{ borderColor: OV.ink, background: star ? OV.paper : "transparent" }}
+                                aria-label={`${y.year}: ${hoursShort(y.time_s)} of ${g.first.title ?? "this channel"}. Open ${y.year} Wrapped`}>
+                            {y.year} · {hoursShort(y.time_s)}
+                          </Link>
+                        ))}
+                      </span>
+                    )}
+                  </>
+                );
+                const cls = "flex h-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center";
+                const style = { gridColumn: `span ${g.years.length}`, background: star ? OV.mustard : OV.paper, borderColor: star ? OV.ink : "#D9CDB6" };
+                return g.years.length === 1 ? (
+                  <li key={g.from} className="min-w-0" style={{ gridColumn: style.gridColumn }}>
+                    <Link to={`/wrapped?year=${g.from}`} className={`${cls} group hover:brightness-[0.98]`} style={style}
+                          aria-label={`${g.from}: your #1 was ${g.first.title ?? "unknown"}, ${hoursShort(g.total_s)}. Open ${g.from} Wrapped`}>
+                      {body}
                     </Link>
                   </li>
+                ) : (
+                  <li key={g.from} className={`min-w-0 ${cls}`} style={style}>{body}</li>
                 );
               })}
             </ol>
           </div>
           <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>
-            Hours are what you watched of that channel that year{filters.range === "custom" ? " (whole calendar years)" : ""}. Pick a year to open its Wrapped.
+            Hours are what you watched of that channel{filters.range === "custom" ? " in those calendar years" : ""}. Pick a year to open its Wrapped.
           </p>
         </>
       )}

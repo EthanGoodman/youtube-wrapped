@@ -127,6 +127,22 @@ export function yearsToShow(f: { range: string; start?: string; end?: string }, 
   return out;
 }
 
+/** Consecutive years with the same #1 channel, merged into one "reign". */
+export interface Reign<T> { from: number; to: number; first: T; years: T[]; total_s: number }
+
+export function groupReigns<T extends { year: number; channel_id: string; time_s: number }>(rows: T[]): Reign<T>[] {
+  const out: Reign<T>[] = [];
+  for (const r of rows) {
+    const last = out[out.length - 1];
+    if (last && last.first.channel_id === r.channel_id && last.to === r.year - 1) {
+      last.to = r.year;
+      last.years.push(r);
+      last.total_s += r.time_s;
+    } else out.push({ from: r.year, to: r.year, first: r, years: [r], total_s: r.time_s });
+  }
+  return out;
+}
+
 /** The longest run of consecutive years with the same #1 channel. */
 export function longestReign(tops: { year: number; title?: string | null }[]): { title: string; years: number } | null {
   let best: { title: string; years: number } | null = null;
@@ -137,6 +153,11 @@ export function longestReign(tops: { year: number; title?: string | null }[]): {
     if (t.title && (!best || run > best.years)) best = { title: t.title, years: run };
   });
   return best;
+}
+
+/** "Nov 30" from an ISO date. */
+export function monthDay(d: string | null | undefined): string {
+  return d ? new Date(d.slice(0, 10) + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
 }
 
 /** "Sep 24 to Oct 15" from two ISO dates. */
