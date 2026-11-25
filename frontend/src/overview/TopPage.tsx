@@ -6,7 +6,7 @@ import { Link, useCapability } from "../platform";
 import { Metric, useFilters, useLinkQuery } from "../filters";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { num, pct } from "../format";
-import { MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useFamily, usePrevRanks } from "./kit";
+import { MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, usePrevRanks } from "./kit";
 import { hoursShort, periodTitle, rankMove, rankingFilters } from "./takeaways";
 
 type Shape = "face" | "poster" | "thumb" | "none";
@@ -38,7 +38,16 @@ export function TopPage() {
   const q = useLinkQuery();
   const caps = meta?.platform.capabilities;
   const shorts = useCapability("shorts");
-  const KINDS = useFamily() === "shows" ? SHOW_KINDS : VIDEO_KINDS;
+  const cr = useCreator();
+  const n = useNoun();
+  const anime = useCapability("anime");
+  // shows family: the platform's own words (shows / series, titles / episodes); no movie list without movies
+  const KINDS = useFamily() === "shows"
+    ? SHOW_KINDS.filter((x) => !(anime && x.kind === "movies")).map((x) =>
+        x.kind === "channels" ? { ...x, label: cr.Many, noun: cr.many }
+        : x.kind === "videos" ? { ...x, label: n.Many, noun: n.many }
+        : x.kind === "genres" ? { ...x, unit: [n.one, n.many] as [string, string] } : x)
+    : VIDEO_KINDS;
   const kinds = KINDS.filter((k) => (!k.music || meta?.has_music) && (!k.cap || !caps || caps.includes(k.cap)));
   const k = kinds.find((x) => x.kind === kind) ?? KINDS[0];
   // hours by default (like the home page); videos rank by rewatches unless you ask for hours

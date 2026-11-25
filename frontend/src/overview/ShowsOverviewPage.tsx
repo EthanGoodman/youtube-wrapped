@@ -8,7 +8,7 @@ import { useFilters, useLinkQuery } from "../filters";
 import { compact, date, num } from "../format";
 import { Binge, EpisodeDay, KindSplit, ShowProgress, ShowStatus } from "../families/shows/data";
 import type { HomeItem } from "../families/shows/Home";
-import { Band, MoveBadge, OV, Poster, ScrollRow, Skeleton, StatsFrame, kicker, useAccent, usePrevRanks } from "./kit";
+import { Band, MoveBadge, OV, Poster, ScrollRow, Skeleton, StatsFrame, kicker, useAccent, useCreator, useNoun, usePrevRanks } from "./kit";
 import { HoverBars, Ticks } from "./charts";
 import { YearTop } from "./ReignTimeline";
 import {
@@ -68,6 +68,8 @@ function Hero({ o, top, topLoading, prev, cmp, title, topMove, backdrop }: {
   const q = useLinkQuery();
   const meta = useMeta().data;
   const accent = useAccent();
+  const cr = useCreator();
+  const n = useNoun();
   const split = useStats<{ data: KindSplit }>("shows/split").data?.data;
   const hours = o ? Math.round(o.est_s / 3600) : null;
   const change = o && cmp ? changeLine(o.est_s, prev, cmp.label) : null;
@@ -95,8 +97,8 @@ function Hero({ o, top, topLoading, prev, cmp, title, topMove, backdrop }: {
               </h1>
               {change && <p className="text-[18px]">{change}</p>}
               <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
-                <Stat v={compact(o.videos)} l="titles" />
-                <Stat v={compact(o.unique_channels)} l="shows" />
+                <Stat v={compact(o.videos)} l={n.many} />
+                <Stat v={compact(o.unique_channels)} l={cr.many} />
                 <Stat v={num(o.active_days)} l={`of ${num(o.days)} days`} />
                 <Stat v={`${Math.round(o.pct_days_active * 100)}%`} l="of days watched" />
               </dl>
@@ -125,7 +127,7 @@ function Hero({ o, top, topLoading, prev, cmp, title, topMove, backdrop }: {
                       style={{ background: OV.mustard, color: OV.ink, borderColor: OV.ink }} aria-hidden>#1</span>
               </span>
               <span className="flex flex-col gap-1.5">
-                <span className={kicker} style={{ color: OV.mustard }}>Your #1 show</span>
+                <span className={kicker} style={{ color: OV.mustard }}>Your #1 {cr.one}</span>
                 <span className="font-ov-display text-[clamp(24px,2.4vw,34px)] font-extrabold leading-tight group-hover:underline">
                   {topHeadline(top.title, topMove?.tone === "same" ? 1 : undefined)}
                 </span>
@@ -154,9 +156,10 @@ function TopRow({ items, prevRank, cmp }: {
   items?: RankedItem[]; prevRank: (c: RankedItem) => number | null | undefined; cmp: Comparison | null;
 }) {
   const q = useLinkQuery();
+  const cr = useCreator();
   return (
-    <Band label={`By hours watched${cmp ? ` · arrows since ${cmp.label}` : ""}`} title="Your top 10 shows" link={["/top/channels", "All your shows"]}>
-      {!items ? <Skeleton h={300} /> : !items.length ? <p style={{ color: OV.soft }}>No shows in this period.</p> : (
+    <Band label={`By hours watched${cmp ? ` · arrows since ${cmp.label}` : ""}`} title={`Your top 10 ${cr.many}`} link={["/top/channels", `All your ${cr.many}`]}>
+      {!items ? <Skeleton h={300} /> : !items.length ? <p style={{ color: OV.soft }}>No {cr.many} in this period.</p> : (
         <ScrollRow key={q} outer="-mx-4 sm:mx-0" className="snap-x px-4 sm:px-0 lg:overflow-visible">
         <ol className="flex gap-4 pb-2 pt-2 lg:grid lg:grid-cols-10">
           {items.map((c) => (
@@ -225,11 +228,12 @@ export function ProgressRow({ s, rank }: { s: ShowProgress; rank?: number }) {
 
 function HowFar() {
   const q = useLinkQuery();
+  const cr = useCreator();
   const prog = useStats<{ data: { summary: Record<ShowStatus, number>; shows: ShowProgress[] } }>("shows/progress", { limit: 6 });
   const d = prog.data?.data;
   return (
-    <Band label="How far you got · each show you watched" title={d ? howFarTitle(d.summary) : "How far you got"} link={["/shows", "Every show"]}>
-      {!d ? <Skeleton h={300} /> : !d.shows.length ? <p style={{ color: OV.soft }}>No shows in this period.</p> : (
+    <Band label={`How far you got · each ${cr.one} you watched`} title={d ? howFarTitle(d.summary) : "How far you got"} link={["/shows", `Every ${cr.one}`]}>
+      {!d ? <Skeleton h={300} /> : !d.shows.length ? <p style={{ color: OV.soft }}>No {cr.many} in this period.</p> : (
         <div className="grid min-w-0 gap-4 lg:grid-cols-[1fr_2fr]">
           <div className="grid min-w-0 grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-1">
             {(["finished", "watching", "dropped"] as const).map((k) => (
@@ -255,6 +259,7 @@ function HowFar() {
 // ------------------------------------------------------------------ patterns
 
 function Patterns() {
+  const n = useNoun().many;
   const hasTimes = useCapability("time_of_day");
   const monthly = useStats<{ data: MonthPoint[] }>("patterns/monthly", {}, { enabled: !hasTimes });
   const clock = useStats<{ data: HourPoint[] }>("patterns/clock", {}, { enabled: hasTimes });
@@ -272,8 +277,8 @@ function Patterns() {
               <span className="font-ov-display text-[28px] font-extrabold">{w.busiest}</span>
               <span className="ml-2 text-[15px]">is your busiest day</span>
             </figcaption>
-            <HoverBars height={120} gap={8} radius={6} hint="Hover a day to see it." ariaLabel={`Titles by day of the week. Busiest: ${w.busiest}.`}
-                       bars={w.totals.map((t, i) => ({ key: DAYS[i], label: WEEKDAYS[i], value: t, display: `${num(t)} titles`, color: t === wmax ? OV.teal : "#D9CDB6" }))}
+            <HoverBars height={120} gap={8} radius={6} hint="Hover a day to see it." ariaLabel={`${n} by day of the week. Busiest: ${w.busiest}.`}
+                       bars={w.totals.map((t, i) => ({ key: DAYS[i], label: WEEKDAYS[i], value: t, display: `${num(t)} ${n}`, color: t === wmax ? OV.teal : "#D9CDB6" }))}
                        ticks={<Ticks labels={DAYS} />} />
           </figure>
         </div>
@@ -283,6 +288,7 @@ function Patterns() {
 }
 
 function MonthCard({ data }: { data?: MonthPoint[] }) {
+  const n = useNoun().many;
   if (!data) return <Skeleton h={240} dark />;
   if (!data.length) return <div />;
   const best = data.reduce((a, b) => (b.time_s > a.time_s ? b : a));
@@ -293,10 +299,10 @@ function MonthCard({ data }: { data?: MonthPoint[] }) {
       <figcaption className="flex flex-wrap items-baseline justify-between gap-2">
         <span><span className="font-ov-display text-[28px] font-extrabold" style={{ color: OV.mustard }}>{label(best.month)}</span>
           <span className="ml-2 text-[15px]">was your biggest month</span></span>
-        <span className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>{hoursShort(best.time_s)} · {num(best.count)} titles</span>
+        <span className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>{hoursShort(best.time_s)} · {num(best.count)} {n}</span>
       </figcaption>
       <HoverBars dark height={150} hint="Hover a month to see it." ariaLabel={`Hours per month. Biggest: ${label(best.month)}.`}
-                 bars={data.map((x) => ({ key: x.month, label: label(x.month), value: x.time_s, display: `${hoursShort(x.time_s)} · ${num(x.count)} titles`,
+                 bars={data.map((x) => ({ key: x.month, label: label(x.month), value: x.time_s, display: `${hoursShort(x.time_s)} · ${num(x.count)} ${n}`,
                                           color: x.month === best.month ? OV.mustard : "#5E554A" }))}
                  ticks={<Ticks dark labels={data.map((x) => (many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "")
                                                                : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })))} />} />
@@ -305,6 +311,7 @@ function MonthCard({ data }: { data?: MonthPoint[] }) {
 }
 
 function ClockCard({ data }: { data?: HourPoint[] }) {
+  const n = useNoun().many;
   if (!data) return <Skeleton h={240} dark />;
   const f = clockFacts(data);
   if (!f) return <div />;
@@ -314,9 +321,9 @@ function ClockCard({ data }: { data?: HourPoint[] }) {
         <span className="font-ov-display text-[28px] font-extrabold" style={{ color: OV.mustard }}>{hourLabel(f.peak)}</span>
         <span className="ml-2 text-[15px]">is your busiest hour</span>
       </figcaption>
-      <HoverBars dark height={150} hint="Hover an hour to see it." ariaLabel={`Titles started by hour. Busiest: ${hourLabel(f.peak)}.`}
+      <HoverBars dark height={150} hint="Hover an hour to see it." ariaLabel={`${n} started by hour. Busiest: ${hourLabel(f.peak)}.`}
                  bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: h.count,
-                                          display: `${num(h.count)} titles`, color: h.hour === f.peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }))}
+                                          display: `${num(h.count)} ${n}`, color: h.hour === f.peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }))}
                  ticks={<Ticks dark labels={["12 AM", "6 AM", "12 PM", "6 PM"]} />} />
     </figure>
   );
@@ -326,6 +333,7 @@ function ClockCard({ data }: { data?: HourPoint[] }) {
 
 function Records() {
   const q = useLinkQuery();
+  const cr = useCreator();
   const binge = useStats<{ data: Binge[] }>("shows/binges", { limit: 1 });
   const day = useStats<{ data: EpisodeDay[] }>("shows/days", { limit: 1 });
   const rec = useStats<RecordsResponse>("records");
@@ -340,7 +348,7 @@ function Records() {
                     poster={b?.avatar_url} name={b?.title}
                     big={b ? (b.days === 1 ? "1 day" : `${num(b.days)} days`) : "–"}
                     line={b ? <><strong>{b.title}</strong>, season {b.season}: {eps(b.episodes)}</> : "No whole season finished in this period."} />
-        <RecordCard label="One show, one day" bg={OV.paper} loading={!day.data} to={e && `/channel/${encodeURIComponent(e.key)}${q}`}
+        <RecordCard label={`One ${cr.one}, one day`} bg={OV.paper} loading={!day.data} to={e && `/channel/${encodeURIComponent(e.key)}${q}`}
                     poster={e?.avatar_url} name={e?.title}
                     big={e ? eps(e.episodes) : "–"}
                     line={e ? <><strong>{e.title}</strong> on {date(e.date)}</> : "Nothing in this period."} />
@@ -379,20 +387,22 @@ function RecordCard({ label, big, line, bg, fg = OV.ink, poster, name, to, loadi
 
 function More() {
   const { filters } = useFilters();
+  const cr = useCreator();
+  const hasMovies = !useCapability("anime");
   const genre = useStats<TopResponse>("top/genres", { limit: 1 });
-  const movies = useStats<{ items: (RankedItem & { poster?: string | null })[] }>("top/movies", { limit: 1 }, { filters: { ...filters, metric: "time" } });
+  const movies = useStats<{ items: (RankedItem & { poster?: string | null })[] }>("top/movies", { limit: 1 }, { filters: { ...filters, metric: "time" }, enabled: hasMovies });
   const tops = useStats<YearTop[]>("evolution/top_per_year", {}, { filters: { ...filters, range: "all", metric: "time" } });
   const g = genre.data?.items[0];
   const m = movies.data?.items[0];
   const reign = tops.data ? longestReign(tops.data) : null;
   return (
     <Band label="More to explore" title="A few more things">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className={`grid gap-4 ${hasMovies ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <MoreCard to="/evolution" label="Evolution" bg={OV.paper}>
           {!tops.data ? <Skeleton h={68} /> : reign && reign.years > 1 ? (
             <span className="flex flex-col gap-1">
               <span className="font-ov-display text-[26px] font-extrabold leading-tight">{reign.title}</span>
-              <span className="text-[14px]">your #1 show {num(reign.years)} years running. See how your taste changed.</span>
+              <span className="text-[14px]">your #1 {cr.one} {num(reign.years)} years running. See how your taste changed.</span>
             </span>
           ) : tops.data.length > 1 ? (
             <span className="flex flex-col gap-1">
@@ -409,6 +419,7 @@ function More() {
             </span>
           ) : genre.data ? <span className="text-[14px]">No genres in this period.</span> : <Skeleton h={68} />}
         </MoreCard>
+        {hasMovies && (
         <MoreCard to="/top/movies" label="Top movies" bg={OV.teal} fg={OV.paper}>
           {m ? (
             <span className="flex items-center gap-3">
@@ -420,6 +431,7 @@ function More() {
             </span>
           ) : movies.data ? <span className="text-[14px]">No movies in this period.</span> : <Skeleton h={68} />}
         </MoreCard>
+        )}
       </div>
     </Band>
   );

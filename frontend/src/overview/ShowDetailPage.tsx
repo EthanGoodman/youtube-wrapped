@@ -7,7 +7,7 @@ import { MonthPoint, useStats } from "../api";
 import { useLinkQuery } from "../filters";
 import { date, num } from "../format";
 import { ShowProgress } from "../families/shows/data";
-import { OV, Poster, Seg, Skeleton, StatsFrame, kicker } from "./kit";
+import { OV, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator } from "./kit";
 import { HoverBars, Ticks } from "./charts";
 import { STATUS, StatusPill } from "./ShowsOverviewPage";
 import { hoursShort } from "./takeaways";
@@ -39,9 +39,10 @@ export function ShowDetailPage() {
   const d = useStats<ShowDetail>(`show/${encodeURIComponent(id)}`);
   const monthly = useStats<{ monthly: MonthPoint[] }>(`channel/${encodeURIComponent(id)}`);
   const s = d.data;
+  const cr = useCreator();
   return (
     <StatsFrame>
-      {d.error ? <p className="mx-auto max-w-[1400px] p-8">This show isn't in your history.</p> : !s ? (
+      {d.error ? <p className="mx-auto max-w-[1400px] p-8">This {cr.one} isn't in your history.</p> : !s ? (
         <div className="mx-auto max-w-[1400px] p-8"><Skeleton h={420} /></div>
       ) : (
         <>
@@ -239,8 +240,9 @@ function Months({ data }: { data: MonthPoint[] }) {
 
 function Similar({ items, genres }: { items: ShowDetail["similar"]; genres: string[] }) {
   const q = useLinkQuery();
+  const cr = useCreator();
   return (
-    <Card label={`Sharing its genres · ${genres.slice(0, 3).join(", ")}`} title="Your other shows like this">
+    <Card label={`Sharing its genres · ${genres.slice(0, 3).join(", ")}`} title={`Your other ${cr.many} like this`}>
       <ul className="grid grid-cols-3 gap-4 sm:grid-cols-5 lg:grid-cols-10">
         {items.map((s) => (
           <li key={s.key} className="min-w-0">

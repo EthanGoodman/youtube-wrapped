@@ -7,7 +7,7 @@ import { TopResponse, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { date, num } from "../format";
 import { Binge, ShowProgress, ShowStatus } from "../families/shows/data";
-import { OV, PageBody, PageHeader, Poster, Seg, Skeleton, StatsFrame, kicker } from "./kit";
+import { OV, PageBody, PageHeader, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator } from "./kit";
 import { STATUS, StatusPill, howFarTitle } from "./ShowsOverviewPage";
 import { periodTitle } from "./takeaways";
 
@@ -56,7 +56,9 @@ export function HowFarPage() {
           <Card label="Watched again at least a week later" title="Rewatches">
             {!rewatches.data ? <Skeleton h={160} /> : !rewatches.data.data.detectable ? (
               <p className="text-[15px]" style={{ color: OV.soft }}>
-                {meta?.platform.id === "netflix"
+                {meta?.platform.id === "crunchyroll"
+                  ? "Crunchyroll only keeps your latest play of each episode, so rewatches can't be seen."
+                  : meta?.platform.id === "netflix"
                   ? "Netflix's quick download lists each title once, so rewatches only show up with the full data export (ViewingActivity.csv)."
                   : `Your ${meta?.platform.name ?? ""} history lists each title once, so rewatches can't be seen.`}
               </p>
@@ -71,6 +73,7 @@ export function HowFarPage() {
 }
 
 function Wall({ shows, pick, sort }: { shows: ShowProgress[]; pick: Pick; sort: Sort }) {
+  const cr = useCreator();
   const q = useLinkQuery();
   const list = useMemo(() => {
     const by: Record<Sort, (a: ShowProgress, b: ShowProgress) => number> = {
@@ -81,7 +84,7 @@ function Wall({ shows, pick, sort }: { shows: ShowProgress[]; pick: Pick; sort: 
     };
     return shows.filter((s) => pick === "all" || s.status === pick).sort(by[sort]);
   }, [shows, pick, sort]);
-  if (!list.length) return <p style={{ color: OV.soft }}>No {pick === "all" ? "" : STATUS[pick].label.toLowerCase() + " "}shows in this period.</p>;
+  if (!list.length) return <p style={{ color: OV.soft }}>No {pick === "all" ? "" : STATUS[pick].label.toLowerCase() + " "}{cr.many} in this period.</p>;
   return (
     <ul className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
       {list.map((s) => (
