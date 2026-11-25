@@ -8,13 +8,13 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 |---|---|
 | YouTube | ✅ Supported |
 | Netflix | ✅ Supported (see [Netflix](#netflix)) |
-| Spotify | Planned ([#3](https://github.com/EthanGoodman/youtube-wrapped/issues/3)) |
+| Spotify | ✅ Supported (see [Spotify](#spotify)) |
 | Prime Video | Planned ([#4](https://github.com/EthanGoodman/youtube-wrapped/issues/4)) |
 | TikTok | Planned ([#5](https://github.com/EthanGoodman/youtube-wrapped/issues/5)) |
 | Instagram | Planned ([#6](https://github.com/EthanGoodman/youtube-wrapped/issues/6)) |
 | Crunchyroll | ✅ Supported, unofficial (see [Crunchyroll](#crunchyroll)) |
 
-Each platform keeps the same layout (stats.fm-style top lists, clock, records, evolution and a Wrapped story) but is styled like the service itself. The steps below cover YouTube.
+Every platform uses the same layout and look (top lists, patterns, records, evolution and a Wrapped story), worded for what it is: channels and videos, shows and episodes, artists and songs. The steps below cover YouTube.
 
 
 ## Setup
@@ -148,6 +148,24 @@ Notes on the data:
 - Netflix sometimes writes an episode without its show (": Episode 5"). Those count in your totals as **Unknown show** but are left out of show rankings and progress.
 
 *This product uses the TMDB API but is not endorsed or certified by TMDB.*
+
+## Spotify
+
+1. Request your **Extended streaming history**: spotify.com → Account → *Privacy settings* → *Download your data* → check **Extended streaming history** (lifetime, every play; takes up to 30 days). The quicker *Account data* download (about the last year, no albums or skips) works too, and both can be added together.
+2. Add the `.zip` Spotify emails you on the **Data sources** page, or put the `Streaming_History_Audio_*.json` files in `data/spotify/`, then run:
+   ```bash
+   python backend/cli.py ingest --platform spotify
+   ```
+3. Pictures and genres (optional): `python backend/cli.py enrich --platform spotify`, or **Enrich** on the Data sources page.
+   - **Album art** comes from Spotify's public embed endpoint and **artist photos** from Deezer's public search: no keys.
+   - **Genres** come from Last.fm listeners' tags: get a free API key at [last.fm/api/account/create](https://www.last.fm/api/account/create) and save it with `python backend/cli.py secrets set LASTFM_API_KEY`.
+   - It looks up your most-played albums and artists first (a minute or two), rebuilds the pages, then fills in the rest. Answers are cached, so a stopped run picks up where it left off.
+
+Notes on the data:
+- A **stream** is a play of 30 seconds or more (Spotify's own rule; stats.fm counts the same way). Shorter plays are counted per song as skips.
+- Only what the stats use is kept: never your IP address, country or username. Podcasts, audiobooks and video plays are skipped.
+- Spotify's developer API isn't used: new apps may only make a few hundred requests a day and get no genres.
+- Wrapped has its own music story and listener personalities in `personalities-spotify.toml`.
 
 ## Crunchyroll
 

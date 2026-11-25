@@ -154,7 +154,8 @@ CREATE TABLE IF NOT EXISTS items (
     published_at TEXT,
     category_id  TEXT,
     url          TEXT,
-    extra        TEXT              -- JSON: platform-specific fields (views, tags, …)
+    extra        TEXT,             -- JSON: platform-specific fields (views, tags, …)
+    album_id     TEXT              -- music: the album a track is on (-> albums)
 );
 -- creators: who made it (a YouTube channel, a Netflix show, a Spotify artist…)
 CREATE TABLE IF NOT EXISTS creators (
@@ -171,6 +172,16 @@ CREATE TABLE IF NOT EXISTS creators (
     extra            TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_items_creator ON items(creator_id);
+-- albums: music only (a track's album, its artist and cover art)
+CREATE TABLE IF NOT EXISTS albums (
+    album_id    TEXT PRIMARY KEY,
+    title       TEXT,
+    creator_id  TEXT,              -- the album's artist (-> creators)
+    cover_small TEXT,
+    cover_large TEXT,
+    released    TEXT,
+    extra       TEXT
+);
 CREATE TABLE IF NOT EXISTS item_genres (item_id TEXT NOT NULL, genre TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_item_genres ON item_genres(item_id, genre);
 CREATE INDEX IF NOT EXISTS ix_item_genres_genre ON item_genres(genre, item_id);
@@ -212,7 +223,8 @@ def connect(path: Path) -> sqlite3.Connection:
 
 # Columns added after a table was first created: (table, column, type)
 _ADDED_COLUMNS = [("videos", "embed_w", "INTEGER"), ("videos", "embed_h", "INTEGER"),
-                  ("watches", "max_s", "INTEGER"), ("watches", "published_epoch", "REAL")]
+                  ("watches", "max_s", "INTEGER"), ("watches", "published_epoch", "REAL"),
+                  ("items", "album_id", "TEXT")]
 
 
 def _migrate(conn: sqlite3.Connection) -> None:

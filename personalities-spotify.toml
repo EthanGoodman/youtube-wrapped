@@ -1,0 +1,127 @@
+# Listener personalities for music Wrapped stories (Spotify, and later other music platforms). Edit freely; reload
+# the Wrapped page to see changes.
+#
+# Same rules as personalities.toml: each personality looks at one metric for the year, its score is
+# value / threshold, and the highest score wins if it reaches 1. Otherwise the fallback is used.
+#
+# Metrics (all for the chosen year; shares are 0..1; streams are plays of 30 s or more):
+#   night_share        streams started between midnight and 5am
+#   early_share        streams started between 5am and 9am
+#   weekend_share      streams on Saturday or Sunday (an even spread is ~0.29)
+#   top_artist_share   streams of your #1 artist / all streams
+#   top5_share         streams of your top 5 artists / all streams
+#   explorer_ratio     different artists / streams (higher = more variety)
+#   repeat_share       streams of a song you played 3+ times that day
+#   new_artist_share   streams of artists you first heard this year (not used in your first year of data)
+#   avg_session_min    average listening session in minutes (a new session after 30 min of silence)
+#   minutes_per_day    minutes listened per day you listened
+#
+# In `reason`, {pct} is the value as a percentage, {value} the number rounded, {value1} with one decimal.
+
+[[personality]]
+id = "night_owl"
+name = "The Night Owl"
+emoji = "🦉"
+color = "#2F4A7A"
+metric = "night_share"
+threshold = 0.15
+tagline = "The best songs come out after midnight."
+reason = "{pct} of your streams started between midnight and 5am."
+
+[[personality]]
+id = "early_bird"
+name = "The Early Bird"
+emoji = "🌅"
+color = "#E2A93B"
+metric = "early_share"
+threshold = 0.10
+tagline = "A soundtrack before the coffee kicks in."
+reason = "{pct} of your streams started between 5 and 9 in the morning."
+
+[[personality]]
+id = "weekend"
+name = "The Weekend Spinner"
+emoji = "🎉"
+color = "#B83A24"
+metric = "weekend_share"
+threshold = 0.38
+tagline = "Saturdays are for the aux cord."
+reason = "{pct} of your streams were on weekends."
+
+[[personality]]
+id = "superfan"
+name = "The Superfan"
+emoji = "💿"
+color = "#6E4C7E"
+metric = "top_artist_share"
+threshold = 0.15
+tagline = "One artist. Every mood."
+reason = "{pct} of everything you played was your #1 artist."
+
+[[personality]]
+id = "loyalist"
+name = "The Loyalist"
+emoji = "🎧"
+color = "#2E6B63"
+metric = "top5_share"
+threshold = 0.33
+tagline = "You know what you like."
+reason = "Your top 5 artists made up {pct} of your year."
+
+[[personality]]
+id = "explorer"
+name = "The Explorer"
+emoji = "🧭"
+color = "#4C7DA8"
+metric = "explorer_ratio"
+threshold = 0.09
+tagline = "Always one more artist to find."
+reason = "About one new name every {inverse} streams."
+
+[[personality]]
+id = "on_repeat"
+name = "On Repeat"
+emoji = "🔁"
+color = "#C98A5B"
+metric = "repeat_share"
+threshold = 0.12
+tagline = "Again. Again. One more time."
+reason = "{pct} of your streams were a song you played 3+ times that day."
+
+[[personality]]
+id = "trailblazer"
+name = "The Trailblazer"
+emoji = "✨"
+color = "#8A8B3C"
+metric = "new_artist_share"
+threshold = 0.40
+tagline = "New year, new sound."
+reason = "{pct} of your streams were artists you'd never played before this year."
+
+[[personality]]
+id = "marathon"
+name = "The Marathon Listener"
+emoji = "🏃"
+color = "#A34E6E"
+metric = "avg_session_min"
+threshold = 80
+tagline = "Press play and keep going."
+reason = "Your listening sessions lasted {value} minutes on average."
+
+[[personality]]
+id = "soundtrack"
+name = "Life on Soundtrack"
+emoji = "🎼"
+color = "#1A1714"
+metric = "minutes_per_day"
+threshold = 160
+tagline = "There's always something playing."
+reason = "{value} minutes of music on an average day you listened."
+
+[fallback]
+id = "all_rounder"
+name = "The All-Rounder"
+emoji = "🎵"
+color = "#2E6B63"
+tagline = "A little of everything, all year long."
+reason = "No single habit ran your year: a mix of artists, times and moods."

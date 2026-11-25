@@ -24,6 +24,7 @@ export interface PlatformInfo {
   export_steps: string[];
   export_wait: string;
   issue: number | null;
+  family?: "video" | "music" | "games" | "social" | "reading" | "fitness";
 }
 
 /** Platform id from the URL, or null outside a platform (the hub). */
@@ -94,6 +95,11 @@ let currentName = "Netflix";
 export function setVocab(v: PlatformInfo["vocab"] | null, name?: string) {
   currentVocab = v;
   if (name) currentName = name;
+}
+
+/** The current platform's verb ("watch", "listen"), outside React (Wrapped cards). */
+export function platformVerb(): string {
+  return currentVocab?.verb ?? "watch";
 }
 
 /** The current platform's name, outside React (Wrapped cards). */

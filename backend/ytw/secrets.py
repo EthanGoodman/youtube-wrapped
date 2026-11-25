@@ -21,6 +21,7 @@ KNOWN = {
     "YOUTUBE_API_KEY": "YouTube Data API key (optional enrichment)",
     "TMDB_TOKEN": "TMDB API Read Access Token (Netflix posters and episodes)",
     "CRUNCHYROLL_ETP_RT": "Crunchyroll etp_rt cookie (treat it like a password)",
+    "LASTFM_API_KEY": "Last.fm API key (music genres from listeners' tags)",
 }
 _NAME = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 log = logging.getLogger("ytw.secrets")

@@ -266,3 +266,80 @@ def _anime_card(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
             "season": ({"season": a["seasons"][0]["season"], "series": a["seasons"][0]["series"][:4]}
                        if a["seasons"] else None),
             "score": a["scores"]["average"]}
+
+
+# ------------------------------------------------------------------ music (Spotify, …)
+
+MUSIC_METRICS = ("night_share", "early_share", "weekend_share", "top_artist_share", "top5_share", "explorer_ratio",
+                 "repeat_share", "new_artist_share", "avg_session_min", "minutes_per_day")
+
+
+def music_metrics(conn: sqlite3.Connection, r: Range, f: Filters) -> dict[str, float]:
+    """Listening habits for the music personalities (all for the year; shares are 0..1)."""
+    w_sql, p = where(r, f)
+    n, night, early, weekend, est, chans, days = (x or 0 for x in conn.execute(f"""
+        SELECT COUNT(*), SUM(w.local_hour < 5), SUM(w.local_hour BETWEEN 5 AND 8), SUM(w.local_dow >= 5), SUM(w.est_s),
+               COUNT(DISTINCT w.channel_id), COUNT(DISTINCT w.local_date) FROM watches w WHERE {w_sql}""", p).fetchone())
+    if not n:
+        return {m: 0.0 for m in MUSIC_METRICS}
+    per_artist = [c for (c,) in conn.execute(f"SELECT COUNT(*) c FROM watches w WHERE {w_sql} GROUP BY w.channel_id "
+                                             "ORDER BY c DESC, w.channel_id LIMIT 5", p)]
+    # the same song 3+ times in a day: the repeat button
+    repeats = conn.execute(f"""SELECT COALESCE(SUM(c), 0) FROM (SELECT COUNT(*) c FROM watches w WHERE {w_sql}
+        GROUP BY w.local_date, w.video_id HAVING c >= 3)""", p).fetchone()[0]
+    # streams of artists you first heard this year
+    new = conn.execute(f"""SELECT COUNT(*) FROM watches w WHERE {w_sql} AND w.channel_id IN (
+        SELECT channel_id FROM watches GROUP BY channel_id HAVING MIN(local_date) >= ?)""", [*p, r.start.isoformat()]).fetchone()[0]
+    sess = conn.execute(f"SELECT AVG(t) FROM (SELECT SUM({time_expr(f)}) t FROM watches w WHERE {w_sql} GROUP BY w.session_id)",
+                        p).fetchone()[0] or 0
+    return {
+        "night_share": night / n, "early_share": early / n, "weekend_share": weekend / n,
+        "top_artist_share": (per_artist[0] / n) if per_artist else 0.0,
+        "top5_share": sum(per_artist) / n,
+        "explorer_ratio": chans / n,
+        "repeat_share": repeats / n,
+        "new_artist_share": new / n,
+        "avg_session_min": sess / 60,
+        "minutes_per_day": est / 60 / days if days else 0.0,
+    }
+
+
+def music_wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict, today: date | None = None) -> dict:
+    """The music Wrapped story: minutes, top artists / songs / album, genres, clock, on repeat, a new artist."""
+    from .stats import music
+    r = Range(date(year, 1, 1), date(year, 12, 31), str(year))
+    base = Filters(exclude_bg_time=f.exclude_bg_time, metric="count")
+    by_time = Filters(exclude_bg_time=f.exclude_bg_time, metric="time")
+    ov = overview.overview(conn, r, base)
+    if not ov["videos"]:
+        return {"platform": "music", "kind": "music", "year": year, "mode": "all", "empty": True}
+    rec = records.records(conn, r, base, today)
+    clock = patterns.clock(conn, r, base)
+    discoveries = evolution.new_discoveries(conn, r, by_time, 1)
+    metrics = music_metrics(conn, r, base)
+    return {
+        "kind": "music",
+        "year": year,
+        "mode": "all",
+        "empty": False,
+        "overview": {k: ov[k] for k in ("videos", "unique_videos", "unique_channels", "est_s", "active_days", "days", "change")},
+        "top_artists": tops.top_channels(conn, r, by_time, 5),
+        "top_tracks": tops.top_videos(conn, r, base, 5),
+        "top_albums": music.top_albums(conn, r, by_time, 3),
+        "top_genres": tops.top_genres(conn, r, by_time, 5),
+        "clock": clock,
+        "peak_hour": max(clock, key=lambda h: h["count"])["hour"],
+        "biggest_day": rec["biggest_day"]["by_count"],
+        "streak": rec["streaks"]["longest"],
+        "on_repeat": music.records(conn, r, base)["on_repeat"],
+        "discovery": discoveries[0] if discoveries else None,
+        "metrics": metrics,
+        # in the first year of data every artist is new: that personality would always win
+        "personality": pick_personality(metrics, personalities,
+                                        frozenset({"new_artist_share"}) if year <= _first_year(conn) else frozenset()),
+    }
+
+
+def _first_year(conn: sqlite3.Connection) -> int:
+    first = conn.execute("SELECT MIN(year) FROM watches").fetchone()[0]
+    return int(first) if first else 0

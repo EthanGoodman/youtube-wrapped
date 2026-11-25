@@ -5,9 +5,13 @@ import { MotionGlobalConfig, motion } from "framer-motion";
 import { clockTime, compact, date, hourLabel, num } from "../format";
 import { OV } from "../overview/kit";
 import { WrappedData, thumbOf } from "./types";
+import { platformVerb } from "../platform";
 import { Badge, Big, Face, fit, GrowBar, Kicker, Label, StatBox, Sticker, StreakStrip, Thumb, WCard, Wordmark, pop, rise, useTone } from "./kit";
 
 export { pop, rise };
+
+/** "viewer" or "listener", from the platform's verb (outside React: cards are plain render functions). */
+const who = () => (platformVerb() === "listen" ? "listener" : "viewer");
 
 export const CARD_W = 360;
 export const CARD_H = 640;
@@ -312,7 +316,7 @@ export function Personality({ d, tagText }: { d: { personality: WrappedData["per
   const p = d.personality;
   return (
     <WCard tone="teal" tag={tagText}>
-      <Kicker>Your viewer personality is</Kicker>
+      <Kicker>Your {who()} personality is</Kicker>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <Badge size={150}>{p.emoji}</Badge>
         <Big size={fit(p.name, 42)} delay={1.1} className="mt-6">{p.name}</Big>
@@ -392,7 +396,7 @@ export function PersonalityStrip({ p }: { p: WrappedData["personality"] }) {
     <div className="mt-auto flex items-center gap-3 rounded-xl border-2 px-3 py-2" style={{ background: OV.ink, color: OV.paper, borderColor: OV.ink }}>
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 text-[24px]" style={{ background: OV.mustard, borderColor: OV.paper }}>{p.emoji}</span>
       <div className="min-w-0">
-        <p className="font-shelf-mono text-[9.5px] uppercase tracking-[0.1em]" style={{ color: OV.mute }}>Viewer personality</p>
+        <p className="font-shelf-mono text-[9.5px] uppercase tracking-[0.1em]" style={{ color: OV.mute }}>{who()} personality</p>
         <p className="truncate font-ov-display text-[20px] font-extrabold leading-tight">{p.name}</p>
       </div>
     </div>

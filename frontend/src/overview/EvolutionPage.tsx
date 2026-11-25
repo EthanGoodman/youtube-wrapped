@@ -5,10 +5,10 @@ import { Link, useCapability } from "../platform";
 import { MonthPoint, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { date, num, pct } from "../format";
-import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useCreator, useNoun } from "./kit";
+import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useCreator, useNoun, useTime, useVerb } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
 import { Readout } from "./charts";
-import { hoursShort, raceAt, raceColors, rankingFilters, yearlyHours } from "./takeaways";
+import { raceAt, raceColors, rankingFilters, yearlyHours } from "./takeaways";
 
 interface Ref { channel_id: string; title?: string | null; avatar_url?: string | null }
 type Discovery = Ref & { first_watched: string; count: number; time_s: number };
@@ -159,6 +159,8 @@ function FellOffCard() {
 }
 
 function Discoveries() {
+  const tm = useTime();
+  const { verbed } = useVerb();
   const cr = useCreator();
   const { filters } = useFilters();
   const q = useLinkQuery();
@@ -169,7 +171,7 @@ function Discoveries() {
       <div className="flex flex-col gap-1 border-b-2 pb-3" style={{ borderColor: OV.ink }}>
         <span className={kicker} style={{ color: OV.soft }}>New discoveries</span>
         <h2 className="font-ov-display text-[clamp(24px,2.6vw,32px)] font-extrabold leading-tight">
-          {filters.range === "all" ? `Your biggest ${cr.many}, and when you found them` : `${cr.Many} you watched for the first time`}
+          {filters.range === "all" ? `Your biggest ${cr.many}, and when you found them` : `${cr.Many} you ${verbed} for the first time`}
         </h2>
       </div>
       {!disc.data ? <Skeleton h={180} /> : (
@@ -179,7 +181,7 @@ function Discoveries() {
               <Link to={`/channel/${encodeURIComponent(c.channel_id)}${q}`} className="group flex flex-col items-center gap-1.5 text-center">
                 <Avatar src={c.avatar_url} name={c.title} size={84} />
                 <span className="w-full truncate text-[14px] font-bold group-hover:underline">{c.title}</span>
-                <span className="font-ov-display text-[15px] font-extrabold">{hoursShort(c.time_s)}</span>
+                <span className="font-ov-display text-[15px] font-extrabold">{tm.fmt(c.time_s)}</span>
                 <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>found {date(c.first_watched)}</span>
               </Link>
             </li>
@@ -196,6 +198,7 @@ const MS_PER_MONTH = 1000;
 const ROW = 40;
 
 function BarRace() {
+  const tm = useTime();
   const { filters } = useFilters();
   const cr = useCreator();
   // a few extra channels per month, so newcomers slide up from below instead of appearing out of nowhere
@@ -230,11 +233,11 @@ function BarRace() {
   const shown = frames.length ? frames[Math.min(last, Math.ceil(t - 1e-6))].month : null;
   const label = shown ? new Date(shown + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "";
   return (
-    <Card label="Bar chart race · hours so far" title={label ? `As of ${label}` : "Bar chart race"}>
+    <Card label={`Bar chart race · ${tm.unit} so far`} title={label ? `As of ${label}` : "Bar chart race"}>
       {!race.data ? <Skeleton h={420} /> : (
         <>
           <div className="relative" style={{ height: ROW * 10 }} role="img"
-               aria-label={`Top ${cr.many} by hours as of ${label}: ${rows.slice(0, 3).map((r) => race.data!.channels[r.channel_id]?.title).join(", ")}`}>
+               aria-label={`Top ${cr.many} by ${tm.unit} as of ${label}: ${rows.slice(0, 3).map((r) => race.data!.channels[r.channel_id]?.title).join(", ")}`}>
             {rows.map((r, rank) => {
               const c = race.data!.channels[r.channel_id];
               return (
@@ -247,7 +250,7 @@ function BarRace() {
                   <span className="relative h-full flex-1">
                     <span className="absolute inset-y-1 left-0 rounded-r-md" style={{ width: `${(r.value / max) * 100}%`, background: colors[r.channel_id] ?? OV.ink }} />
                   </span>
-                  <span className="w-[64px] text-right font-shelf-mono text-[12px] tabular-nums">{hoursShort(r.value)}</span>
+                  <span className="w-[64px] text-right font-shelf-mono text-[12px] tabular-nums">{tm.fmt(r.value)}</span>
                 </div>
               );
             })}
@@ -267,6 +270,7 @@ function BarRace() {
 }
 
 function MixByYear() {
+  const { verbed } = useVerb();
   const hasCategories = useCapability("categories");
   const [pick, setPick] = useState<"category" | "genre">("category");
   // hovering a piece (or a legend item) dims the others and shows that one's share in every year
@@ -279,10 +283,10 @@ function MixByYear() {
   const share = (n: string, yi: number) => (d ? d.series[n][yi] / (names.reduce((s, x) => s + d.series[x][yi], 0) || 1) : 0);
   const yi = hover?.year != null && d ? d.years.indexOf(hover.year) : -1;
   const info = !hover || !d ? `Hover a ${by} to follow it through the years.`
-    : yi >= 0 ? `${hover.name} · ${hover.year}: ${pct(share(hover.name, yi))} of what you watched`
+    : yi >= 0 ? `${hover.name} · ${hover.year}: ${pct(share(hover.name, yi))} of what you ${verbed}`
     : `${hover.name}: ${pct(share(hover.name, 0))} in ${d.years[0]}, ${pct(share(hover.name, d.years.length - 1))} in ${d.years[d.years.length - 1]}`;
   return (
-    <Card label={`Your mix · share of each ${by} per year`} title="What you watched, year by year">
+    <Card label={`Your mix · share of each ${by} per year`} title={`What you ${verbed}, year by year`}>
       {hasCategories && <Seg label="Group by" value={pick} options={[["category", "Categories"], ["genre", "Genres"]]} onChange={(v) => { setHover(null); setPick(v); }} />}
       {!d ? <Skeleton h={320} /> : !d.years.length ? <p style={{ color: OV.soft }}>Not enough data yet.</p> : (
         <>

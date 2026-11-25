@@ -98,15 +98,16 @@ export function topHeadline(title: string | null | undefined, prevRank: number |
   return prevRank === 1 ? `${name}, again` : `${name}, your #1`;
 }
 
-/** Hours per calendar year from monthly totals, oldest first. */
-export function yearlyHours(months: MonthPoint[]): { year: number; hours: number }[] {
+/** Time per calendar year from monthly totals, oldest first: in hours, or in another unit (`per` = seconds per
+ *  unit, 60 for minutes). The field is called `hours` either way. */
+export function yearlyHours(months: MonthPoint[], per = 3600): { year: number; hours: number }[] {
   const by = new Map<number, number>();
   for (const m of months) {
     const y = Number(m.month.slice(0, 4));
     by.set(y, (by.get(y) ?? 0) + m.time_s);
   }
   return [...by.entries()].sort((a, b) => a[0] - b[0])
-    .map(([year, s]) => ({ year, hours: Math.round(s / 3600) }))
+    .map(([year, s]) => ({ year, hours: Math.round(s / per) }))
     .filter((y, i, all) => y.hours > 0 || i > all.findIndex((x) => x.hours > 0));
 }
 

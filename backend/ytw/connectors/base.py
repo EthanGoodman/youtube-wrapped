@@ -93,7 +93,8 @@ class Manifest:
     def to_dict(self) -> dict:
         return {"id": self.id, "name": self.name, "implemented": self.implemented, "theme": self.theme,
                 "vocab": self.vocab, "capabilities": sorted(self.capabilities),
-                "export_steps": list(self.export_steps), "export_wait": self.export_wait, "issue": self.issue}
+                "export_steps": list(self.export_steps), "export_wait": self.export_wait, "issue": self.issue,
+                "family": self.family}
 
 
 def vocab(creator: str, creators: str, item: str, items: str, verb: str = "watch", verbed: str = "watched",

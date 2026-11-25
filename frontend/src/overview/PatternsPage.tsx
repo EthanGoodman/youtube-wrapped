@@ -5,7 +5,7 @@ import { DayPoint, HourPoint, MonthPoint, useMeta, useStats } from "../api";
 import { useFilters } from "../filters";
 import { duration, num } from "../format";
 import { useCapability } from "../platform";
-import { OV, PageBody, PageHeader, ScrollRow, Seg, Skeleton, StatsFrame, kicker, useNoun } from "./kit";
+import { OV, PageBody, PageHeader, ScrollRow, Seg, Skeleton, StatsFrame, kicker, useNoun, useTime, useVerb } from "./kit";
 import { HeatLegend, HoverBars, Readout, Ticks } from "./charts";
 import {
   DAYS, calendarWeeks, clockFacts, heatColor, heatLevel, heatRange, hourLabel, oneIn, periodTitle, weekdayFacts, weekendLine,
@@ -14,7 +14,13 @@ import {
 type Measure = "count" | "time";
 interface WW { count: number; time_s: number; days: number; avg_count_per_day: number; avg_time_s_per_day: number }
 
-const amount = (m: Measure, v: number, n: string) => (m === "time" ? duration(v) : `${num(v)} ${n}`);
+const amount = (m: Measure, v: number, n: string, fmt: (s: number) => string = duration) => (m === "time" ? fmt(v) : `${num(v)} ${n}`);
+
+/** How time reads here: minutes for music, "2h 3m" otherwise. */
+function useTimeFmt(): (s: number) => string {
+  const t = useTime();
+  return t.unit === "minutes" ? t.fmt : duration;
+}
 
 export function PatternsPage() {
   const { filters } = useFilters();
@@ -30,15 +36,16 @@ export function PatternsPage() {
   const monthly = useStats<{ data: MonthPoint[] }>("patterns/monthly");
   const f = clock.data ? clockFacts(clock.data.data) : null;
   const w = heat.data ? weekdayFacts(heat.data.data.count) : null;
-  const title = !hasTimes ? (!heat.data ? "When you watch" : w ? `Mostly on ${w.busiest}s.` : "Nothing in this period")
-    : !clock.data ? "When you watch" : !f ? "Nothing in this period" : f.night >= 0.2 ? "Up past midnight." : `Most of it around ${hourLabel(f.peak)}.`;
+  const { verb } = useVerb();
+  const title = !hasTimes ? (!heat.data ? `When you ${verb}` : w ? `Mostly on ${w.busiest}s.` : "Nothing in this period")
+    : !clock.data ? `When you ${verb}` : !f ? "Nothing in this period" : f.night >= 0.2 ? "Up past midnight." : `Most of it around ${hourLabel(f.peak)}.`;
 
   return (
     <StatsFrame>
       <PageHeader label={`Patterns · ${periodTitle(filters, meta?.today)}`} title={title}>
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-shelf-mono text-[12px] uppercase tracking-[0.1em]" style={{ color: OV.mute }} aria-hidden>Count</span>
-          <Seg label="Count" dark value={m} options={[["count", n.Many], ["time", "Hours"]]} onChange={setM} />
+          <Seg label="Count" dark value={m} options={[["count", n.Many], ["time", useTime().Unit]]} onChange={setM} />
         </div>
       </PageHeader>
       <PageBody>
@@ -77,6 +84,7 @@ function Card({ label, title, children, className = "" }: { label: string; title
 
 /** Dates without times: the seven days of the week, big, in the dark main card. */
 function Weekdays({ grid, m }: { grid?: number[][]; m: Measure }) {
+  const tf = useTimeFmt();
   const n = useNoun().many;
   if (!grid) return <Skeleton h={320} />;
   const totals = grid.map((row) => row.reduce((a, b) => a + b, 0));
@@ -90,13 +98,14 @@ function Weekdays({ grid, m }: { grid?: number[][]; m: Measure }) {
         <span className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>Your history has dates but no times, so it's by day, not hour</span>
       </div>
       <HoverBars dark height={220} gap={10} radius={6} hint="Hover a day to see it." ariaLabel={`${m === "time" ? "Hours" : n} by day of the week. Busiest: ${names[top]}.`}
-                 bars={totals.map((t, i) => ({ key: DAYS[i], label: names[i], value: t, display: amount(m, t, n), color: i === top ? OV.mustard : "#5E554A" }))}
+                 bars={totals.map((t, i) => ({ key: DAYS[i], label: names[i], value: t, display: amount(m, t, n, tf), color: i === top ? OV.mustard : "#5E554A" }))}
                  ticks={<Ticks dark labels={DAYS} />} />
     </section>
   );
 }
 
 function HourChart({ data, m }: { data?: HourPoint[]; m: Measure }) {
+  const tf = useTimeFmt();
   const n = useNoun().many;
   if (!data) return <Skeleton h={320} />;
   const v = (h: HourPoint) => (m === "time" ? h.time_s : h.count);
@@ -111,7 +120,7 @@ function HourChart({ data, m }: { data?: HourPoint[]; m: Measure }) {
       </div>
       <HoverBars dark height={220} gap={4} radius={4} hint="Hover an hour to see it."
                  ariaLabel={`${m === "time" ? "Hours" : n} by hour of day. Busiest: ${hourLabel(peak)}.`}
-                 bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: v(h), display: amount(m, v(h), n),
+                 bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: v(h), display: amount(m, v(h), n, tf),
                                           color: h.hour === peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }))}
                  ticks={<Ticks dark labels={[0, 3, 6, 9, 12, 15, 18, 21].map(hourLabel)} />} />
     </section>
@@ -119,6 +128,7 @@ function HourChart({ data, m }: { data?: HourPoint[]; m: Measure }) {
 }
 
 function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
+  const tf = useTimeFmt();
   const n = useNoun().many;
   const [cell, setCell] = useState<[number, number] | null>(null);
   const [level, setLevel] = useState<number | null>(null);
@@ -128,8 +138,8 @@ function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
   grid.forEach((row, d) => row.forEach((n, h) => { if (n > grid[best[0]][best[1]]) best = [d, h]; }));
   const days = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
   const [lo, hi] = level ? heatRange(level, max) : [0, 0];
-  const info = cell ? `${days[cell[0]]}, ${hourLabel(cell[1])} to ${hourLabel((cell[1] + 1) % 24)} · ${amount(m, grid[cell[0]][cell[1]], n)}`
-    : level != null ? (level === 0 ? "Hours you never watched" : `Hours with ${amount(m, lo, n)} to ${amount(m, hi, n)}`)
+  const info = cell ? `${days[cell[0]]}, ${hourLabel(cell[1])} to ${hourLabel((cell[1] + 1) % 24)} · ${amount(m, grid[cell[0]][cell[1]], n, tf)}`
+    : level != null ? (level === 0 ? "Hours with nothing at all" : `Hours with ${amount(m, lo, n, tf)} to ${amount(m, hi, n, tf)}`)
     : "Hover a square to see it, or a shade to light up those hours.";
   return (
     <Card label="Day × hour" title={`${days[best[0]]} around ${hourLabel(best[1])}`}>
@@ -237,6 +247,7 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
 }
 
 function Monthly({ months, m }: { months?: MonthPoint[]; m: Measure }) {
+  const tf = useTimeFmt();
   const n = useNoun().many;
   if (!months) return <Skeleton h={240} />;
   if (!months.length) return null;
@@ -247,7 +258,7 @@ function Monthly({ months, m }: { months?: MonthPoint[]; m: Measure }) {
   return (
     <Card label="Month by month" title={`${label(best.month)} was your biggest month`}>
       <HoverBars height={180} hint="Hover a month to see it." ariaLabel={`${m === "time" ? "Hours" : n} per month. Biggest: ${label(best.month)}.`}
-                 bars={months.map((x) => ({ key: x.month, label: label(x.month), value: v(x), display: amount(m, v(x), n), color: x.month === best.month ? OV.accent : OV.ink }))}
+                 bars={months.map((x) => ({ key: x.month, label: label(x.month), value: v(x), display: amount(m, v(x), n, tf), color: x.month === best.month ? OV.accent : OV.ink }))}
                  ticks={<Ticks labels={months.map((x) => (many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "")
                                                               : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })))} />} />
     </Card>

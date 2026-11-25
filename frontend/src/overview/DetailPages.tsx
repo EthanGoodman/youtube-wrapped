@@ -6,7 +6,7 @@ import { Link, useCapability, usePlatform } from "../platform";
 import { HourPoint, MonthPoint, Overview, RankedItem, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { clockTime, compact, date, duration, num, pct, safeHref } from "../format";
-import { OV, Pic, Skeleton, StatsFrame, kicker } from "./kit";
+import { Cover, OV, Pic, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, useTime, useVerb } from "./kit";
 import { HoverBars, Ticks } from "./charts";
 import { changeLine, hourLabel, hoursShort, periodTitle } from "./takeaways";
 
@@ -72,10 +72,11 @@ function Card({ label, title, children, className = "" }: { label: string; title
   );
 }
 
-const thumbOf = (v: RankedItem) => v.thumb ?? (v.key ? `https://i.ytimg.com/vi/${v.key}/mqdefault.jpg` : null);
+const thumbOf = (v: RankedItem) => v.thumb ?? (v.key && !v.key.includes(":") ? `https://i.ytimg.com/vi/${v.key}/mqdefault.jpg` : null);
 
 function VideoList({ items, empty = "Nothing in this period." }: { items: RankedItem[]; empty?: string }) {
   const q = useLinkQuery();
+  const music = useFamily() === "music";
   if (!items.length) return <p style={{ color: OV.soft }}>{empty}</p>;
   return (
     <ol className="flex flex-col">
@@ -83,7 +84,8 @@ function VideoList({ items, empty = "Nothing in this period." }: { items: Ranked
         <li key={v.key}>
           <Link to={`/video/${encodeURIComponent(v.key)}${q}`} className="flex items-center gap-3 border-b py-2 hover:bg-black/[0.03]" style={{ borderColor: "#E0D5C1" }}>
             <span className="w-5 text-right font-ov-display text-[14px] font-extrabold">{i + 1}</span>
-            {thumbOf(v) ? <img src={thumbOf(v)!} alt="" loading="lazy" referrerPolicy="no-referrer" className="aspect-video w-[88px] shrink-0 rounded border object-cover" style={{ borderColor: OV.ink }} />
+            {music ? <Cover src={v.thumb} name={v.title} size="44px" className="!border-2" />
+             : thumbOf(v) ? <img src={thumbOf(v)!} alt="" loading="lazy" referrerPolicy="no-referrer" className="aspect-video w-[88px] shrink-0 rounded border object-cover" style={{ borderColor: OV.ink }} />
                         : <span className="aspect-video w-[88px] shrink-0 rounded" style={{ background: OV.sand }} />}
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="line-clamp-2 text-[14px] font-bold leading-snug">{v.title ?? "Unavailable video"}</span>
@@ -98,7 +100,9 @@ function VideoList({ items, empty = "Nothing in this period." }: { items: Ranked
 }
 
 function FaceRow({ items }: { items: RankedItem[] }) {
+  const tm = useTime();
   const q = useLinkQuery();
+  const n = useNoun().many;
   if (!items.length) return <p style={{ color: OV.soft }}>Nothing in this period.</p>;
   return (
     <ol className="grid grid-cols-3 gap-4 sm:grid-cols-5 lg:grid-cols-10">
@@ -107,7 +111,7 @@ function FaceRow({ items }: { items: RankedItem[] }) {
           <Link to={`/channel/${encodeURIComponent(c.key)}${q}`} className="group flex flex-col items-center gap-1 text-center">
             <Pic src={c.avatar_url} name={c.title} size="72px" />
             <span className="w-full truncate text-[13px] font-bold group-hover:underline">{c.title}</span>
-            <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>{c.time_s >= 3600 ? hoursShort(c.time_s) : duration(c.time_s)} · {num(c.count)} videos</span>
+            <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>{tm.unit === "minutes" || c.time_s >= 3600 ? tm.fmt(c.time_s) : duration(c.time_s)} · {num(c.count)} {n}</span>
           </Link>
         </li>
       ))}
@@ -131,13 +135,15 @@ function fillMonths(data: MonthPoint[]): MonthPoint[] {
 }
 
 function MonthBars({ data }: { data: MonthPoint[] }) {
+  const n = useNoun().many;
+  const tm = useTime();
   const months = fillMonths(data);
   if (!months.length) return <p style={{ color: OV.soft }}>No watches.</p>;
   const many = months.length > 24;
   const label = (k: string) => new Date(k + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
   return (
     <HoverBars height={150} gap={2} radius={2} hint="Hover a month to see it." ariaLabel="Hours per month"
-               bars={months.map((x) => ({ key: x.month, label: label(x.month), value: x.time_s, display: `${hoursShort(x.time_s)} · ${num(x.count)} videos`, color: OV.ink }))}
+               bars={months.map((x) => ({ key: x.month, label: label(x.month), value: x.time_s, display: `${tm.fmt(x.time_s)} · ${num(x.count)} ${n}`, color: OV.ink }))}
                ticks={<Ticks labels={months.map((x) => (many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "")
                                                             : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })))} />} />
   );
@@ -155,12 +161,15 @@ function ClockBars({ data }: { data: HourPoint[] }) {
   );
 }
 
-function OverTime({ d, monthsLabel = "Over time · all time, hours per month" }: { d: SubsetBase; monthsLabel?: string }) {
+function OverTime({ d, monthsLabel }: { d: SubsetBase; monthsLabel?: string }) {
+  const tm = useTime();
+  monthsLabel = monthsLabel ?? `Over time · all time, ${tm.unit} per month`;
+  const { verb } = useVerb();
   const hasTimes = useCapability("time_of_day");
   return (
     <div className={`grid gap-4 ${hasTimes ? "lg:grid-cols-[3fr_2fr]" : ""}`}>
       <Card label={monthsLabel}><MonthBars data={d.monthly} /></Card>
-      {hasTimes && <Card label="When you watch · this period"><ClockBars data={d.clock} /></Card>}
+      {hasTimes && <Card label={`When you ${verb} · this period`}><ClockBars data={d.clock} /></Card>}
     </div>
   );
 }
@@ -176,13 +185,19 @@ function Chips({ items, to }: { items: string[]; to?: (s: string) => string }) {
   );
 }
 
-function subsetNumbers(d: SubsetBase, range: string): [string, ReactNode, ReactNode?][] {
+/** Hours, how many, first and last time: in the platform's words (videos watched, streams listened…). */
+function useSubsetNumbers(d: SubsetBase | undefined, range: string): [string, ReactNode, ReactNode?][] {
+  const tm = useTime();
+  const n = useNoun();
+  const music = useFamily() === "music";
+  const verbed = music ? "listened" : "watched";
+  if (!d) return [];
   const all = range === "all";
   return [
-    ["Hours", hoursShort(d.in_range.est_s), all ? undefined : `${hoursShort(d.all_time.est_s)} all time`],
-    ["Videos", num(d.in_range.videos), all ? undefined : `${num(d.all_time.videos)} all time`],
-    ["First watched", date(d.all_time.first_watched)],
-    ["Last watched", date(d.all_time.last_watched)],
+    [tm.Unit, tm.fmt(d.in_range.est_s), all ? undefined : `${tm.fmt(d.all_time.est_s)} all time`],
+    [music ? "Streams" : n.Many, num(d.in_range.videos), all ? undefined : `${num(d.all_time.videos)} all time`],
+    [`First ${verbed}`, date(d.all_time.first_watched)],
+    [`Last ${verbed}`, date(d.all_time.last_watched)],
   ];
 }
 
@@ -205,21 +220,24 @@ export function ChannelDetailPage() {
   const name = usePlatform()?.name ?? "YouTube";
   const d = useStats<ChannelDetail>(`channel/${encodeURIComponent(id)}`);
   const c = d.data;
-  if (!c) return d.error ? <StatsFrame><p className="p-8">Channel not found.</p></StatsFrame> : <Loading />;
+  const cr = useCreator();
+  const n = useNoun();
+  const numbers = useSubsetNumbers(c, filters.range);
+  if (!c) return d.error ? <StatsFrame><p className="p-8">Not found.</p></StatsFrame> : <Loading />;
   const best = c.rank_history.reduce<ChannelDetail["rank_history"][number] | null>((a, b) => (!a || b.rank < a.rank ? b : a), null);
   return (
     <StatsFrame>
-      <Header image={<Pic src={c.channel.avatar_url} name={c.channel.title} size="120px" ring={OV.paper} />} label="Channel"
-              title={c.channel.title ?? "Unknown channel"}
+      <Header image={<Pic src={c.channel.avatar_url} name={c.channel.title} size="120px" ring={OV.paper} />} label={cr.one.charAt(0).toUpperCase() + cr.one.slice(1)}
+              title={c.channel.title ?? "Unknown"}
               lines={[[c.channel.handle, c.channel.subscriber_count != null && `${compact(c.channel.subscriber_count)} subscribers`,
                        c.channel.video_count != null && `${num(c.channel.video_count)} uploads`].filter(Boolean).join(" · "),
-                      best ? `At its best your #${num(best.rank)} channel, in ${best.year}.` : ""]}
+                      best ? `At its best your #${num(best.rank)} ${cr.one}, in ${best.year}.` : ""]}
               action={<ExternalButton href={c.url} label={`Find on ${name}`} />} />
       <Body>
-        <Numbers items={subsetNumbers(c, filters.range)} />
+        <Numbers items={numbers} />
         <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
-          <Card label={`Your top videos from them · ${periodTitle(filters, undefined)}`}><VideoList items={c.top_videos.slice(0, 10)} /></Card>
-          <Card label="Its rank among your channels, each year">
+          <Card label={`Your top ${n.many} from them · ${periodTitle(filters, undefined)}`}><VideoList items={c.top_videos.slice(0, 10)} /></Card>
+          <Card label={`Its rank among your ${cr.many}, each year`}>
             {!c.rank_history.length ? <p style={{ color: OV.soft }}>No history.</p> : (
               <ol className="flex flex-col">
                 {c.rank_history.map((r) => (
@@ -263,24 +281,29 @@ export function VideoDetailPage() {
   const hasTimes = useCapability("time_of_day");
   const d = useStats<VideoDetail>(`video/${encodeURIComponent(id)}`);
   const v = d.data;
-  if (!v) return d.error ? <StatsFrame><p className="p-8">Video not found.</p></StatsFrame> : <Loading />;
+  const music = useFamily() === "music";
+  const n = useNoun();
+  const { verbed } = useVerb();
+  if (!v) return d.error ? <StatsFrame><p className="p-8">Not found.</p></StatsFrame> : <Loading />;
   const gone = v.video.status !== "ok";
   const short = v.video.bucket === "short";
-  const img = gone ? null : v.video.thumb_large ?? `https://i.ytimg.com/vi/${v.video.video_id}/hqdefault.jpg`;
-  const title = v.video.title && !v.video.title.startsWith("http") ? v.video.title : "Unavailable video";
+  const img = gone ? null : v.video.thumb_large ?? (music ? null : `https://i.ytimg.com/vi/${v.video.video_id}/hqdefault.jpg`);
+  const title = v.video.title && !v.video.title.startsWith("http") ? v.video.title : `Unavailable ${n.one}`;
   return (
     <StatsFrame>
-      <Header label={short ? "Short" : v.video.is_live ? "Live stream" : "Video"} title={title}
-              image={img ? <img src={img} alt="" referrerPolicy="no-referrer" className={`shrink-0 rounded-xl border-2 object-cover ${short ? "aspect-[9/16] w-[130px]" : "aspect-video w-[300px]"}`} style={{ borderColor: OV.paper }} />
+      <Header label={music ? "Track" : short ? "Short" : v.video.is_live ? "Live stream" : "Video"} title={title}
+              image={music ? <Cover src={img} name={title} size="180px" ring={OV.paper} />
+                     : img ? <img src={img} alt="" referrerPolicy="no-referrer" className={`shrink-0 rounded-xl border-2 object-cover ${short ? "aspect-[9/16] w-[130px]" : "aspect-video w-[300px]"}`} style={{ borderColor: OV.paper }} />
                          : <span className="flex aspect-video w-[300px] shrink-0 items-center justify-center rounded-xl border-2 p-4 text-center text-[13px]" style={{ borderColor: "#4A433B", color: OV.mute }}>Removed or private. Your history still remembers it.</span>}
-              lines={[v.video.channel_id ? <Link to={`/channel/${encodeURIComponent(v.video.channel_id)}${q}`} className="underline underline-offset-4" style={{ color: OV.paper }}>{v.video.channel_title ?? "Channel"} ›</Link> : "",
+              lines={[v.video.channel_id ? <Link to={`/channel/${encodeURIComponent(v.video.channel_id)}${q}`} className="underline underline-offset-4" style={{ color: OV.paper }}>{v.video.channel_title ?? "More"} ›</Link> : "",
                       [v.video.category, v.video.view_count != null && `${compact(v.video.view_count)} views`, v.video.like_count != null && `${compact(v.video.like_count)} likes`].filter(Boolean).join(" · ")]}
               action={<ExternalButton href={v.url} label={`Find on ${name}`} />} />
       <Body>
-        <Numbers items={[["You watched it", `${num(v.watch_count)}×`], ["Time", duration(v.total_est_s)],
-                         ["Length", v.video.duration_s ? duration(v.video.duration_s) : "–"], ["Uploaded", date(v.video.published_at)]]} />
+        <Numbers items={[[`You ${verbed} it`, `${num(v.watch_count)}×`], ["Time", duration(v.total_est_s)],
+                         ["Length", v.video.duration_s ? duration(v.video.duration_s) : "–"],
+                         music ? [`First ${verbed}`, date(v.watches[0]?.local_iso)] : ["Uploaded", date(v.video.published_at)]]} />
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card label="Every time you watched it" title={`${num(v.watch_count)} ${v.watch_count === 1 ? "time" : "times"}`}>
+          <Card label={`Every time you ${verbed} it`} title={`${num(v.watch_count)} ${v.watch_count === 1 ? "time" : "times"}`}>
             <ol className="flex flex-col">
               {[...v.watches].reverse().map((w) => (
                 <li key={w.entry_id} className="flex justify-between border-b py-2 text-[14px]" style={{ borderColor: "#E0D5C1" }}>
@@ -306,16 +329,19 @@ interface GroupDetail extends SubsetBase { top_channels: RankedItem[] }
 
 function GroupView({ title, label, d, external }: { title: string; label: string; d: GroupDetail; external?: string }) {
   const { filters } = useFilters();
+  const cr = useCreator();
+  const n = useNoun();
+  const numbers = useSubsetNumbers(d, filters.range);
   return (
     <StatsFrame>
       <Header label={label} title={title}
               image={<span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-2 font-ov-display text-[44px] font-extrabold" style={{ background: OV.mustard, color: OV.ink, borderColor: OV.paper }}>{title.charAt(0)}</span>}
-              lines={[`${num(d.all_time.videos)} videos all time · ${num(d.all_time.unique_videos)} different`]}
+              lines={[`${num(d.all_time.videos)} ${n.many} all time · ${num(d.all_time.unique_videos)} different`]}
               action={external && <ExternalButton href={external} label="About on Wikipedia" />} />
       <Body>
-        <Numbers items={subsetNumbers(d, filters.range)} />
-        <Card label={`Top channels · ${periodTitle(filters, undefined)}`}><FaceRow items={d.top_channels} /></Card>
-        <Card label={`Top videos · ${periodTitle(filters, undefined)}`}><VideoList items={d.top_videos.slice(0, 10)} /></Card>
+        <Numbers items={numbers} />
+        <Card label={`Top ${cr.many} · ${periodTitle(filters, undefined)}`}><FaceRow items={d.top_channels} /></Card>
+        <Card label={`Top ${n.many} · ${periodTitle(filters, undefined)}`}><VideoList items={d.top_videos.slice(0, 10)} /></Card>
         <OverTime d={d} />
       </Body>
     </StatsFrame>
@@ -345,6 +371,9 @@ interface YearDetail {
 }
 
 export function YearDetailPage() {
+  const cr = useCreator();
+  const { verbed } = useVerb();
+  const n = useNoun().many;
   const { year = "" } = useParams();
   const q = useLinkQuery();
   const name = usePlatform()?.name ?? "YouTube";
@@ -357,13 +386,13 @@ export function YearDetailPage() {
     <StatsFrame>
       <Header label={`Your year on ${name}`} title={`${y.year}: ${num(Math.round(o.est_s / 3600))} hours`}
               image={<span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-2 font-ov-display text-[30px] font-extrabold" style={{ background: OV.accent, color: OV.paper, borderColor: OV.paper }}>{String(y.year).slice(2)}</span>}
-              lines={[`${num(o.videos)} videos · ${num(o.unique_channels)} channels · ${num(o.active_days)} days${change ? ` · ${change}` : ""}`]}
+              lines={[`${num(o.videos)} ${n} · ${num(o.unique_channels)} ${cr.many} · ${num(o.active_days)} days${change ? ` · ${change}` : ""}`]}
               action={<Link to={`/wrapped?year=${y.year}${q ? `&${q.slice(1)}` : ""}`} className="inline-flex min-h-10 shrink-0 items-center rounded-[10px] px-4 text-[15px] font-bold" style={{ background: OV.mustard, color: OV.ink }}>Open {y.year} Wrapped</Link>} />
       <Body>
-        <Numbers items={[["Hours", hoursShort(o.est_s)], ["Videos", num(o.videos)], ["Channels", num(o.unique_channels)], ["Days you watched", pct(o.pct_days_active), `${num(o.active_days)} days`]]} />
-        <Card label="Top channels"><FaceRow items={y.top_channels} /></Card>
+        <Numbers items={[["Hours", hoursShort(o.est_s)], [n.charAt(0).toUpperCase() + n.slice(1), num(o.videos)], [cr.Many, num(o.unique_channels)], [`Days you ${verbed}`, pct(o.pct_days_active), `${num(o.active_days)} days`]]} />
+        <Card label={`Top ${cr.many}`}><FaceRow items={y.top_channels} /></Card>
         <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
-          <Card label="Top videos"><VideoList items={y.top_videos.slice(0, 10)} /></Card>
+          <Card label={`Top ${n}`}><VideoList items={y.top_videos.slice(0, 10)} /></Card>
           <Card label="Top genres">
             <ol className="flex flex-col">
               {y.top_genres.slice(0, 8).map((g) => (
@@ -386,7 +415,7 @@ export function YearDetailPage() {
                   <Link to={`/channel/${encodeURIComponent(c.channel_id)}${q}`} className="group flex flex-col items-center gap-1 text-center">
                     <Pic src={c.avatar_url} name={c.title} size="64px" />
                     <span className="w-full truncate text-[13px] font-bold group-hover:underline">{c.title}</span>
-                    <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>{num(c.count)} videos</span>
+                    <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>{num(c.count)} {n}</span>
                   </Link>
                 </li>
               ))}
@@ -394,6 +423,34 @@ export function YearDetailPage() {
           </Card>
         )}
         <OverTime d={{ monthly: y.monthly, clock: y.clock } as SubsetBase} monthsLabel={`${y.year}, hours per month`} />
+      </Body>
+    </StatsFrame>
+  );
+}
+
+// ------------------------------------------------------------------ album (music)
+
+interface AlbumDetail extends SubsetBase { album: { album_id: string; title: string | null; cover: string | null; released: string | null; artist_id: string | null; artist: string | null } }
+
+export function AlbumDetailPage() {
+  const { id = "" } = useParams();
+  const { filters } = useFilters();
+  const q = useLinkQuery();
+  const d = useStats<AlbumDetail>(`album/${encodeURIComponent(id)}`);
+  const a = d.data;
+  const numbers = useSubsetNumbers(a, filters.range);
+  if (!a) return d.error ? <StatsFrame><p className="p-8">Album not found.</p></StatsFrame> : <Loading />;
+  return (
+    <StatsFrame>
+      <Header image={<Cover src={a.album.cover} name={a.album.title} size="140px" ring={OV.paper} />} label="Album"
+              title={a.album.title ?? "Unknown album"}
+              lines={[<>{a.album.artist_id ? <Link to={`/channel/${encodeURIComponent(a.album.artist_id)}${q}`} className="underline underline-offset-2">{a.album.artist}</Link> : a.album.artist}
+                        {a.album.released ? ` · ${a.album.released.slice(0, 4)}` : ""}</>,
+                      `${num(a.all_time.unique_videos)} of its songs played, ${num(a.all_time.videos)} streams all time`]} />
+      <Body>
+        <Numbers items={numbers} />
+        <Card label={`Its songs you played · ${periodTitle(filters, undefined)}`}><VideoList items={a.top_videos} /></Card>
+        <OverTime d={a} />
       </Body>
     </StatsFrame>
   );
