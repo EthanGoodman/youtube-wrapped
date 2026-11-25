@@ -234,7 +234,7 @@ export function Seg<T extends string>({ value, options, onChange, label, dark = 
   value: T; options: [T, string][]; onChange: (v: T) => void; label: string; dark?: boolean;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex flex-wrap gap-1 rounded-full border-2 p-1"
+    <div role="group" aria-label={label} className="inline-flex w-fit flex-wrap gap-1 rounded-full border-2 p-1"
          style={{ borderColor: dark ? "#4A433B" : OV.ink }}>
       {options.map(([v, l]) => (
         <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}

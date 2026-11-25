@@ -20,6 +20,7 @@ import { OverviewPage } from "./overview/OverviewPage";
 import { TopPage } from "./overview/TopPage";
 import { PatternsPage } from "./overview/PatternsPage";
 import { RecordsPage } from "./overview/RecordsPage";
+import { EvolutionPage } from "./overview/EvolutionPage";
 import { usePlatforms } from "./api";
 import { HubLink, PLATFORM_IDS, setVocab, useCapability } from "./platform";
 import { setChartTheme } from "./theme";
@@ -94,7 +95,7 @@ function PlatformApp() {
       <Route path="anime" element={<Gate capability="anime"><Layout><Anime /></Layout></Gate>} />
       <Route path="patterns" element={platform === "youtube" ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
       <Route path="records" element={platform === "youtube" ? <RecordsPage /> : <Layout><Records /></Layout>} />
-      <Route path="evolution" element={<Layout><Evolution /></Layout>} />
+      <Route path="evolution" element={platform === "youtube" ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
       <Route path="ads" element={<Gate capability="ads"><Layout><Ads /></Layout></Gate>} />
       <Route path="search" element={<Gate capability="search"><Layout><Search /></Layout></Gate>} />
       <Route path="channel/:id" element={<Layout><ChannelPage /></Layout>} />
