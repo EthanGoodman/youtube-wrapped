@@ -38,6 +38,9 @@ class Steam(Connector):
             raise ConnectorError(str(e)) from None
         print(" " * 35, end="\r")
         self.out(f"Steam: {r['games']:,} games ({r['played']:,} played, {r['hours']:,} h); details refreshed for {r['refreshed']:,}")
+        if r["achievements_hidden"]:
+            self.out(f"Achievements were hidden for {r['achievements_hidden']:,} games: in Steam, set Profile > Edit Profile > Privacy > "
+                     "Game details to Public, then fetch again. Until then, past hours can only be placed on each game's last-played day.")
         self.ingest()
 
     def sync(self, **opts) -> None:

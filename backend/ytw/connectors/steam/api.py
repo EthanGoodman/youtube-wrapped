@@ -37,6 +37,9 @@ def http_fetcher(key: str) -> Fetcher:
             r = net.request("GET", url, params=q, timeout=25, retries=4)
         except net.NetError as e:
             raise SteamError(str(e)) from None
+        body = r.json({}) or {}
+        if r.status == 403 and "not public" in json.dumps(body).lower():
+            return {"_private": True}       # the key is fine; the profile hides this (achievements need public game details)
         if r.status in (401, 403) and url.startswith(API):
             raise SteamError("Steam rejected the API key - save it again with python backend/cli.py secrets set STEAM_API_KEY")
         if r.status == 429:
@@ -45,7 +48,7 @@ def http_fetcher(key: str) -> Fetcher:
             return {}
         if not r.ok:
             raise SteamError(f"Steam HTTP {r.status}")
-        return r.json({}) or {}
+        return body
     return fetch
 
 
@@ -80,6 +83,7 @@ def owned_games(fetch: Fetcher, steam_id: str) -> list[dict]:
 def game_details(fetch: Fetcher, steam_id: str, appid: int, genres_known: list[str] | None) -> dict:
     """Your achievements for a game (names, unlock times), how rare each is, and the game's genres."""
     ps = fetch(API + "ISteamUserStats/GetPlayerAchievements/v1/", {"steamid": steam_id, "appid": appid, "l": "english"})
+    private = bool(ps.get("_private"))
     ach = [{"api": a["apiname"], "name": a.get("name"), "desc": a.get("description"),
             "unlocked": int(a["unlocktime"]) if a.get("achieved") and a.get("unlocktime") else None}
            for a in (ps.get("playerstats") or {}).get("achievements") or [] if isinstance(a, dict) and a.get("apiname")]
@@ -97,7 +101,7 @@ def game_details(fetch: Fetcher, steam_id: str, appid: int, genres_known: list[s
         store = fetch(STORE, {"appids": appid, "filters": "genres"}).get(str(appid)) or {}
         genres = [g["description"] for g in ((store.get("data") or {}).get("genres") or [])
                   if isinstance(g, dict) and isinstance(g.get("description"), str)][:6]
-    return {"appid": appid, "achievements": ach, "rarity": rarity, "genres": genres}
+    return {"appid": appid, "achievements": ach, "rarity": rarity, "genres": genres, "private": private}
 
 
 def fetch_all(folder: Path, fetch: Fetcher, steam_id: str, today: date, progress: Callable[[str], None] = lambda s: None) -> dict:
@@ -115,10 +119,14 @@ def fetch_all(folder: Path, fetch: Fetcher, steam_id: str, today: date, progress
         old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
         if old is None or old.get("minutes") != g["minutes"]:
             todo.append((g, old))
+    private = 0
     for n, (g, old) in enumerate(todo, 1):
         d = game_details(fetch, steam_id, g["appid"], old.get("genres") if old else None)
-        (folder / "games" / f"{g['appid']}.json").write_text(json.dumps({**d, "minutes": g["minutes"]}), encoding="utf-8")
+        hidden = d.pop("private")
+        private += hidden
+        # hidden achievements: no minutes saved, so the next fetch asks again (after the profile is made public)
+        (folder / "games" / f"{g['appid']}.json").write_text(json.dumps({**d, "minutes": None if hidden else g["minutes"]}), encoding="utf-8")
         if n % 10 == 0 or n == len(todo):
             progress(f"games {n:,}/{len(todo):,}")
     return {"games": len(games), "played": sum(1 for g in games if g["minutes"]), "refreshed": len(todo),
-            "hours": round(sum(g["minutes"] for g in games) / 60)}
+            "hours": round(sum(g["minutes"] for g in games) / 60), "achievements_hidden": private}

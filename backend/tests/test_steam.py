@@ -149,3 +149,19 @@ def test_games_wrapped(tmp_path):
     assert w["top_games"][0]["title"] == "Starfall Tactics" and w["achievements"]["unlocked"] == 2
     assert w["personality"]["name"] and "top_game_share" in w["metrics"]
     assert client.get("/api/wrapped/2019?platform=steam").json()["empty"] is True
+
+
+def test_hidden_achievements_are_not_a_bad_key(tmp_path):
+    """A profile with private game details: the library still saves, and those games are asked again next time."""
+    fake = FakeSteam()
+
+    def private(url, params):
+        if "GetPlayerAchievements" in url:
+            return {"_private": True}
+        return fake(url, params)
+    r = api.fetch_all(tmp_path, private, "76561198000000001", date(2026, 11, 25))
+    assert r["achievements_hidden"] == 1 and r["refreshed"] == 1
+    assert json.loads((tmp_path / "games" / "10.json").read_text())["minutes"] is None
+    r2 = api.fetch_all(tmp_path, fake, "76561198000000001", date(2026, 11, 26))     # made public: asked again
+    assert r2["refreshed"] == 1 and r2["achievements_hidden"] == 0
+    assert json.loads((tmp_path / "games" / "10.json").read_text())["achievements"]
