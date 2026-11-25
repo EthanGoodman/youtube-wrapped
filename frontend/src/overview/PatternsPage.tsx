@@ -6,7 +6,7 @@ import { useFilters } from "../filters";
 import { duration, num } from "../format";
 import { OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker } from "./kit";
 import {
-  DAYS, HEAT, calendarWeeks, clockFacts, heatColor, hourLabel, oneIn, periodTitle, weekdayFacts, weekendLine,
+  DAYS, HEAT, calendarWeeks, clockFacts, heatColor, heatLevel, heatRange, hourLabel, oneIn, periodTitle, weekdayFacts, weekendLine,
 } from "./takeaways";
 
 type Measure = "count" | "time";
@@ -145,26 +145,65 @@ function Weekends({ ww, m, counts }: { ww?: { weekday: WW; weekend: WW }; m: Mea
   );
 }
 
+/** Every day as a calendar: weeks run left to right (Monday on top), squares grow to fill the card for short
+ *  periods and keep a readable size (scrolling) for long ones. Hover a day for its numbers; hover a legend shade
+ *  to light only the days at that level. */
 function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
+  const [day, setDay] = useState<DayPoint | null>(null);
+  const [level, setLevel] = useState<number | null>(null);
   if (!days) return <Skeleton h={180} />;
   const v = (d: DayPoint) => (m === "time" ? d.time_s : d.count);
   const max = Math.max(1, ...days.map(v));
   const weeks = calendarWeeks(days);
   const active = days.filter((d) => d.count > 0).length;
+  const W = weeks.length;
+  const unit = m === "time" ? "" : " videos";
+  const fmt = (x: number) => (m === "time" ? duration(x) : num(x));
+  const nice = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  const info = day ? `${nice(day.date)} · ${day.count ? `${num(day.count)} videos · ${duration(day.time_s)}` : "nothing watched"}`
+    : level != null ? (level === 0 ? "Days you didn't watch" : `Days with ${fmt(heatRange(level, max)[0])}–${fmt(heatRange(level, max)[1])}${unit}`)
+    : "Hover a day to see it, or a shade to light up those days.";
+  // a month name over the first week that holds its 1st (and over the first column)
+  const monthOf = (w: (DayPoint | null)[], i: number) => {
+    const first = w.find((d) => d && (d.date.endsWith("-01") || i === 0));
+    return first ? new Date(first.date + "T00:00:00").toLocaleDateString("en-US", { month: "short" }) : "";
+  };
   return (
     <Card label="Every day" title={`You watched on ${num(active)} of ${num(days.length)} days`}>
-      <div className="no-scrollbar overflow-x-auto pb-1">
-        <div className="flex gap-[3px]" role="img" aria-label={`One square per day. You watched on ${active} of ${days.length} days.`}>
-          {weeks.map((w, i) => (
-            <div key={i} className="flex flex-col gap-[3px]">
-              {w.map((d, j) => d
-                ? <span key={j} title={`${d.date}: ${amount(m, v(d))}`} className="h-3 w-3 rounded-[2px]" style={{ background: heatColor(v(d), max) }} />
-                : <span key={j} className="h-3 w-3" />)}
-            </div>
-          ))}
+      <p aria-live="polite" className="min-h-[22px] text-[15px] font-bold" style={{ color: day || level != null ? OV.ink : OV.soft }}>{info}</p>
+      <div className="no-scrollbar overflow-x-auto pb-1" onMouseLeave={() => setDay(null)}>
+        <div className="grid gap-[3px]" role="img" aria-label={`One square per day. You watched on ${active} of ${days.length} days.`}
+             style={{ gridTemplateColumns: `30px repeat(${W},minmax(0,1fr))`, width: `min(100%, ${W * 30 + 34}px)`, minWidth: `${W * 12 + 34}px` }}>
+          <span />
+          {weeks.map((w, i) => <span key={`m${i}`} className="overflow-visible whitespace-nowrap font-shelf-mono text-[10px]" style={{ color: OV.soft }}>{monthOf(w, i)}</span>)}
+          {[0, 1, 2, 3, 4, 5, 6].map((r) => [
+            <span key={`d${r}`} className="self-center font-shelf-mono text-[10px]" style={{ color: OV.soft }}>{r % 2 === 0 ? DAYS[r] : ""}</span>,
+            ...weeks.map((w, i) => {
+              const d = w[r];
+              if (!d) return <span key={`${i}-${r}`} />;
+              const lv = heatLevel(v(d), max);
+              const on = day?.date === d.date;
+              return (
+                <span key={`${i}-${r}`} onMouseEnter={() => setDay(d)}
+                      className="aspect-square rounded-[3px] transition-opacity duration-150"
+                      style={{ background: heatColor(v(d), max), opacity: level != null && lv !== level ? 0.18 : 1,
+                               boxShadow: on ? `0 0 0 2px ${OV.ink}` : undefined }} />
+              );
+            }),
+          ])}
         </div>
       </div>
-      <Legend />
+      <span className="flex items-center gap-1 font-shelf-mono text-[11px]" style={{ color: OV.soft }} onMouseLeave={() => setLevel(null)}>
+        Less
+        {HEAT.map((c, i) => (
+          <button key={c} type="button" aria-label={i === 0 ? "Days you didn't watch" : `Days at level ${i} of ${HEAT.length - 1}`}
+                  onMouseEnter={() => setLevel(i)} onFocus={() => setLevel(i)} onBlur={() => setLevel(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded">
+            <span className="h-3.5 w-3.5 rounded-[3px]" style={{ background: c, boxShadow: level === i ? `0 0 0 2px ${OV.ink}` : undefined }} />
+          </button>
+        ))}
+        More
+      </span>
     </Card>
   );
 }

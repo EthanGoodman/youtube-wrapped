@@ -159,10 +159,21 @@ export function longestReign(tops: { year: number; title?: string | null }[]): {
  *  Each step is darker than the one before, so "more" always reads darker. */
 export const HEAT = ["#EDE4D3", "#E8D2A6", "#E2B262", "#D98E35", "#C2622B", "#9E3B1F"];
 
+/** Which step of HEAT a value falls on (0 = nothing). */
+export function heatLevel(value: number, max: number): number {
+  if (!value || !max) return 0;
+  return 1 + Math.min(HEAT.length - 2, Math.floor((value / max) * (HEAT.length - 1)));
+}
+
 export function heatColor(value: number, max: number): string {
-  if (!value || !max) return HEAT[0];
-  const i = 1 + Math.min(HEAT.length - 2, Math.floor((value / max) * (HEAT.length - 1)));
-  return HEAT[i];
+  return HEAT[heatLevel(value, max)];
+}
+
+/** The range of values a HEAT step covers, e.g. [117, 234] for step 2 when the busiest is 585. */
+export function heatRange(level: number, max: number): [number, number] {
+  if (level <= 0) return [0, 0];
+  const steps = HEAT.length - 1;
+  return [Math.ceil(((level - 1) / steps) * max) || 1, level === steps ? max : Math.floor((level / steps) * max)];
 }
 
 /** "You watch 2.1× as much on weekend days" from per-day averages. */
@@ -184,6 +195,51 @@ export function calendarWeeks<T extends { date: string }>(days: T[]): (T | null)
   const weeks: (T | null)[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
+}
+
+/** A color per channel for the whole bar chart race: assigned when a channel first shows up, picking a color no
+ *  channel on screen in that frame already has (colors only repeat once the earlier channel has left). */
+export function raceColors(frames: { top: { channel_id: string }[] }[], palette: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  let next = 0;
+  for (const f of frames) {
+    const onScreen = new Set(f.top.map((t) => out[t.channel_id]).filter(Boolean));
+    for (const t of f.top) {
+      if (out[t.channel_id]) continue;
+      let pick = palette[next % palette.length];
+      for (let k = 0; k < palette.length && onScreen.has(pick); k++) pick = palette[(next + k + 1) % palette.length];
+      out[t.channel_id] = pick;
+      onScreen.add(pick);
+      next++;
+    }
+  }
+  return out;
+}
+
+/** The bar race at any moment between two monthly frames (t = 2.5 is halfway through the month after frame 2), so
+ *  playback can glide instead of jumping. Values are cumulative, so a channel missing from a frame is just below that
+ *  frame's last bar: it slides in from the bottom rather than popping in. */
+export function raceAt(frames: { top: { channel_id: string; value: number }[] }[], t: number, n: number): { channel_id: string; value: number }[] {
+  if (!frames.length) return [];
+  const last = frames.length - 1;
+  const ti = Math.max(0, Math.min(t, last));
+  const a = frames[Math.floor(ti)];
+  const b = frames[Math.min(last, Math.floor(ti) + 1)];
+  const p = ti - Math.floor(ti);
+  if (p === 0) return a.top.slice(0, n);
+  const A = new Map(a.top.map((x) => [x.channel_id, x.value]));
+  const B = new Map(b.top.map((x) => [x.channel_id, x.value]));
+  const floorA = a.top.length ? a.top[a.top.length - 1].value : 0;
+  const floorB = b.top.length ? b.top[b.top.length - 1].value : 0;
+  const ids = new Set([...A.keys(), ...B.keys()]);
+  return [...ids]
+    .map((id) => {
+      const va = A.get(id) ?? Math.min(floorA, B.get(id) ?? floorA);
+      const vb = B.get(id) ?? Math.max(va, floorB);
+      return { channel_id: id, value: va + (vb - va) * p };
+    })
+    .sort((x, y) => y.value - x.value)
+    .slice(0, n);
 }
 
 /** "Nov 30" from an ISO date. */

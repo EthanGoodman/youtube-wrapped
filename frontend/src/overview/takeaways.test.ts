@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changeLine, clockFacts, clockLine, comparison, hourLabel, hoursShort, oneIn, periodTitle, periodYear, rankMove,
-  HEAT, calendarWeeks, groupReigns, heatColor, longestReign, rankingFilters, weekendLine, spanLabel, topHeadline, weekdayFacts, yearlyHours, yearsToShow,
+  HEAT, calendarWeeks, groupReigns, raceAt, raceColors, heatColor, heatLevel, heatRange, longestReign, rankingFilters, weekendLine, spanLabel, topHeadline, weekdayFacts, yearlyHours, yearsToShow,
 } from "./takeaways";
 
 describe("comparison", () => {
@@ -112,6 +112,11 @@ describe("patterns helpers", () => {
     expect(heatColor(0, 10)).toBe(HEAT[0]);
     expect(heatColor(10, 10)).toBe(HEAT[HEAT.length - 1]);
     expect(heatColor(1, 10)).toBe(HEAT[1]);
+    expect(heatLevel(0, 10)).toBe(0);
+    expect(heatLevel(10, 10)).toBe(HEAT.length - 1);
+    // the steps cover the whole range, ending at the busiest day
+    expect(heatRange(1, 585)).toEqual([1, 117]);
+    expect(heatRange(5, 585)).toEqual([468, 585]);
   });
   it("compares weekdays and weekends in one line", () => {
     expect(weekendLine(1, 2.1)).toBe("2.1× as much on a weekend day as on a weekday.");
@@ -124,6 +129,31 @@ describe("patterns helpers", () => {
                                  { date: "2026-11-28" }, { date: "2026-11-29" }, { date: "2026-11-30" }]);
     expect(weeks[0].slice(0, 3)).toEqual([null, null, { date: "2026-11-25" }]);
     expect(weeks[1][0]).toEqual({ date: "2026-11-30" });
+  });
+});
+
+describe("raceAt", () => {
+  const frames = [
+    { top: [{ channel_id: "a", value: 10 }, { channel_id: "b", value: 4 }] },
+    { top: [{ channel_id: "b", value: 20 }, { channel_id: "a", value: 12 }, { channel_id: "c", value: 8 }] },
+  ];
+  it("blends values between months and re-sorts", () => {
+    expect(raceAt(frames, 0, 3)).toEqual([{ channel_id: "a", value: 10 }, { channel_id: "b", value: 4 }]);
+    const mid = raceAt(frames, 0.5, 3);
+    expect(mid.map((x) => x.channel_id)).toEqual(["b", "a", "c"]);
+    expect(mid[0].value).toBeCloseTo(12);
+    // c wasn't shown in month 0: it starts at that month's lowest bar, not from nothing
+    expect(mid[2].value).toBeCloseTo(6);
+  });
+});
+
+describe("raceColors", () => {
+  const frame = (...ids: string[]) => ({ top: ids.map((channel_id) => ({ channel_id })) });
+  it("keeps one color per channel and never doubles up on screen", () => {
+    const c = raceColors([frame("a", "b"), frame("b", "a", "c"), frame("c", "d")], ["red", "blue", "green"]);
+    expect([c.a, c.b, c.c]).toEqual(["red", "blue", "green"]);
+    // d arrives next to c (green): it reuses a color, but not green
+    expect(c.d).not.toBe("green");
   });
 });
 

@@ -1,13 +1,13 @@
 /* Evolution in the new look: how your taste changed. Main: your #1 each year (reigns) and your total hours per year.
    Secondary: most loyal and fell off. Then new discoveries, the bar chart race and your mix by year. */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useCapability } from "../platform";
 import { MonthPoint, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
-import { date, month, num, pct } from "../format";
+import { date, num, pct } from "../format";
 import { OV, PageBody, PageHeader, Pic, Seg, Skeleton, StatsFrame, kicker } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
-import { hoursShort, rankingFilters, yearlyHours } from "./takeaways";
+import { hoursShort, raceAt, raceColors, rankingFilters, yearlyHours } from "./takeaways";
 
 interface Ref { channel_id: string; title?: string | null; avatar_url?: string | null }
 type Discovery = Ref & { first_watched: string; count: number; time_s: number };
@@ -18,6 +18,8 @@ interface Mix { years: number[]; series: Record<string, number[]> }
 
 /** Categorical colors for the cream pages: our inks first, each distinct in lightness or hue. */
 const MIX_COLORS = ["#1A1714", "#B83A24", "#E2A93B", "#2E6B63", "#6E4C7E", "#4C7DA8", "#8A8B3C", "#C98A5B"];
+/** The race shows 10 bars at once, so it needs more than 8: the same warm family, plus rose, navy, sage and brown. */
+const RACE_COLORS = [...MIX_COLORS, "#A34E6E", "#2F4A7A", "#7FA27A", "#8C6239"];
 const OTHER = "#CDBFA6";
 
 export function EvolutionPage() {
@@ -178,52 +180,74 @@ function Discoveries() {
   );
 }
 
-/** The bar chart race as plain HTML: rows glide to their new place each month. */
+/** The bar chart race, played smoothly: time runs continuously (about a second per month), values blend between
+ *  months and bars glide when they swap places; the date label changes once a month. */
+const MS_PER_MONTH = 1000;
+const ROW = 40;
+
 function BarRace() {
   const { filters } = useFilters();
-  const race = useStats<Race>("evolution/bar_race", { limit: 10 }, { filters: { ...rankingFilters(filters), metric: "time" } });
+  // a few extra channels per month, so newcomers slide up from below instead of appearing out of nowhere
+  const race = useStats<Race>("evolution/bar_race", { limit: 14 }, { filters: { ...rankingFilters(filters), metric: "time" } });
   const frames = race.data?.frames ?? [];
-  const [i, setI] = useState(0);
+  const last = Math.max(0, frames.length - 1);
+  const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
-  useEffect(() => { setI(Math.max(0, frames.length - 1)); setPlaying(false); }, [frames.length]);
+  useEffect(() => { setT(last); setPlaying(false); }, [last]);
   useEffect(() => {
     if (!playing) return;
-    const t = setInterval(() => setI((x) => { if (x >= frames.length - 1) { setPlaying(false); return x; } return x + 1; }), 650);
-    return () => clearInterval(t);
-  }, [playing, frames.length]);
+    let raf = 0;
+    let prev = performance.now();
+    const step = (now: number) => {
+      const dt = now - prev;
+      prev = now;
+      setT((x) => {
+        const nx = Math.min(last, x + dt / MS_PER_MONTH);
+        if (nx >= last) setPlaying(false);
+        return nx;
+      });
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, last]);
+  const colors = useMemo(() => raceColors(frames, RACE_COLORS), [frames]);
   if (race.data && frames.length < 2) return null;
-  const f = frames[Math.min(i, frames.length - 1)];
-  const max = f ? Math.max(1, ...f.top.map((t) => t.value)) : 1;
-  const ROW = 40;
+  const rows = raceAt(frames, t, 10);
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  // the bars flow, the date steps: it names the month the bars are growing into
+  const shown = frames.length ? frames[Math.min(last, Math.ceil(t - 1e-6))].month : null;
+  const label = shown ? new Date(shown + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "";
   return (
-    <Card label="Bar chart race · hours so far, month by month" title={f ? `As of ${month(f.month)}` : "Bar chart race"}>
-      {!race.data || !f ? <Skeleton h={420} /> : (
+    <Card label="Bar chart race · hours so far" title={label ? `As of ${label}` : "Bar chart race"}>
+      {!race.data ? <Skeleton h={420} /> : (
         <>
           <div className="relative" style={{ height: ROW * 10 }} role="img"
-               aria-label={`Top channels by hours as of ${month(f.month)}: ${f.top.slice(0, 3).map((t) => race.data!.channels[t.channel_id]?.title).join(", ")}`}>
-            {f.top.map((t, rank) => {
-              const c = race.data!.channels[t.channel_id];
+               aria-label={`Top channels by hours as of ${label}: ${rows.slice(0, 3).map((r) => race.data!.channels[r.channel_id]?.title).join(", ")}`}>
+            {rows.map((r, rank) => {
+              const c = race.data!.channels[r.channel_id];
               return (
-                <div key={t.channel_id} className="absolute inset-x-0 flex items-center gap-3 transition-all duration-500 ease-linear" style={{ top: rank * ROW, height: ROW - 6 }}>
+                // the row glides to its new place (top), the bar itself follows the value frame by frame (no transition)
+                <div key={r.channel_id} className="absolute inset-x-0 flex items-center gap-3"
+                     style={{ top: rank * ROW, height: ROW - 6, transition: "top 450ms cubic-bezier(.4,0,.2,1)" }}>
                   <span className="w-5 text-right font-ov-display text-[14px] font-extrabold">{rank + 1}</span>
                   <Pic src={c?.avatar_url} name={c?.title} size="30px" />
-                  <span className="w-[150px] shrink-0 truncate text-[13px] font-bold">{c?.title ?? "Unknown"}</span>
+                  <span className={`w-[150px] shrink-0 truncate ${rank === 0 ? "text-[14px] font-extrabold" : "text-[13px] font-bold"}`}>{c?.title ?? "Unknown"}</span>
                   <span className="relative h-full flex-1">
-                    <span className="absolute inset-y-1 left-0 rounded-r-md transition-all duration-500 ease-linear"
-                          style={{ width: `${(t.value / max) * 100}%`, background: rank === 0 ? OV.accent : OV.ink }} />
+                    <span className="absolute inset-y-1 left-0 rounded-r-md" style={{ width: `${(r.value / max) * 100}%`, background: colors[r.channel_id] ?? OV.ink }} />
                   </span>
-                  <span className="w-[64px] text-right font-shelf-mono text-[12px]">{hoursShort(t.value)}</span>
+                  <span className="w-[64px] text-right font-shelf-mono text-[12px] tabular-nums">{hoursShort(r.value)}</span>
                 </div>
               );
             })}
           </div>
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => { if (i >= frames.length - 1) setI(0); setPlaying((p) => !p); }}
+            <button type="button" onClick={() => { if (t >= last) setT(0); setPlaying((p) => !p); }}
                     className="min-h-10 rounded-full px-5 text-[14px] font-bold" style={{ background: OV.ink, color: OV.paper }}>
-              {playing ? "Pause" : i >= frames.length - 1 ? "Replay" : "Run the race"}
+              {playing ? "Pause" : t >= last ? "Replay" : "Run the race"}
             </button>
-            <input type="range" min={0} max={frames.length - 1} value={i} aria-label="Month"
-                   onChange={(e) => { setPlaying(false); setI(Number(e.target.value)); }} className="flex-1" style={{ accentColor: OV.accent }} />
+            <input type="range" min={0} max={last} step={0.01} value={t} aria-label="Date"
+                   onChange={(e) => { setPlaying(false); setT(Number(e.target.value)); }} className="flex-1" style={{ accentColor: OV.accent }} />
           </div>
         </>
       )}
@@ -234,35 +258,57 @@ function BarRace() {
 function MixByYear() {
   const hasCategories = useCapability("categories");
   const [pick, setPick] = useState<"category" | "genre">("category");
+  // hovering a piece (or a legend item) dims the others and shows that one's share in every year
+  const [hover, setHover] = useState<{ name: string; year?: number } | null>(null);
   const by = hasCategories ? pick : "genre";
   const mix = useStats<Mix>("evolution/mix", { by });
   const d = mix.data;
   const names = d ? Object.keys(d.series) : [];
   const color = (n: string, i: number) => (n === "Other" ? OTHER : MIX_COLORS[i % MIX_COLORS.length]);
+  const share = (n: string, yi: number) => (d ? d.series[n][yi] / (names.reduce((s, x) => s + d.series[x][yi], 0) || 1) : 0);
+  const yi = hover?.year != null && d ? d.years.indexOf(hover.year) : -1;
+  const info = !hover || !d ? `Hover a ${by} to follow it through the years.`
+    : yi >= 0 ? `${hover.name} · ${hover.year}: ${pct(share(hover.name, yi))} of what you watched`
+    : `${hover.name}: ${pct(share(hover.name, 0))} in ${d.years[0]}, ${pct(share(hover.name, d.years.length - 1))} in ${d.years[d.years.length - 1]}`;
   return (
     <Card label={`Your mix · share of each ${by} per year`} title="What you watched, year by year">
-      {hasCategories && <Seg label="Group by" value={pick} options={[["category", "Categories"], ["genre", "Genres"]]} onChange={setPick} />}
+      {hasCategories && <Seg label="Group by" value={pick} options={[["category", "Categories"], ["genre", "Genres"]]} onChange={(v) => { setHover(null); setPick(v); }} />}
       {!d ? <Skeleton h={320} /> : !d.years.length ? <p style={{ color: OV.soft }}>Not enough data yet.</p> : (
         <>
-          <div className="grid h-[280px] items-stretch gap-2" style={{ gridTemplateColumns: `repeat(${d.years.length},minmax(0,1fr))` }}>
-            {d.years.map((y, yi) => {
-              const total = names.reduce((s, n) => s + d.series[n][yi], 0) || 1;
-              return (
-                <div key={y} className="flex flex-col-reverse overflow-hidden rounded-md border-2" style={{ borderColor: OV.ink }}
-                     title={names.map((n) => `${n}: ${pct(d.series[n][yi] / total)}`).join("\n")}>
-                  {names.map((n, i) => (
-                    <span key={n} style={{ height: `${(d.series[n][yi] / total) * 100}%`, background: color(n, i) }} />
-                  ))}
-                </div>
-              );
-            })}
+          <p aria-live="polite" className="min-h-[24px] text-[15px] font-bold" style={{ color: hover ? OV.ink : OV.soft }}>{info}</p>
+          <div className="grid h-[280px] items-stretch gap-2" style={{ gridTemplateColumns: `repeat(${d.years.length},minmax(0,1fr))` }}
+               onMouseLeave={() => setHover(null)}>
+            {d.years.map((y, yIdx) => (
+              <div key={y} className="flex flex-col-reverse overflow-hidden rounded-md border-2" style={{ borderColor: OV.ink }}>
+                {names.map((n, i) => {
+                  const v = share(n, yIdx);
+                  const on = hover?.name === n;
+                  return (
+                    <span key={n} onMouseEnter={() => setHover({ name: n, year: y })}
+                          className="relative flex items-center justify-center transition-opacity duration-150"
+                          style={{ height: `${v * 100}%`, background: color(n, i), opacity: hover && !on ? 0.22 : 1 }}>
+                      {on && v >= 0.06 && (
+                        <span className="rounded-full px-1.5 font-shelf-mono text-[11px] font-medium" style={{ background: OV.paper, color: OV.ink }}>{pct(v)}</span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            ))}
           </div>
           <div className="grid font-shelf-mono text-[12px]" style={{ gridTemplateColumns: `repeat(${d.years.length},minmax(0,1fr))` }}>
-            {d.years.map((y) => <span key={y} className="text-center">{y}</span>)}
+            {d.years.map((y) => <span key={y} className="text-center" style={hover?.year === y ? { fontWeight: 700 } : undefined}>{y}</span>)}
           </div>
-          <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-[13px]">
+          <ul className="flex flex-wrap gap-x-2 gap-y-1 text-[13px]" onMouseLeave={() => setHover(null)}>
             {names.map((n, i) => (
-              <li key={n} className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-[2px]" style={{ background: color(n, i) }} />{n}</li>
+              <li key={n}>
+                <button type="button" onMouseEnter={() => setHover({ name: n })} onFocus={() => setHover({ name: n })} onBlur={() => setHover(null)}
+                        aria-pressed={hover?.name === n}
+                        className="flex min-h-8 items-center gap-1.5 rounded-full px-2 transition-opacity"
+                        style={{ opacity: hover && hover.name !== n ? 0.4 : 1, background: hover?.name === n ? "rgba(26,23,20,0.07)" : "transparent" }}>
+                  <span className="h-3 w-3 rounded-[2px]" style={{ background: color(n, i) }} />{n}
+                </button>
+              </li>
             ))}
           </ul>
         </>
