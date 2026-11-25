@@ -4,13 +4,6 @@ from .base import Manifest, vocab
 
 PLANNED = (
     Manifest(
-        "spotify", "Spotify", False, "spotify",
-        vocab("artist", "artists", "track", "tracks", "listen", "listened", "listening time"),
-        frozenset({"genres"}),
-        ("spotify.com → Account → Privacy settings → Extended streaming history",
-         "Put the Streaming_History_Audio_*.json files in data/spotify/"),
-        "up to 30 days", issue=3, family="music", order=3),
-    Manifest(
         "prime_video", "Prime Video", False, "prime_video", vocab("show", "shows", "episode", "episodes"),
         frozenset({"genres"}),
         ("amazon.com → Request your data → Prime Video",
