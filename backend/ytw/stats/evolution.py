@@ -29,7 +29,8 @@ def top_channel_per_year(conn, f: Filters) -> list[dict]:
             f"SELECT w.year, w.channel_id, COUNT(*), SUM({time_expr(f)}) FROM watches w "
             f"WHERE {w_sql} AND w.channel_id IS NOT NULL AND w.channel_id != 'show:unknown-show' GROUP BY 1, 2", p):
         val = t if f.metric == "time" else n
-        if year not in best or val > best[year][3]:
+        # a tie goes to the smaller id, so the winner never depends on row order
+        if year not in best or val > best[year][3] or (val == best[year][3] and cid < best[year][0]):
             best[year] = (cid, n, t or 0, val)
     names = _channel_names(conn, [b[0] for b in best.values()])
     return [{"year": y, "channel_id": b[0], "count": b[1], "time_s": b[2], **names.get(b[0], {})}
@@ -53,7 +54,7 @@ def bar_race(conn, r: Range, f: Filters, top_n: int = 10) -> dict:
     for m in months:
         for cid, v in per[m].items():
             cum[cid] += v
-        top = sorted(cum.items(), key=lambda kv: -kv[1])[:top_n]
+        top = sorted(cum.items(), key=lambda kv: (-kv[1], kv[0]))[:top_n]
         ever_top.update(c for c, _ in top)
         frames.append({"month": m, "top": [{"channel_id": c, "value": v} for c, v in top]})
     return {"metric": f.metric, "frames": frames, "channels": _channel_names(conn, sorted(ever_top))}
@@ -68,7 +69,7 @@ def new_discoveries(conn, r: Range, f: Filters, limit: int = 30) -> list[dict]:
         SELECT w.channel_id, fi.first, COUNT(*) n, SUM({time_expr(f)}) t FROM watches w
         JOIN firsts fi ON fi.channel_id = w.channel_id
         WHERE {w_sql} AND fi.first BETWEEN ? AND ?
-        GROUP BY w.channel_id ORDER BY {'t' if f.metric == 'time' else 'n'} DESC LIMIT ?""",
+        GROUP BY w.channel_id ORDER BY {'t' if f.metric == 'time' else 'n'} DESC, w.channel_id LIMIT ?""",
                         [*p, *r.params(), limit]).fetchall()
     names = _channel_names(conn, [r_[0] for r_ in rows])
     return [{"channel_id": cid, "first_watched": first, "count": n, "time_s": t or 0, **names.get(cid, {})}
@@ -83,7 +84,7 @@ def loyalty(conn, f: Filters, min_per_year: int = 3, limit: int = 30) -> list[di
                GROUP_CONCAT(year) FROM (
             SELECT w.channel_id, w.year, COUNT(*) n FROM watches w
             WHERE {w_sql} AND w.channel_id IS NOT NULL AND w.channel_id != 'show:unknown-show' GROUP BY 1, 2 HAVING n >= ?)
-        GROUP BY channel_id ORDER BY years DESC, total DESC LIMIT ?""", [*p, min_per_year, limit]).fetchall()
+        GROUP BY channel_id ORDER BY years DESC, total DESC, channel_id LIMIT ?""", [*p, min_per_year, limit]).fetchall()
     names = _channel_names(conn, [r_[0] for r_ in rows])
     return [{"channel_id": cid, "years": y, "count": total, "first_year": fy, "last_year": ly,
              "year_list": sorted(int(x) for x in yl.split(",")), **names.get(cid, {})}
@@ -102,10 +103,10 @@ def fell_off(conn, f: Filters, asof: date | None = None, recent_days: int = 365,
         SELECT w.channel_id, SUM(w.local_date < ?) AS before, SUM(w.local_date >= ?) AS recent,
                MAX(w.local_date) AS last, MIN(w.local_date) AS first,
                (SELECT year FROM watches w2 WHERE w2.channel_id = w.channel_id
-                GROUP BY year ORDER BY COUNT(*) DESC LIMIT 1) AS peak_year
+                GROUP BY year ORDER BY COUNT(*) DESC, year DESC LIMIT 1) AS peak_year
         FROM watches w WHERE {w_sql} AND w.channel_id IS NOT NULL AND w.channel_id != 'show:unknown-show' GROUP BY 1
         HAVING before >= ? AND recent <= MAX(2, before * 0.05)
-        ORDER BY before DESC LIMIT ?""", [cutoff, cutoff, *p, min_before, limit]).fetchall()
+        ORDER BY before DESC, w.channel_id LIMIT ?""", [cutoff, cutoff, *p, min_before, limit]).fetchall()
     names = _channel_names(conn, [r_[0] for r_ in rows])
     return [{"channel_id": cid, "count_before": b, "count_recent": rc, "last_watched": last,
              "first_watched": first, "peak_year": peak, **names.get(cid, {})}
@@ -129,7 +130,7 @@ def mix_by_year(conn, f: Filters, kind: str = "category", top: int = 8) -> dict:
         v = (t or 0) if f.metric == "time" else n
         data[year][name] = v
         totals[name] += v
-    keep = [n for n, _ in sorted(totals.items(), key=lambda kv: -kv[1]) if n != "Unknown"][:top]
+    keep = [n for n, _ in sorted(totals.items(), key=lambda kv: (-kv[1], kv[0])) if n != "Unknown"][:top]
     years = sorted(data)
     series = {name: [data[y].get(name, 0) for y in years] for name in keep}
     series["Other"] = [sum(v for k, v in data[y].items() if k not in keep) for y in years]

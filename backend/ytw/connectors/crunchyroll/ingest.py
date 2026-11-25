@@ -186,7 +186,7 @@ def build(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo) -> dict:
     db.set_meta(conn, "extra_capabilities", "time_of_day")
     db.set_meta(conn, "crunchyroll_profile", raw.get("profile") or "")
     db.set_meta(conn, "timezone", str(tz))
-    finish_build(conn, analyze=False)  # small; ANALYZE would reorder tied rankings (#85)
+    finish_build(conn)
     return {"plays": len(watches), "series": len(creators), "skipped": len(raw.get("items") or []) - len(watches),
             "hours": sum(w.est_s for w in watches) / 3600,
             "first": watches[0].local.date().isoformat() if watches else None,

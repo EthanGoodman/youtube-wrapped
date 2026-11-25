@@ -42,7 +42,7 @@ def _edge_watch(conn: sqlite3.Connection, r: Range, f: Filters, order: str) -> d
     w_sql, p = where(r, f)
     # find the row first, then join only that one (joining before sorting is ~30x slower)
     hit = conn.execute(f"SELECT w.entry_id FROM watches w WHERE {w_sql} "
-                       f"ORDER BY w.start_epoch {order} LIMIT 1", p).fetchone()
+                       f"ORDER BY w.start_epoch {order}, w.entry_id {order} LIMIT 1", p).fetchone()
     if not hit:
         return None
     return watch_info(conn, hit[0])
@@ -79,5 +79,5 @@ def recent(conn: sqlite3.Connection, f: Filters, limit: int = 20, offset: int = 
     """Most recent watches (not limited to a range), newest first."""
     w_sql, p = where(Range(date(1970, 1, 1), date(9999, 12, 31)), f)
     ids = [r[0] for r in conn.execute(f"SELECT w.entry_id FROM watches w WHERE {w_sql} "
-                                      f"ORDER BY w.start_epoch DESC LIMIT ? OFFSET ?", [*p, limit, offset])]
+                                      f"ORDER BY w.start_epoch DESC, w.entry_id DESC LIMIT ? OFFSET ?", [*p, limit, offset])]
     return [watch_info(conn, i) for i in ids]

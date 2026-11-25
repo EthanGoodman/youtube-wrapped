@@ -26,22 +26,22 @@ def ads(conn: sqlite3.Connection, r: Range, limit: int = 15) -> dict:
                MIN(e.local_date), MAX(e.local_date)
         FROM entries e LEFT JOIN videos v ON v.video_id = e.video_id AND v.status = 'ok'
         WHERE e.local_date BETWEEN ? AND ? AND e.kind = 'ad' AND e.video_id IS NOT NULL
-        GROUP BY e.video_id ORDER BY n DESC LIMIT ?""", limit)]
+        GROUP BY e.video_id ORDER BY n DESC, e.video_id LIMIT ?""", limit)]
 
     brands = [{"brand": b, "count": n, "distinct_ads": d} for b, n, d in q(f"""
         SELECT {_BRAND} AS b, COUNT(*) n, COUNT(DISTINCT e.video_id) d
         FROM entries e LEFT JOIN videos v ON v.video_id = e.video_id AND v.status = 'ok'
         WHERE e.local_date BETWEEN ? AND ? AND e.kind IN ('ad', 'ad_click') AND b IS NOT NULL
-        GROUP BY b ORDER BY n DESC LIMIT ?""", limit)]
+        GROUP BY b ORDER BY n DESC, b LIMIT ?""", limit)]
     identified = q(f"""SELECT COUNT(*) FROM entries e
         LEFT JOIN videos v ON v.video_id = e.video_id AND v.status = 'ok'
         WHERE e.local_date BETWEEN ? AND ? AND e.kind = 'ad' AND {_BRAND} IS NOT NULL""")[0][0]
 
     busiest = q("SELECT local_date, COUNT(*) n FROM entries WHERE local_date BETWEEN ? AND ? "
-                "AND kind='ad' GROUP BY 1 ORDER BY n DESC LIMIT 1")
+                "AND kind='ad' GROUP BY 1 ORDER BY n DESC, 1 LIMIT 1")
     clicks = [dict(zip(("local_iso", "title", "brand"), row)) for row in q(
         "SELECT local_iso, title, brand_hint FROM entries WHERE local_date BETWEEN ? AND ? "
-        "AND kind='ad_click' ORDER BY epoch DESC LIMIT ?", limit)]
+        "AND kind='ad_click' ORDER BY epoch DESC, dedupe_key LIMIT ?", limit)]
     by_year = [{"year": int(y), "count": n} for y, n in q(
         "SELECT substr(local_date, 1, 4), COUNT(*) FROM entries WHERE local_date BETWEEN ? AND ? "
         "AND kind='ad' GROUP BY 1 ORDER BY 1")]
