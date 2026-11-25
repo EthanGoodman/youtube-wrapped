@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changeLine, clockFacts, clockLine, comparison, hourLabel, hoursShort, oneIn, periodTitle, periodYear, rankMove,
-  groupReigns, longestReign, rankingFilters, spanLabel, topHeadline, weekdayFacts, yearlyHours, yearsToShow,
+  HEAT, calendarWeeks, groupReigns, heatColor, longestReign, rankingFilters, weekendLine, spanLabel, topHeadline, weekdayFacts, yearlyHours, yearsToShow,
 } from "./takeaways";
 
 describe("comparison", () => {
@@ -104,6 +104,26 @@ describe("#1 channel each year", () => {
     expect(longestReign(tops)).toEqual({ title: "IMPAULSIVE", years: 3 });
     expect(longestReign([{ year: 2020, title: "A" }, { year: 2022, title: "A" }])).toEqual({ title: "A", years: 1 });
     expect(longestReign([])).toBeNull();
+  });
+});
+
+describe("patterns helpers", () => {
+  it("maps values to a ramp that only gets darker", () => {
+    expect(heatColor(0, 10)).toBe(HEAT[0]);
+    expect(heatColor(10, 10)).toBe(HEAT[HEAT.length - 1]);
+    expect(heatColor(1, 10)).toBe(HEAT[1]);
+  });
+  it("compares weekdays and weekends in one line", () => {
+    expect(weekendLine(1, 2.1)).toBe("2.1× as much on a weekend day as on a weekday.");
+    expect(weekendLine(2, 1)).toBe("2× as much on a weekday as on a weekend day.");
+    expect(weekendLine(1, 1.05)).toBe("About the same on weekdays and weekends.");
+  });
+  it("lays days out in Monday-first week columns", () => {
+    // 2026-11-25 is a Wednesday: two empty cells first
+    const weeks = calendarWeeks([{ date: "2026-11-25" }, { date: "2026-11-26" }, { date: "2026-11-27" },
+                                 { date: "2026-11-28" }, { date: "2026-11-29" }, { date: "2026-11-30" }]);
+    expect(weeks[0].slice(0, 3)).toEqual([null, null, { date: "2026-11-25" }]);
+    expect(weeks[1][0]).toEqual({ date: "2026-11-30" });
   });
 });
 

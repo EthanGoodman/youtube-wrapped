@@ -155,6 +155,37 @@ export function longestReign(tops: { year: number; title?: string | null }[]): {
   return best;
 }
 
+/** Light sequential ramp for heat cells (0 = empty, 1 = busiest): cream, sand, mustard, then red-orange.
+ *  Each step is darker than the one before, so "more" always reads darker. */
+export const HEAT = ["#EDE4D3", "#E8D2A6", "#E2B262", "#D98E35", "#C2622B", "#9E3B1F"];
+
+export function heatColor(value: number, max: number): string {
+  if (!value || !max) return HEAT[0];
+  const i = 1 + Math.min(HEAT.length - 2, Math.floor((value / max) * (HEAT.length - 1)));
+  return HEAT[i];
+}
+
+/** "You watch 2.1× as much on weekend days" from per-day averages. */
+export function weekendLine(weekday: number, weekend: number): string {
+  if (!weekday && !weekend) return "Not enough data yet.";
+  if (!weekday) return "Only on weekends.";
+  const r = weekend / weekday;
+  if (r >= 1.15) return `${(Math.round(r * 10) / 10).toString()}× as much on a weekend day as on a weekday.`;
+  if (r <= 0.87) return `${(Math.round((1 / r) * 10) / 10).toString()}× as much on a weekday as on a weekend day.`;
+  return "About the same on weekdays and weekends.";
+}
+
+/** Day cells arranged in week columns (Monday on top), padded so the first column starts on Monday. */
+export function calendarWeeks<T extends { date: string }>(days: T[]): (T | null)[][] {
+  if (!days.length) return [];
+  const first = new Date(days[0].date + "T00:00:00");
+  const pad = (first.getDay() + 6) % 7; // Monday = 0
+  const cells: (T | null)[] = [...Array(pad).fill(null), ...days];
+  const weeks: (T | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
 /** "Nov 30" from an ISO date. */
 export function monthDay(d: string | null | undefined): string {
   return d ? new Date(d.slice(0, 10) + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
