@@ -98,7 +98,7 @@ function PlatformApp() {
       <Route path="shows" element={<Gate capability="series">{platform === "netflix" ? <HowFarPage /> : <Layout><Shows /></Layout>}</Gate>} />
       <Route path="anime" element={<Gate capability="anime"><Layout><Anime /></Layout></Gate>} />
       <Route path="patterns" element={platform === "youtube" || platform === "netflix" ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
-      <Route path="records" element={platform === "youtube" ? <RecordsPage /> : <Layout><Records /></Layout>} />
+      <Route path="records" element={platform === "youtube" || platform === "netflix" ? <RecordsPage /> : <Layout><Records /></Layout>} />
       <Route path="evolution" element={platform === "youtube" ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
       <Route path="ads" element={<Gate capability="ads">{platform === "youtube" ? <AdsPage /> : <Layout><Ads /></Layout>}</Gate>} />
       <Route path="search" element={<Gate capability="search">{platform === "youtube" ? <SearchPage /> : <Layout><Search /></Layout>}</Gate>} />
