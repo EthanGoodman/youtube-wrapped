@@ -17,6 +17,7 @@ import { CategoryPage, ChannelPage, GenrePage, VideoPage, YearPage } from "./pag
 import { Search } from "./pages/Search";
 import { WrappedPage } from "./wrapped/Wrapped";
 import { OverviewPage } from "./overview/OverviewPage";
+import { ShowsOverviewPage } from "./overview/ShowsOverviewPage";
 import { TopPage } from "./overview/TopPage";
 import { PatternsPage } from "./overview/PatternsPage";
 import { RecordsPage } from "./overview/RecordsPage";
@@ -91,7 +92,7 @@ function PlatformApp() {
   return (
     <Routes>
       {/* YouTube is first on the new Overview (its own frame); the others keep their home until we generalize it */}
-      <Route index element={platform === "youtube" ? <OverviewPage /> : <Layout><Home /></Layout>} />
+      <Route index element={platform === "youtube" ? <OverviewPage /> : platform === "netflix" ? <ShowsOverviewPage /> : <Layout><Home /></Layout>} />
       <Route path="top/:kind" element={platform === "youtube" ? <TopPage /> : <Layout><Top /></Layout>} />
       <Route path="shows" element={<Gate capability="series"><Layout><Shows /></Layout></Gate>} />
       <Route path="anime" element={<Gate capability="anime"><Layout><Anime /></Layout></Gate>} />
