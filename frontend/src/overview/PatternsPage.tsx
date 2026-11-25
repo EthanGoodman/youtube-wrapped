@@ -5,7 +5,7 @@ import { DayPoint, HourPoint, MonthPoint, useMeta, useStats } from "../api";
 import { useFilters } from "../filters";
 import { duration, num } from "../format";
 import { useCapability } from "../platform";
-import { OV, PageBody, PageHeader, ScrollRow, Seg, Skeleton, StatsFrame, kicker, useNoun } from "./kit";
+import { OV, PageBody, PageHeader, ScrollRow, Seg, Skeleton, StatsFrame, kicker, useNoun, useVerb } from "./kit";
 import { HeatLegend, HoverBars, Readout, Ticks } from "./charts";
 import {
   DAYS, calendarWeeks, clockFacts, heatColor, heatLevel, heatRange, hourLabel, oneIn, periodTitle, weekdayFacts, weekendLine,
@@ -30,8 +30,9 @@ export function PatternsPage() {
   const monthly = useStats<{ data: MonthPoint[] }>("patterns/monthly");
   const f = clock.data ? clockFacts(clock.data.data) : null;
   const w = heat.data ? weekdayFacts(heat.data.data.count) : null;
-  const title = !hasTimes ? (!heat.data ? "When you watch" : w ? `Mostly on ${w.busiest}s.` : "Nothing in this period")
-    : !clock.data ? "When you watch" : !f ? "Nothing in this period" : f.night >= 0.2 ? "Up past midnight." : `Most of it around ${hourLabel(f.peak)}.`;
+  const { verb } = useVerb();
+  const title = !hasTimes ? (!heat.data ? `When you ${verb}` : w ? `Mostly on ${w.busiest}s.` : "Nothing in this period")
+    : !clock.data ? `When you ${verb}` : !f ? "Nothing in this period" : f.night >= 0.2 ? "Up past midnight." : `Most of it around ${hourLabel(f.peak)}.`;
 
   return (
     <StatsFrame>

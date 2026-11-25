@@ -5,7 +5,7 @@ import { Link, useCapability } from "../platform";
 import { MonthPoint, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { date, num, pct } from "../format";
-import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useCreator, useNoun } from "./kit";
+import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useCreator, useNoun, useVerb } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
 import { Readout } from "./charts";
 import { hoursShort, raceAt, raceColors, rankingFilters, yearlyHours } from "./takeaways";
@@ -159,6 +159,7 @@ function FellOffCard() {
 }
 
 function Discoveries() {
+  const { verbed } = useVerb();
   const cr = useCreator();
   const { filters } = useFilters();
   const q = useLinkQuery();
@@ -169,7 +170,7 @@ function Discoveries() {
       <div className="flex flex-col gap-1 border-b-2 pb-3" style={{ borderColor: OV.ink }}>
         <span className={kicker} style={{ color: OV.soft }}>New discoveries</span>
         <h2 className="font-ov-display text-[clamp(24px,2.6vw,32px)] font-extrabold leading-tight">
-          {filters.range === "all" ? `Your biggest ${cr.many}, and when you found them` : `${cr.Many} you watched for the first time`}
+          {filters.range === "all" ? `Your biggest ${cr.many}, and when you found them` : `${cr.Many} you ${verbed} for the first time`}
         </h2>
       </div>
       {!disc.data ? <Skeleton h={180} /> : (
@@ -267,6 +268,7 @@ function BarRace() {
 }
 
 function MixByYear() {
+  const { verbed } = useVerb();
   const hasCategories = useCapability("categories");
   const [pick, setPick] = useState<"category" | "genre">("category");
   // hovering a piece (or a legend item) dims the others and shows that one's share in every year
@@ -279,10 +281,10 @@ function MixByYear() {
   const share = (n: string, yi: number) => (d ? d.series[n][yi] / (names.reduce((s, x) => s + d.series[x][yi], 0) || 1) : 0);
   const yi = hover?.year != null && d ? d.years.indexOf(hover.year) : -1;
   const info = !hover || !d ? `Hover a ${by} to follow it through the years.`
-    : yi >= 0 ? `${hover.name} · ${hover.year}: ${pct(share(hover.name, yi))} of what you watched`
+    : yi >= 0 ? `${hover.name} · ${hover.year}: ${pct(share(hover.name, yi))} of what you ${verbed}`
     : `${hover.name}: ${pct(share(hover.name, 0))} in ${d.years[0]}, ${pct(share(hover.name, d.years.length - 1))} in ${d.years[d.years.length - 1]}`;
   return (
-    <Card label={`Your mix · share of each ${by} per year`} title="What you watched, year by year">
+    <Card label={`Your mix · share of each ${by} per year`} title={`What you ${verbed}, year by year`}>
       {hasCategories && <Seg label="Group by" value={pick} options={[["category", "Categories"], ["genre", "Genres"]]} onChange={(v) => { setHover(null); setPick(v); }} />}
       {!d ? <Skeleton h={320} /> : !d.years.length ? <p style={{ color: OV.soft }}>Not enough data yet.</p> : (
         <>

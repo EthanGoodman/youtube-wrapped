@@ -5,7 +5,7 @@ import { Link, useCapability, usePlatform } from "../platform";
 import { WatchInfo, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { clockTime, date, duration, num } from "../format";
-import { OV, PageBody, PageHeader, Poster, ScrollRow, Skeleton, StatsFrame, kicker, useFamily, useNoun } from "./kit";
+import { Cover, OV, PageBody, PageHeader, Poster, ScrollRow, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun } from "./kit";
 import { Binge, EpisodeDay } from "../families/shows/data";
 import { periodTitle, spanLabel } from "./takeaways";
 
@@ -45,7 +45,7 @@ export function RecordsPage() {
         {!r ? <Skeleton h={300} /> : (
           <>
             <BigRecords r={r} />
-            {family === "shows" ? <ShowMoments /> : <Moments r={r} />}
+            {family === "shows" ? <ShowMoments /> : family === "music" ? <MusicMoments /> : <Moments r={r} />}
             <SmallFacts r={r} />
           </>
         )}
@@ -153,6 +153,36 @@ function Moment({ label, big, sub, w }: { label: string; big: string; sub: strin
   );
 }
 
+/** Music: the records a song set (on repeat, most skipped), with its album art. */
+function MusicMoments() {
+  const q = useLinkQuery();
+  type Song = { key: string; title: string; artist: string; cover: string | null };
+  const m = useStats<{ on_repeat: (Song & { date: string; count: number }) | null; most_skipped: (Song & { skips: number }) | null }>("music/records");
+  if (!m.data) return <Skeleton h={160} />;
+  const { on_repeat: rep, most_skipped: sk } = m.data;
+  if (!rep && !sk) return null;
+  const card = (label: string, big: string, line: ReactNode, s: Song) => (
+    <Link to={`/video/${encodeURIComponent(s.key)}${q}`} className="group flex min-w-0 items-center gap-5 rounded-2xl border-2 p-5 transition-transform hover:-translate-y-0.5"
+          style={{ background: OV.paper, borderColor: OV.ink }}>
+      <Cover src={s.cover} name={s.title} size="84px" />
+      <span className="flex min-w-0 flex-col gap-1.5">
+        <span className={kicker} style={{ color: OV.soft }}>{label}</span>
+        <span className="font-ov-display text-[clamp(28px,2.8vw,40px)] font-extrabold leading-none">{big}</span>
+        <span className="text-[15px]">{line}</span>
+      </span>
+    </Link>
+  );
+  return (
+    <section className="flex flex-col gap-3">
+      <span className={kicker} style={{ color: OV.soft }}>Set by a song</span>
+      <div className="grid gap-4 md:grid-cols-2">
+        {rep && card("On repeat", `${num(rep.count)}× in one day`, <><strong>{rep.title}</strong> by {rep.artist}, {date(rep.date)}</>, rep)}
+        {sk && card("Most skipped · all time", `${num(sk.skips)} skips`, <><strong>{sk.title}</strong> by {sk.artist}. Still in your library?</>, sk)}
+      </div>
+    </section>
+  );
+}
+
 function Moments({ r }: { r: RecordsResponse }) {
   const hasTimes = useCapability("time_of_day");
   const isYouTube = (usePlatform()?.id ?? "youtube") === "youtube";
@@ -174,11 +204,13 @@ function SmallFacts({ r }: { r: RecordsResponse }) {
   const q = useLinkQuery();
   const isYouTube = (usePlatform()?.id ?? "youtube") === "youtube";
   const shows = useFamily() === "shows";
+  const cr = useCreator();
+  const n = useNoun();
   const facts: [string, ReactNode, ReactNode][] = [
     ["Current streak", days(r.streaks.current.days), r.streaks.current.days ? `since ${date(r.streaks.current.start ?? "")}` : "nothing going right now"],
     ["Longest break", r.streaks.longest_break ? days(r.streaks.longest_break.days) : "None", span(r.streaks.longest_break)],
   ];
-  if (r.channel_day && !shows) facts.push(["One channel, one day", `${num(r.channel_day.count)} videos`,
+  if (r.channel_day && !shows) facts.push([`One ${cr.one}, one day`, `${num(r.channel_day.count)} ${n.many}`,
     <><Link to={`/channel/${encodeURIComponent(r.channel_day.channel_id)}${q}`} className="underline underline-offset-2">{r.channel_day.channel}</Link> on {date(r.channel_day.date)}</>]);
   if (isYouTube) facts.push(["Early bird", `${num(r.early_bird_count)} videos`,
     r.fastest ? `within an hour of upload; fastest ${duration(r.fastest.seconds_after_upload)} after` : "within an hour of upload"]);

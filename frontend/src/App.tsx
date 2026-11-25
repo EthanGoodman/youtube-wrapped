@@ -27,7 +27,7 @@ import { PatternsPage } from "./overview/PatternsPage";
 import { RecordsPage } from "./overview/RecordsPage";
 import { EvolutionPage } from "./overview/EvolutionPage";
 import { AdsPage, SearchPage } from "./overview/MorePages";
-import { CategoryDetailPage, ChannelDetailPage, GenreDetailPage, VideoDetailPage, YearDetailPage } from "./overview/DetailPages";
+import { AlbumDetailPage, CategoryDetailPage, ChannelDetailPage, GenreDetailPage, VideoDetailPage, YearDetailPage } from "./overview/DetailPages";
 import { usePlatforms } from "./api";
 import { HubLink, PLATFORM_IDS, setVocab, useCapability } from "./platform";
 import { setChartTheme } from "./theme";
@@ -118,8 +118,9 @@ function PlatformApp() {
       <Route path="channel/:id" element={SHOWS_NEW.includes(platform) ? <ShowDetailPage /> : platform === "youtube" || MUSIC_NEW.includes(platform) ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
       <Route path="video/:id" element={platform === "youtube" || MUSIC_NEW.includes(platform) ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
       <Route path="category/:id" element={platform === "youtube" ? <CategoryDetailPage /> : <Layout><CategoryPage /></Layout>} />
-      <Route path="genre/:topic" element={platform === "youtube" ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
-      <Route path="year/:year" element={platform === "youtube" ? <YearDetailPage /> : <Layout showRange={false}><YearPage /></Layout>} />
+      <Route path="genre/:topic" element={platform === "youtube" || MUSIC_NEW.includes(platform) ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
+      <Route path="year/:year" element={platform === "youtube" || MUSIC_NEW.includes(platform) ? <YearDetailPage /> : <Layout showRange={false}><YearPage /></Layout>} />
+      <Route path="album/:id" element={MUSIC_NEW.includes(platform) ? <AlbumDetailPage /> : <Navigate to=".." replace />} />
       <Route path="wrapped" element={<WrappedPage />} />
       <Route path="*" element={<Layout><PageTitle title="Not found" /></Layout>} />
     </Routes>

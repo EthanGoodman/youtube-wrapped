@@ -56,6 +56,12 @@ export function useNoun(): { one: string; many: string; Many: string } {
   return { one, many, Many: cap(many) };
 }
 
+/** The verb: watch (video, shows) or listen (music), from the platform's own words. */
+export function useVerb(): { verb: string; verbed: string } {
+  const v = usePlatform()?.vocab;
+  return { verb: v?.verb ?? "watch", verbed: v?.verbed ?? "watched" };
+}
+
 /** What the things you return to are called: channels, shows (Netflix), series (Crunchyroll). */
 export function useCreator(): { one: string; many: string; Many: string } {
   const v = usePlatform()?.vocab;
