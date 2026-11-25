@@ -7,6 +7,9 @@ import { HourPoint, Overview, RankedItem, TopResponse, useMeta, useStats } from 
 import { useFilters, useLinkQuery } from "../filters";
 import { Band, MoveBadge, OV, Pic, Skeleton, StatsFrame, kicker, usePrevRanks } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
+import { HoverBars, Ticks } from "./charts";
+
+const WEEKDAYS = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
 import { compact, num } from "../format";
 import {
   Comparison, DAYS, Move, changeLine, clockFacts, hourLabel, hoursShort, oneIn, periodTitle, rankMove,
@@ -197,7 +200,6 @@ function Patterns() {
   const heat = useStats<{ data: { count: number[][] } }>("patterns/heatmap");
   const f = clock.data ? clockFacts(clock.data.data) : null;
   const w = heat.data ? weekdayFacts(heat.data.data.count) : null;
-  const max = clock.data ? Math.max(1, ...clock.data.data.map((h) => h.count)) : 1;
   const wmax = w ? Math.max(1, ...w.totals) : 1;
   const title = f ? (f.night >= 0.2 ? "Up past midnight." : `Most of it around ${hourLabel(f.peak)}.`) : "When you watch";
   return (
@@ -211,15 +213,10 @@ function Patterns() {
                 <span className="ml-2 text-[15px]">is your busiest hour</span></span>
               <span className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>{oneIn(f.night)} videos started after midnight</span>
             </figcaption>
-            <div aria-hidden className="grid h-[150px] items-end gap-[3px]" style={{ gridTemplateColumns: "repeat(24,minmax(0,1fr))" }}>
-              {clock.data.data.map((h) => (
-                <span key={h.hour} className="rounded-t-[3px]"
-                      style={{ height: `${Math.max(3, (h.count / max) * 100)}%`, background: h.hour === f.peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }} />
-              ))}
-            </div>
-            <div aria-hidden className="grid font-shelf-mono text-[11px]" style={{ gridTemplateColumns: "repeat(4,minmax(0,1fr))", color: OV.mute }}>
-              <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span>
-            </div>
+            <HoverBars dark height={150} hint="Hover an hour to see it." ariaLabel={`Videos started by hour. Busiest: ${hourLabel(f.peak)}.`}
+                       bars={clock.data.data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: h.count,
+                                                           display: `${num(h.count)} videos`, color: h.hour === f.peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }))}
+                       ticks={<Ticks dark labels={["12 AM", "6 AM", "12 PM", "6 PM"]} />} />
           </figure>
           <figure className="flex flex-col gap-3 rounded-2xl border-2 p-5" style={{ background: OV.paper, borderColor: OV.ink }}
                   aria-label={w ? `Videos by day of the week. Busiest: ${w.busiest}.` : "Videos by day of the week"}>
@@ -228,15 +225,9 @@ function Patterns() {
               <span className="ml-2 text-[15px]">is your busiest day</span>
             </figcaption>
             {w ? (
-              <div className="grid flex-1 grid-cols-7 items-end gap-2">
-                {w.totals.map((t, i) => (
-                  <span key={i} className="flex h-full min-h-[120px] flex-col justify-end gap-1">
-                    <span className="block rounded-t-md border-2"
-                          style={{ height: `${Math.max(4, (t / wmax) * 100)}%`, borderColor: OV.ink, background: t === wmax ? OV.teal : OV.sand }} />
-                    <span className="text-center font-shelf-mono text-[11px]">{DAYS[i]}</span>
-                  </span>
-                ))}
-              </div>
+              <HoverBars height={120} gap={8} radius={6} hint="Hover a day to see it." ariaLabel={`Videos by day of the week. Busiest: ${w.busiest}.`}
+                         bars={w.totals.map((t, i) => ({ key: DAYS[i], label: WEEKDAYS[i], value: t, display: `${num(t)} videos`, color: t === wmax ? OV.teal : "#D9CDB6" }))}
+                         ticks={<Ticks labels={DAYS} />} />
             ) : <Skeleton h={120} />}
           </figure>
         </div>

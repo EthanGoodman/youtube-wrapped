@@ -7,6 +7,7 @@ import { useFilters, useLinkQuery } from "../filters";
 import { date, num, pct } from "../format";
 import { OV, PageBody, PageHeader, Pic, Seg, Skeleton, StatsFrame, kicker } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
+import { Readout } from "./charts";
 import { hoursShort, raceAt, raceColors, rankingFilters, yearlyHours } from "./takeaways";
 
 interface Ref { channel_id: string; title?: string | null; avatar_url?: string | null }
@@ -64,15 +65,20 @@ function Card({ label, title, children }: { label: string; title?: string; child
 
 function YearTotals({ months }: { months?: MonthPoint[] }) {
   const thisYear = Number(useMeta().data?.today.slice(0, 4));
+  const [on, setOn] = useState<number | null>(null);
   if (!months) return <Skeleton h={220} />;
   const years = yearlyHours(months);
   if (!years.length) return null;
   const best = years.reduce((a, b) => (b.hours > a.hours ? b : a));
   return (
     <Card label="Your total hours each year" title={`${best.year} was your biggest year: ${num(best.hours)} hours`}>
-      <div className="grid items-end gap-2" style={{ gridTemplateColumns: `repeat(${years.length},minmax(0,1fr))` }}>
+      <Readout active={on != null}
+               text={on != null ? `${on}${on === thisYear ? " so far" : ""} · ${num(years.find((y) => y.year === on)?.hours ?? 0)} hours · open its Wrapped` : "Hover a year to see it. Click one to open its Wrapped."} />
+      <div className="grid items-end gap-2" style={{ gridTemplateColumns: `repeat(${years.length},minmax(0,1fr))` }} onMouseLeave={() => setOn(null)}>
         {years.map((y) => (
-          <Link key={y.year} to={`/wrapped?year=${y.year}`} className="group flex flex-col items-center gap-1"
+          <Link key={y.year} to={`/wrapped?year=${y.year}`} className="group flex flex-col items-center gap-1 transition-opacity duration-150"
+                style={{ opacity: on != null && on !== y.year ? 0.35 : 1 }}
+                onMouseEnter={() => setOn(y.year)} onFocus={() => setOn(y.year)} onBlur={() => setOn(null)}
                 aria-label={`${y.year}: ${num(y.hours)} hours in total${y.year === thisYear ? " so far" : ""}. Open its Wrapped`}>
             <span className="flex h-[150px] w-full flex-col justify-end">
               <span className="text-center font-shelf-mono text-[11px]" style={y.year === best.year ? { color: OV.accent, fontWeight: 700 } : undefined}>{num(y.hours)}</span>

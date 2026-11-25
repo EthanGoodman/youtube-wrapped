@@ -5,8 +5,9 @@ import { DayPoint, HourPoint, MonthPoint, useMeta, useStats } from "../api";
 import { useFilters } from "../filters";
 import { duration, num } from "../format";
 import { OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker } from "./kit";
+import { HeatLegend, HoverBars, Readout, Ticks } from "./charts";
 import {
-  DAYS, HEAT, calendarWeeks, clockFacts, heatColor, heatLevel, heatRange, hourLabel, oneIn, periodTitle, weekdayFacts, weekendLine,
+  DAYS, calendarWeeks, clockFacts, heatColor, heatLevel, heatRange, hourLabel, oneIn, periodTitle, weekdayFacts, weekendLine,
 } from "./takeaways";
 
 type Measure = "count" | "time";
@@ -62,45 +63,50 @@ function Card({ label, title, children, className = "" }: { label: string; title
 function HourChart({ data, m }: { data?: HourPoint[]; m: Measure }) {
   if (!data) return <Skeleton h={320} />;
   const v = (h: HourPoint) => (m === "time" ? h.time_s : h.count);
-  const max = Math.max(1, ...data.map(v));
   const f = clockFacts(data);
   const peak = data.reduce((a, b) => (v(b) > v(a) ? b : a)).hour;
   return (
-    <section className="flex flex-col gap-4 rounded-2xl p-5 sm:p-7" style={{ background: OV.ink, color: OV.paper }}
-             aria-label={`${m === "time" ? "Hours" : "Videos"} by hour of day. Busiest: ${hourLabel(peak)}.`}>
+    <section className="flex flex-col gap-3 rounded-2xl p-5 sm:p-7" style={{ background: OV.ink, color: OV.paper }}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span><span className="font-ov-display text-[34px] font-extrabold" style={{ color: OV.mustard }}>{hourLabel(peak)}</span>
           <span className="ml-2 text-[17px]">is your busiest hour</span></span>
         {f && <span className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>{oneIn(f.night)} videos started between midnight and 5 am</span>}
       </div>
-      <div aria-hidden className="grid h-[220px] items-end gap-[4px]" style={{ gridTemplateColumns: "repeat(24,minmax(0,1fr))" }}>
-        {data.map((h) => (
-          <span key={h.hour} title={`${hourLabel(h.hour)}: ${amount(m, v(h))}`} className="rounded-t-[4px]"
-                style={{ height: `${Math.max(2, (v(h) / max) * 100)}%`, background: h.hour === peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }} />
-        ))}
-      </div>
-      <div aria-hidden className="grid font-shelf-mono text-[11px]" style={{ gridTemplateColumns: "repeat(8,minmax(0,1fr))", color: OV.mute }}>
-        {[0, 3, 6, 9, 12, 15, 18, 21].map((h) => <span key={h}>{hourLabel(h)}</span>)}
-      </div>
+      <HoverBars dark height={220} gap={4} radius={4} hint="Hover an hour to see it."
+                 ariaLabel={`${m === "time" ? "Hours" : "Videos"} by hour of day. Busiest: ${hourLabel(peak)}.`}
+                 bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: v(h), display: amount(m, v(h)),
+                                          color: h.hour === peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }))}
+                 ticks={<Ticks dark labels={[0, 3, 6, 9, 12, 15, 18, 21].map(hourLabel)} />} />
     </section>
   );
 }
 
 function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
+  const [cell, setCell] = useState<[number, number] | null>(null);
+  const [level, setLevel] = useState<number | null>(null);
   if (!grid) return <Skeleton h={300} />;
   const max = Math.max(1, ...grid.flat());
   let best = [0, 0];
   grid.forEach((row, d) => row.forEach((n, h) => { if (n > grid[best[0]][best[1]]) best = [d, h]; }));
   const days = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
+  const [lo, hi] = level ? heatRange(level, max) : [0, 0];
+  const info = cell ? `${days[cell[0]]}, ${hourLabel(cell[1])} to ${hourLabel((cell[1] + 1) % 24)} · ${amount(m, grid[cell[0]][cell[1]])}`
+    : level != null ? (level === 0 ? "Hours you never watched" : `Hours with ${amount(m, lo)} to ${amount(m, hi)}`)
+    : "Hover a square to see it, or a shade to light up those hours.";
   return (
     <Card label="Day × hour" title={`${days[best[0]]} around ${hourLabel(best[1])}`}>
-      <div className="no-scrollbar overflow-x-auto">
+      <Readout text={info} active={!!cell || level != null} />
+      <div className="no-scrollbar overflow-x-auto" onMouseLeave={() => setCell(null)}>
         <div className="grid min-w-[520px] gap-[3px]" style={{ gridTemplateColumns: "38px repeat(24,minmax(0,1fr))" }}
              role="img" aria-label={`Busiest: ${days[best[0]]} around ${hourLabel(best[1])}. Darker means more.`}>
           {grid.map((row, d) => [
             <span key={`l${d}`} className="self-center font-shelf-mono text-[11px]">{DAYS[d]}</span>,
-            ...row.map((n, h) => <span key={`${d}-${h}`} title={`${DAYS[d]} ${hourLabel(h)}: ${amount(m, n)}`}
-                                       className="aspect-square rounded-[3px]" style={{ background: heatColor(n, max) }} />),
+            ...row.map((n, h) => {
+              const on = cell?.[0] === d && cell?.[1] === h;
+              return <span key={`${d}-${h}`} onMouseEnter={() => setCell([d, h])} className="aspect-square rounded-[3px] transition-opacity duration-150"
+                           style={{ background: heatColor(n, max), opacity: level != null && heatLevel(n, max) !== level ? 0.18 : 1,
+                                    boxShadow: on ? `0 0 0 2px ${OV.ink}` : undefined }} />;
+            }),
           ])}
           <span />
           {Array.from({ length: 24 }, (_, h) => (
@@ -108,16 +114,8 @@ function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
           ))}
         </div>
       </div>
-      <Legend />
+      <HeatLegend level={level} setLevel={setLevel} />
     </Card>
-  );
-}
-
-function Legend() {
-  return (
-    <span className="flex items-center gap-1.5 font-shelf-mono text-[11px]" style={{ color: OV.soft }} aria-hidden>
-      Less {HEAT.map((c) => <span key={c} className="h-3 w-3 rounded-[2px]" style={{ background: c }} />)} More
-    </span>
   );
 }
 
@@ -170,7 +168,7 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
   };
   return (
     <Card label="Every day" title={`You watched on ${num(active)} of ${num(days.length)} days`}>
-      <p aria-live="polite" className="min-h-[22px] text-[15px] font-bold" style={{ color: day || level != null ? OV.ink : OV.soft }}>{info}</p>
+      <Readout text={info} active={!!day || level != null} />
       <div className="no-scrollbar overflow-x-auto pb-1" onMouseLeave={() => setDay(null)}>
         <div className="grid gap-[3px]" role="img" aria-label={`One square per day. You watched on ${active} of ${days.length} days.`}
              style={{ gridTemplateColumns: `30px repeat(${W},minmax(0,1fr))`, width: `min(100%, ${W * 30 + 34}px)`, minWidth: `${W * 12 + 34}px` }}>
@@ -193,17 +191,7 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
           ])}
         </div>
       </div>
-      <span className="flex items-center gap-1 font-shelf-mono text-[11px]" style={{ color: OV.soft }} onMouseLeave={() => setLevel(null)}>
-        Less
-        {HEAT.map((c, i) => (
-          <button key={c} type="button" aria-label={i === 0 ? "Days you didn't watch" : `Days at level ${i} of ${HEAT.length - 1}`}
-                  onMouseEnter={() => setLevel(i)} onFocus={() => setLevel(i)} onBlur={() => setLevel(null)}
-                  className="flex h-7 w-7 items-center justify-center rounded">
-            <span className="h-3.5 w-3.5 rounded-[3px]" style={{ background: c, boxShadow: level === i ? `0 0 0 2px ${OV.ink}` : undefined }} />
-          </button>
-        ))}
-        More
-      </span>
+      <HeatLegend level={level} setLevel={setLevel} />
     </Card>
   );
 }
@@ -212,26 +200,15 @@ function Monthly({ months, m }: { months?: MonthPoint[]; m: Measure }) {
   if (!months) return <Skeleton h={240} />;
   if (!months.length) return null;
   const v = (x: MonthPoint) => (m === "time" ? x.time_s : x.count);
-  const max = Math.max(1, ...months.map(v));
   const best = months.reduce((a, b) => (v(b) > v(a) ? b : a));
   const label = (k: string) => new Date(k + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const many = months.length > 24;
   return (
     <Card label="Month by month" title={`${label(best.month)} was your biggest month`}>
-      <div className="grid h-[180px] items-end gap-[3px]" style={{ gridTemplateColumns: `repeat(${months.length},minmax(0,1fr))` }}
-           role="img" aria-label={`${m === "time" ? "Hours" : "Videos"} per month. Biggest: ${label(best.month)}.`}>
-        {months.map((x) => (
-          <span key={x.month} title={`${label(x.month)}: ${amount(m, v(x))}`} className="rounded-t-[3px]"
-                style={{ height: `${Math.max(1, (v(x) / max) * 100)}%`, background: x.month === best.month ? OV.accent : OV.ink }} />
-        ))}
-      </div>
-      <div aria-hidden className="grid font-shelf-mono text-[10px]" style={{ gridTemplateColumns: `repeat(${months.length},minmax(0,1fr))`, color: OV.soft }}>
-        {months.map((x) => (
-          <span key={x.month} className="overflow-visible whitespace-nowrap">
-            {many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "") : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })}
-          </span>
-        ))}
-      </div>
+      <HoverBars height={180} hint="Hover a month to see it." ariaLabel={`${m === "time" ? "Hours" : "Videos"} per month. Biggest: ${label(best.month)}.`}
+                 bars={months.map((x) => ({ key: x.month, label: label(x.month), value: v(x), display: amount(m, v(x)), color: x.month === best.month ? OV.accent : OV.ink }))}
+                 ticks={<Ticks labels={months.map((x) => (many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "")
+                                                              : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })))} />} />
     </Card>
   );
 }

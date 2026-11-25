@@ -5,6 +5,7 @@ import { useMeta, useStats } from "../api";
 import { useFilters } from "../filters";
 import { clockTime, date, num, pct } from "../format";
 import { OV, PageBody, PageHeader, Skeleton, StatsFrame, kicker } from "./kit";
+import { HoverBars, Ticks } from "./charts";
 import { periodTitle } from "./takeaways";
 
 function Numbers({ items }: { items: [string, ReactNode, ReactNode?][] }) {
@@ -52,19 +53,13 @@ function BarRows({ rows }: { rows: { label: string; value: number; note: string 
   );
 }
 
-function Bars({ data, label }: { data: { key: string; label: string; value: number }[]; label: string }) {
+function Bars({ data, label, unit }: { data: { key: string; label: string; full: string; value: number }[]; label: string; unit: string }) {
   if (!data.length) return <p style={{ color: OV.soft }}>Nothing yet.</p>;
-  const max = Math.max(1, ...data.map((d) => d.value));
   const many = data.length > 24;
   return (
-    <>
-      <div className="grid h-[160px] items-end gap-[2px]" style={{ gridTemplateColumns: `repeat(${data.length},minmax(0,1fr))` }} role="img" aria-label={label}>
-        {data.map((d) => <span key={d.key} title={`${d.label}: ${num(d.value)}`} className="rounded-t-[2px]" style={{ height: `${Math.max(1, (d.value / max) * 100)}%`, background: OV.ink }} />)}
-      </div>
-      <div aria-hidden className="grid font-shelf-mono text-[10px]" style={{ gridTemplateColumns: `repeat(${data.length},minmax(0,1fr))`, color: OV.soft }}>
-        {data.map((d) => <span key={d.key} className="overflow-visible whitespace-nowrap">{many ? (d.key.endsWith("-01") ? d.key.slice(0, 4) : "") : d.label}</span>)}
-      </div>
-    </>
+    <HoverBars height={160} gap={2} radius={2} hint={`Hover a bar to see it.`} ariaLabel={label}
+               bars={data.map((d) => ({ key: d.key, label: d.full, value: d.value, display: `${num(d.value)} ${unit}`, color: OV.ink }))}
+               ticks={<Ticks labels={data.map((d) => (many ? (d.key.endsWith("-01") ? d.key.slice(0, 4) : "") : d.label))} />} />
   );
 }
 
@@ -125,7 +120,7 @@ export function AdsPage() {
               </Card>
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
-              <Card label="Ads per year"><Bars data={a.by_year.map((y) => ({ key: String(y.year), label: String(y.year), value: y.count }))} label="Ads per year" /></Card>
+              <Card label="Ads per year"><Bars data={a.by_year.map((y) => ({ key: String(y.year), label: String(y.year), full: String(y.year), value: y.count }))} label="Ads per year" unit="ads" /></Card>
               <Card label="Ads you clicked · most recent first">
                 {!a.recent_clicks.length ? <p style={{ color: OV.soft }}>You didn't click any ads in this period.</p> : (
                   <ul className="flex flex-col">
@@ -196,7 +191,9 @@ export function SearchPage() {
                   </div>
                 </Card>
                 <Card label="Searches per month">
-                  <Bars data={d.per_month.map((m) => ({ key: m.month, label: new Date(m.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" }), value: m.count }))} label="Searches per month" />
+                  <Bars data={d.per_month.map((m) => ({ key: m.month, label: new Date(m.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" }),
+                                         full: new Date(m.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" }), value: m.count }))}
+                        label="Searches per month" unit="searches" />
                 </Card>
               </div>
             </div>

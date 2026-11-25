@@ -7,6 +7,7 @@ import { HourPoint, MonthPoint, Overview, RankedItem, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { clockTime, compact, date, duration, num, pct, safeHref } from "../format";
 import { OV, Pic, Skeleton, StatsFrame, kicker } from "./kit";
+import { HoverBars, Ticks } from "./charts";
 import { changeLine, hourLabel, hoursShort, periodTitle } from "./takeaways";
 
 interface SubsetTotals { videos: number; unique_videos: number; est_s: number; first_watched: string | null; last_watched: string | null; active_days: number }
@@ -132,35 +133,25 @@ function fillMonths(data: MonthPoint[]): MonthPoint[] {
 function MonthBars({ data }: { data: MonthPoint[] }) {
   const months = fillMonths(data);
   if (!months.length) return <p style={{ color: OV.soft }}>No watches.</p>;
-  const max = Math.max(1, ...months.map((x) => x.time_s));
   const many = months.length > 24;
+  const label = (k: string) => new Date(k + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
   return (
-    <>
-      <div className="grid h-[150px] items-end gap-[2px]" style={{ gridTemplateColumns: `repeat(${months.length},minmax(0,1fr))` }} role="img" aria-label="Hours per month">
-        {months.map((x) => <span key={x.month} title={`${x.month}: ${hoursShort(x.time_s)}`} className="rounded-t-[2px]" style={{ height: `${Math.max(1, (x.time_s / max) * 100)}%`, background: OV.ink }} />)}
-      </div>
-      <div aria-hidden className="grid font-shelf-mono text-[10px]" style={{ gridTemplateColumns: `repeat(${months.length},minmax(0,1fr))`, color: OV.soft }}>
-        {months.map((x) => <span key={x.month} className="overflow-visible whitespace-nowrap">{many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "") : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })}</span>)}
-      </div>
-    </>
+    <HoverBars height={150} gap={2} radius={2} hint="Hover a month to see it." ariaLabel="Hours per month"
+               bars={months.map((x) => ({ key: x.month, label: label(x.month), value: x.time_s, display: `${hoursShort(x.time_s)} · ${num(x.count)} videos`, color: OV.ink }))}
+               ticks={<Ticks labels={months.map((x) => (many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "")
+                                                            : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })))} />} />
   );
 }
 
 function ClockBars({ data }: { data: HourPoint[] }) {
   const total = data.reduce((s, h) => s + h.count, 0);
   if (!total) return <p style={{ color: OV.soft }}>Nothing in this period.</p>;
-  const max = Math.max(1, ...data.map((h) => h.count));
   const peak = data.reduce((a, b) => (b.count > a.count ? b : a)).hour;
   return (
-    <>
-      <p className="text-[14px]"><strong>{hourLabel(peak)}</strong> is the busiest hour.</p>
-      <div className="grid h-[120px] items-end gap-[3px]" style={{ gridTemplateColumns: "repeat(24,minmax(0,1fr))" }} role="img" aria-label={`By hour of day. Busiest: ${hourLabel(peak)}.`}>
-        {data.map((h) => <span key={h.hour} className="rounded-t-[2px]" style={{ height: `${Math.max(2, (h.count / max) * 100)}%`, background: h.hour === peak ? OV.teal : "#CDBFA6" }} />)}
-      </div>
-      <div aria-hidden className="grid font-shelf-mono text-[10px]" style={{ gridTemplateColumns: "repeat(4,minmax(0,1fr))", color: OV.soft }}>
-        <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span>
-      </div>
-    </>
+    <HoverBars height={120} hint={`${hourLabel(peak)} is the busiest hour. Hover one to see it.`} ariaLabel={`By hour of day. Busiest: ${hourLabel(peak)}.`}
+               bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: h.count,
+                                        display: `${num(h.count)} videos`, color: h.hour === peak ? OV.teal : "#CDBFA6" }))}
+               ticks={<Ticks labels={["12 AM", "6 AM", "12 PM", "6 PM"]} />} />
   );
 }
 
