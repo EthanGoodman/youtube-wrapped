@@ -155,3 +155,18 @@ def test_art_urls_are_relay_safe():
     check_url(good["large"])
     assert art.album_art({"thumbnail_url": "https://evil.example/image/ab67616d00001e02deadbeef"}) is None
     assert art.album_art({"thumbnail_url": "https://i.scdn.co/image/../../etc"}) is None
+
+
+def test_music_wrapped(tmp_path):
+    from conftest import make_client
+    from ytw.api import create_app
+    from ytw.config import load_config
+    conn, _, _ = _built(tmp_path)
+    conn.close()
+    client = make_client(create_app(load_config(), db_paths={"spotify": tmp_path / "spotify.db"}, static_dir=tmp_path / "x"))
+    w = client.get("/api/wrapped/2025?platform=spotify").json()
+    assert w["kind"] == "music" and w["platform"] == "spotify" and not w["empty"]
+    assert w["top_tracks"][0]["title"] == "Harbor Lights" and w["top_artists"][0]["title"] == "The Paper Lanterns"
+    assert w["top_albums"][0]["title"] == "Night Ferry" and w["on_repeat"]["count"] == 2
+    assert w["personality"]["name"] and "new_artist_share" in w["metrics"]
+    assert client.get("/api/wrapped/2023?platform=spotify").json()["empty"] is True
