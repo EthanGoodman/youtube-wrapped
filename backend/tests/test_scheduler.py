@@ -11,7 +11,7 @@ from ytw.api import create_app
 from ytw.config import load_config
 from ytw.connectors import CONNECTORS, PLATFORMS
 from ytw.connectors.base import Connector, ConnectorError, Manifest, vocab
-from ytw.scheduler import AUTO_PAUSE_AFTER, MAX_BACKOFF_S, MIN_INTERVAL_S, Scheduler
+from ytw.scheduler import AUTO_PAUSE_AFTER, MAX_BACKOFF_S, MIN_INTERVAL_S, Scheduler, is_live
 from ytw.sources import Job
 
 
@@ -64,6 +64,9 @@ class Clock:
 
 @pytest.fixture
 def sched(tmp_path, monkeypatch):
+    # only the fake connectors below: real live ones (Steam's daily sync) aren't part of these tests
+    for pid in [p for p, c in CONNECTORS.items() if is_live(c)]:
+        monkeypatch.delitem(CONNECTORS, pid)
     for cls in (Live, Quick, NotLive):
         monkeypatch.setitem(CONNECTORS, cls.manifest.id, cls)
         monkeypatch.setitem(PLATFORMS, cls.manifest.id, cls.manifest)
@@ -175,6 +178,8 @@ def test_thread_starts_and_stops(sched, monkeypatch):
 
 @pytest.fixture
 def app(tmp_path, monkeypatch):
+    for pid in [p for p, c in CONNECTORS.items() if is_live(c)]:
+        monkeypatch.delitem(CONNECTORS, pid)
     for cls in (Live,):
         monkeypatch.setitem(CONNECTORS, cls.manifest.id, cls)
         monkeypatch.setitem(PLATFORMS, cls.manifest.id, cls.manifest)

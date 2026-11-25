@@ -1,0 +1,40 @@
+{
+ "appid": 900001,
+ "achievements": [
+  {
+   "api": "FIRST",
+   "name": "First Light",
+   "desc": "Finish the tutorial",
+   "unlocked": 1709410500
+  },
+  {
+   "api": "BOSS",
+   "name": "Kingslayer",
+   "desc": "Beat the king",
+   "unlocked": 1709422800
+  },
+  {
+   "api": "ALL",
+   "name": "Starfall",
+   "desc": "Finish the story",
+   "unlocked": 1736708400
+  },
+  {
+   "api": "HARD",
+   "name": "No Mercy",
+   "desc": "Hard mode",
+   "unlocked": null
+  }
+ ],
+ "rarity": {
+  "FIRST": 81.5,
+  "BOSS": 40.2,
+  "ALL": 12.0,
+  "HARD": 1.4
+ },
+ "genres": [
+  "Strategy",
+  "RPG"
+ ],
+ "minutes": 0
+}

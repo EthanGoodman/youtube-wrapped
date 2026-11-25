@@ -1,0 +1,18 @@
+{
+ "appid": 900002,
+ "achievements": [
+  {
+   "api": "LAP",
+   "name": "First Lap",
+   "desc": "",
+   "unlocked": 1682960400
+  }
+ ],
+ "rarity": {
+  "LAP": 3.1
+ },
+ "genres": [
+  "Racing"
+ ],
+ "minutes": 0
+}
