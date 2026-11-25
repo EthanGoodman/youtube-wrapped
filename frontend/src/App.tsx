@@ -16,6 +16,13 @@ import { Evolution } from "./pages/Evolution";
 import { CategoryPage, ChannelPage, GenrePage, VideoPage, YearPage } from "./pages/Details";
 import { Search } from "./pages/Search";
 import { WrappedPage } from "./wrapped/Wrapped";
+import { OverviewPage } from "./overview/OverviewPage";
+import { TopPage } from "./overview/TopPage";
+import { PatternsPage } from "./overview/PatternsPage";
+import { RecordsPage } from "./overview/RecordsPage";
+import { EvolutionPage } from "./overview/EvolutionPage";
+import { AdsPage, SearchPage } from "./overview/MorePages";
+import { CategoryDetailPage, ChannelDetailPage, GenreDetailPage, VideoDetailPage, YearDetailPage } from "./overview/DetailPages";
 import { usePlatforms } from "./api";
 import { HubLink, PLATFORM_IDS, setVocab, useCapability } from "./platform";
 import { setChartTheme } from "./theme";
@@ -83,20 +90,21 @@ function PlatformApp() {
 
   return (
     <Routes>
-      <Route index element={<Layout><Home /></Layout>} />
-      <Route path="top/:kind" element={<Layout><Top /></Layout>} />
+      {/* YouTube is first on the new Overview (its own frame); the others keep their home until we generalize it */}
+      <Route index element={platform === "youtube" ? <OverviewPage /> : <Layout><Home /></Layout>} />
+      <Route path="top/:kind" element={platform === "youtube" ? <TopPage /> : <Layout><Top /></Layout>} />
       <Route path="shows" element={<Gate capability="series"><Layout><Shows /></Layout></Gate>} />
       <Route path="anime" element={<Gate capability="anime"><Layout><Anime /></Layout></Gate>} />
-      <Route path="patterns" element={<Layout><Patterns /></Layout>} />
-      <Route path="records" element={<Layout><Records /></Layout>} />
-      <Route path="evolution" element={<Layout><Evolution /></Layout>} />
-      <Route path="ads" element={<Gate capability="ads"><Layout><Ads /></Layout></Gate>} />
-      <Route path="search" element={<Gate capability="search"><Layout><Search /></Layout></Gate>} />
-      <Route path="channel/:id" element={<Layout><ChannelPage /></Layout>} />
-      <Route path="video/:id" element={<Layout showRange={false}><VideoPage /></Layout>} />
-      <Route path="category/:id" element={<Layout><CategoryPage /></Layout>} />
-      <Route path="genre/:topic" element={<Layout><GenrePage /></Layout>} />
-      <Route path="year/:year" element={<Layout showRange={false}><YearPage /></Layout>} />
+      <Route path="patterns" element={platform === "youtube" ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
+      <Route path="records" element={platform === "youtube" ? <RecordsPage /> : <Layout><Records /></Layout>} />
+      <Route path="evolution" element={platform === "youtube" ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
+      <Route path="ads" element={<Gate capability="ads">{platform === "youtube" ? <AdsPage /> : <Layout><Ads /></Layout>}</Gate>} />
+      <Route path="search" element={<Gate capability="search">{platform === "youtube" ? <SearchPage /> : <Layout><Search /></Layout>}</Gate>} />
+      <Route path="channel/:id" element={platform === "youtube" ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
+      <Route path="video/:id" element={platform === "youtube" ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
+      <Route path="category/:id" element={platform === "youtube" ? <CategoryDetailPage /> : <Layout><CategoryPage /></Layout>} />
+      <Route path="genre/:topic" element={platform === "youtube" ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
+      <Route path="year/:year" element={platform === "youtube" ? <YearDetailPage /> : <Layout showRange={false}><YearPage /></Layout>} />
       <Route path="wrapped" element={<WrappedPage />} />
       <Route path="*" element={<Layout><PageTitle title="Not found" /></Layout>} />
     </Routes>

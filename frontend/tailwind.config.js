@@ -27,6 +27,8 @@ export default {
         "shelf-display": ["Bebas Neue", "Impact", "sans-serif"],
         "shelf-mono": ["DM Mono", "ui-monospace", "monospace"],
         "shelf-sans": ["DM Sans", "system-ui", "sans-serif"],
+        // the new Overview's headlines (bundled, see main.tsx)
+        "ov-display": ["Bricolage Grotesque", "DM Sans", "system-ui", "sans-serif"],
       },
       borderRadius: { card: "var(--radius-card, 12px)" },
     },
