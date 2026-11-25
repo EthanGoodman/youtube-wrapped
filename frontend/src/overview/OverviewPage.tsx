@@ -143,13 +143,15 @@ function PeriodPicker() {
       <label>
         <span className="sr-only">Period</span>
         <select className={selectCls} style={selectStyle} value={filters.range}
-                onChange={(e) => (e.target.value === "custom" ? setCustom(true) : update({ range: e.target.value }))}>
+                onChange={(e) => (e.target.value === "custom" || e.target.value === "pick" ? setCustom(true) : update({ range: e.target.value }))}>
           <option value="this_year">This year</option>
           <option value="4w">Past 4 weeks</option>
           <option value="6m">Past 6 months</option>
           <option value="all">Lifetime</option>
           {years.map((y) => <option key={y} value={String(y)}>{y}</option>)}
-          <option value="custom">{filters.range === "custom" ? `${filters.start} – ${filters.end}` : "Custom…"}</option>
+          {/* choosing the selected option fires no change, so an active custom range gets its own way back to the dates */}
+          {filters.range === "custom" && <option value="custom">{`${filters.start} – ${filters.end}`}</option>}
+          <option value="pick">{filters.range === "custom" ? "Change dates…" : "Custom…"}</option>
         </select>
       </label>
       {custom && <CustomDates onDone={() => setCustom(false)} min={meta?.first_date} max={meta?.today} />}
