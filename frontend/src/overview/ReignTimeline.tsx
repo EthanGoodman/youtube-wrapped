@@ -2,7 +2,7 @@
    run, and the longest run is highlighted. Shared by the home page and the Evolution page. */
 import { Link } from "../platform";
 import { useMeta } from "../api";
-import { Avatar, OV, ScrollRow, useCreator } from "./kit";
+import { Avatar, OV, ScrollRow, useCreator, useVerb } from "./kit";
 import { groupReigns, hoursShort, longestReign, monthDay } from "./takeaways";
 
 export interface YearTop { year: number; channel_id: string; title?: string | null; avatar_url?: string | null; time_s: number; count: number }
@@ -15,6 +15,7 @@ export function reignTitle(rows: YearTop[]): string {
 
 export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]; calendarYears?: boolean }) {
   const cr = useCreator();
+  const { verbed } = useVerb();
   const meta = useMeta().data;
   const reign = longestReign(rows);
   const thisYear = Number(meta?.today.slice(0, 4));
@@ -67,7 +68,7 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
         </ol>
       </ScrollRow>
       <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>
-        Hours are what you watched of that {cr.one}{calendarYears ? " in those calendar years" : ""}. Pick a year to open its Wrapped.
+        Hours are what you {verbed} of that {cr.one}{calendarYears ? " in those calendar years" : ""}. Pick a year to open its Wrapped.
       </p>
     </>
   );

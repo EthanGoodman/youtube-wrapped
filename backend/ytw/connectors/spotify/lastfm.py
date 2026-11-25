@@ -26,7 +26,12 @@ SCHEMA = "CREATE TABLE IF NOT EXISTS lf_artists (name TEXT PRIMARY KEY, tags TEX
 _NOT_GENRES = {"seen live", "favorites", "favourite", "favorite", "favourites", "love", "awesome", "beautiful", "cool",
                "best", "good", "amazing", "under 2000 listeners", "spotify", "all", "male vocalists", "female vocalists",
                "female vocalist", "male vocalist", "singer-songwriter", "american", "british", "english", "uk", "usa",
-               "canadian", "australian", "swedish", "german", "french", "korean", "japanese"}
+               "canadian", "australian", "swedish", "german", "french", "korean", "japanese", "united states",
+               "united kingdom", "canada", "australia", "sweden", "germany", "france", "japan", "korea", "irish",
+               "scottish", "dutch", "norwegian", "finnish", "italian", "spanish", "brazilian", "mexican"}
+# how some tags should read once Title-Cased
+DISPLAY = {"rnb": "R&B", "r&b": "R&B", "hip-hop": "Hip-Hop", "hip hop": "Hip-Hop", "edm": "EDM", "idm": "IDM", "lo-fi": "Lo-Fi",
+           "uk garage": "UK Garage", "k-pop": "K-Pop", "j-pop": "J-Pop", "dnb": "Drum and Bass", "drum n bass": "Drum and Bass"}
 _JUNK = re.compile(r"^\d{2,4}s?$|^my |favou?rite")
 
 Fetcher = Callable[[str], dict]   # artist name -> Last.fm JSON
@@ -97,5 +102,5 @@ def artist_genres(conn: sqlite3.Connection) -> dict[str, list[str]]:
     """Artist name -> genres (Title Case), from the cache."""
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'lf_artists'").fetchone():
         return {}
-    return {name: [g.title() for g in json.loads(tags)] for name, tags in
+    return {name: [DISPLAY.get(g, g.title()) for g in json.loads(tags) if g not in _NOT_GENRES] for name, tags in
             conn.execute("SELECT name, tags FROM lf_artists WHERE tags IS NOT NULL")}

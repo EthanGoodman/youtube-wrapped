@@ -6,7 +6,7 @@ import { Link, useCapability } from "../platform";
 import { Metric, useFilters, useLinkQuery } from "../filters";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { num, pct } from "../format";
-import { Cover, MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, usePrevRanks } from "./kit";
+import { Cover, MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, usePrevRanks, useVerb } from "./kit";
 import { hoursShort, periodTitle, rankMove, rankingFilters } from "./takeaways";
 
 type Shape = "face" | "poster" | "cover" | "thumb" | "none";
@@ -45,6 +45,8 @@ export function TopPage() {
   const q = useLinkQuery();
   const caps = meta?.platform.capabilities;
   const shorts = useCapability("shorts");
+  const estimated = useCapability("estimated_time") && !shorts;   // Netflix's quick download: times are estimates
+  const { verbed } = useVerb();
   const cr = useCreator();
   const n = useNoun();
   const anime = useCapability("anime");
@@ -84,7 +86,7 @@ export function TopPage() {
           <Seg label="Rank by" dark value={metric} options={[["time", "Hours"], ["count", k.once ? "Rewatches" : k.unit[1].charAt(0).toUpperCase() + k.unit[1].slice(1)]]} onChange={setMetric} />
         </div>
         <p className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>
-          Ranked by {metric === "time" ? `hours watched${shorts ? "" : " (estimated)"}` : k.once ? "how often you watched it" : `${k.unit[1]} watched`}
+          Ranked by {metric === "time" ? `hours ${verbed}${estimated ? " (estimated)" : ""}` : k.once ? `how often you ${verbed} it` : `${k.unit[1]} ${verbed}`}
           {shorts && k.shape !== "none" && filters.buckets.includes("long") ? " · long videos only (pick Shorts in the top bar to rank those)" : ""}
           {cmp ? ` · arrows since ${cmp.label}` : ""}
         </p>
@@ -149,6 +151,7 @@ const PODIUM = [
 function Podium({ items, k, value, move }: {
   items: RankedItem[]; k: Kind; value: (c: RankedItem) => string; move: (c: RankedItem) => ReturnType<typeof rankMove>;
 }) {
+  const { verbed } = useVerb();
   const q = useLinkQuery();
   return (
     // #1 in the middle and biggest, #2 left, #3 right (phones: 1, 2, 3 stacked)
@@ -166,7 +169,7 @@ function Podium({ items, k, value, move }: {
             <span className="line-clamp-2 font-bold leading-snug" style={{ fontSize: p.name }}>{c.title ?? "Unknown"}</span>
             {(k.shape === "thumb" || k.kind === "videos" || k.kind === "albums") && byLine(c) && <span className="text-[13px]" style={{ color: c.rank === 1 ? OV.ink : OV.soft }}>{byLine(c)}</span>}
             <span className="font-ov-display font-extrabold leading-none" style={{ fontSize: p.value }}>{value(c)}</span>
-            {k.shape === "none" && <span className="font-shelf-mono text-[12px]">in {pct(c.share)} of what you watched</span>}
+            {k.shape === "none" && <span className="font-shelf-mono text-[12px]">in {pct(c.share)} of what you {verbed}</span>}
             <MoveBadge m={move(c)} />
           </>
         );
