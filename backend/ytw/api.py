@@ -28,7 +28,7 @@ import logging
 
 from . import db, images, platforms, secrets, security, sources
 from .config import Config
-from .stats import ads, details, evolution, music, overview, patterns, records, search, shows, tops
+from .stats import ads, details, evolution, games, music, overview, patterns, records, search, shows, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, check_year, data_bounds, resolve_range
 from .wrapped import (MODES as WRAPPED_MODES, METRICS as YT_METRICS, NETFLIX_METRICS, load_personalities,
                       netflix_wrapped, personalities_file, wrapped as wrapped_data, MUSIC_METRICS, music_wrapped)
@@ -380,6 +380,17 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         require_family(request, "music")
         r, f = parse(request)
         return _or_404(cached(request, lambda: music.album(conn(request), album_id, r, f)), "album")
+
+    @app.get("/api/games/achievements")
+    def get_achievements(request: Request):
+        require_family(request, "games")
+        r, _ = parse(request)
+        return cached(request, lambda: {"range": r.to_dict(), **games.achievements_summary(conn(request), r, cfg.tz)})
+
+    @app.get("/api/games/game/{key}")
+    def get_game_achievements(key: str, request: Request):
+        require_family(request, "games")
+        return _or_404(cached(request, lambda: games.game_achievements(conn(request), key, cfg.tz)), "game")
 
     @app.get("/api/music/records")
     def get_music_records(request: Request):

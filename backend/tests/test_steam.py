@@ -113,3 +113,25 @@ def test_private_profile_message():
         return {"response": {}}
     with pytest.raises(api.SteamError, match="Game details to Public"):
         api.owned_games(private, "76561198000000001")
+
+
+def test_achievement_stats_and_api(tmp_path):
+    from conftest import make_client
+    from ytw.api import create_app
+    from ytw.config import load_config
+    conn, _, _ = _built(tmp_path)
+    conn.close()
+    client = make_client(create_app(load_config(), db_paths={"steam": tmp_path / "steam.db"}, static_dir=tmp_path / "x"))
+    q = "platform=steam&range=all"
+    meta = client.get("/api/meta?platform=steam").json()["platform"]
+    assert meta["family"] == "games" and "achievements" in meta["capabilities"]
+    a = client.get(f"/api/games/achievements?{q}").json()
+    assert a["unlocked"] == 4 and a["total"] == 5
+    assert a["rarest"][0]["name"] == "First Lap" and a["rarest"][0]["rarity"] == 3.1
+    assert a["best_day"]["count"] == 2 and a["best_day"]["game"]["title"] == "Starfall Tactics"
+    assert [p["game"]["title"] for p in a["perfect"]] == ["Harbor Kart"]          # 1 of 1 unlocked
+    g = client.get(f"/api/games/game/game:900001?{q}").json()
+    assert (g["unlocked"], g["total"]) == (3, 4) and g["achievements"][-1]["name"] == "No Mercy"   # locked last
+    top = client.get(f"/api/top/channels?{q}&metric=time").json()["items"]
+    assert top[0]["title"] == "Starfall Tactics" and round(top[0]["time_s"] / 3600, 1) == 21.5
+    assert client.get("/api/games/achievements?platform=spotify").status_code in (404, 503)

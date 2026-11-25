@@ -48,10 +48,11 @@ def _paths(client, platform: str) -> list[str]:
             out += [f"/api/evolution/{k}?{mq}" for k in ("top_per_year", "bar_race", "discoveries", "loyalty", "fell_off", "mix")]
             out += [f"/api/shows/{k}?{mq}" for k in ("home", "progress", "binges", "days", "rewatches", "split", "anime", "anime_page")]
         out += [f"/api/patterns/{k}?{rq}" for k in ("clock", "heatmap", "weekday_weekend", "calendar", "monthly")]
-        out.append(f"/api/music/records?{rq}")
+        out += [f"/api/music/records?{rq}", f"/api/games/achievements?{rq}"]
     out += [f"/api/wrapped/{y}?{q}" for y in years] + [f"/api/year/{y}?{q}" for y in years]
     for c in client.get(f"/api/top/channels?{q}&range=all&limit=10").json()["items"]:
         out += [f"/api/channel/{c['key']}?{q}&range=all", f"/api/show/{c['key']}?{q}&range=all"]
+    out += [f"/api/games/game/{c['key']}?{q}" for c in client.get(f"/api/top/channels?{q}&range=all&limit=5").json()["items"]]
     for a in client.get(f"/api/top/albums?{q}&range=all&limit=5").json().get("items", []):
         out.append(f"/api/album/{a['key']}?{q}&range=all")
     return out
@@ -63,7 +64,7 @@ def _same_everywhere(tmp_path: Path, platform: str, built: Path) -> None:
         path = tmp_path / f"{platform}-{seed}.db"
         _shuffled_copy(built, path, seed)
         # the other platforms point at files that don't exist (YouTube's database has its own argument)
-        others = {p: tmp_path / f"none-{p}.db" for p in ("netflix", "crunchyroll", "spotify") if p != platform}
+        others = {p: tmp_path / f"none-{p}.db" for p in ("netflix", "crunchyroll", "spotify", "steam") if p != platform}
         app = (create_app(load_config(), db_path=path, db_paths=others, static_dir=tmp_path / "nodist") if platform == "youtube"
                else create_app(load_config(), db_paths={platform: path, **others}, static_dir=tmp_path / "nodist"))
         clients[seed] = make_client(app)
@@ -113,3 +114,10 @@ def test_spotify_order_independent(tmp_path):
     conn, _, _ = spotify_built(tmp_path)
     conn.close()
     _same_everywhere(tmp_path, "spotify", tmp_path / "spotify.db")
+
+
+def test_steam_order_independent(tmp_path):
+    from test_steam import _built as steam_built
+    conn, _, _ = steam_built(tmp_path)
+    conn.close()
+    _same_everywhere(tmp_path, "steam", tmp_path / "steam.db")
