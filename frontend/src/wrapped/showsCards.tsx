@@ -1,6 +1,6 @@
 /* Netflix Wrapped cards: same 360 x 640 design size and player as YouTube's, Netflix look
    (near-black, Netflix red, heavy Inter headlines, posters instead of avatars). */
-import { platformName } from "../platform";
+import { platformName, tr } from "../platform";
 import { ReactNode, useState } from "react";
 import { motion } from "framer-motion";
 import { compact, date, hourLabel, num } from "../format";
@@ -122,7 +122,7 @@ export const SHOWS_CARDS: NCard[] = [
           <Display size={44} delay={0.4}>hours of {platformName()}</Display>
           <motion.div {...rise(1.1)} className="mt-8 space-y-3 text-[17px]">
             <p>That's <b>{(o.est_s / 86400).toFixed(1)} full days</b>.</p>
-            <p><b>{num(d.kind_split.episode.count)} episodes</b> of <b>{num(d.progress.shows)} shows</b>
+            <p><b>{num(d.kind_split.episode.count)} episodes</b> of <b>{num(d.progress.shows)} {tr("channels")}</b>
               {d.kind_split.movie.count ? <> and <b>{num(d.kind_split.movie.count)} movies</b></> : null}.</p>
             <p>You pressed play on <b>{num(o.active_days)} of {o.days} days</b>.</p>
           </motion.div>
@@ -136,13 +136,13 @@ export const SHOWS_CARDS: NCard[] = [
     },
   },
   {
-    id: "top-show", label: "Top show",
+    id: "top-show", get label() { return tr("Top channel"); },
     when: (d) => d.top_channels.length > 0,
     render: (d) => {
       const s = d.top_channels[0];
       return (
         <Card year={d.year} glow="center">
-          <Kicker>Your #1 show of {d.year}</Kicker>
+          <Kicker>{tr("Your #1 channel of")} {d.year}</Kicker>
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <motion.div initial={{ opacity: 0, rotateY: 90, scale: 0.8 }} animate={{ opacity: 1, rotateY: 0, scale: 1 }}
                         transition={{ delay: 0.8, duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
@@ -159,11 +159,11 @@ export const SHOWS_CARDS: NCard[] = [
     },
   },
   {
-    id: "top-5", label: "Top 5 shows",
+    id: "top-5", get label() { return tr("Top 5 channels"); },
     when: (d) => d.top_channels.length > 1,
     render: (d) => (
       <Card year={d.year}>
-        <Display size={46} delay={0}>Your Top 5 shows</Display>
+        <Display size={46} delay={0}>{tr("Your Top 5 channels")}</Display>
         <div className="mt-4 flex flex-col gap-2">
           {d.top_channels.slice(0, 5).map((s, i) => (
             <motion.div key={s.key} {...rise(0.3 + i * 0.18)} className="flex items-center">
@@ -216,7 +216,7 @@ export const SHOWS_CARDS: NCard[] = [
       return (
         <Card year={d.year}>
           <Kicker>You started</Kicker>
-          <Display size={84} delay={0.3}><CountUp to={d.progress.shows} /> shows</Display>
+          <Display size={84} delay={0.3}><CountUp to={d.progress.shows} /> {tr("channels")}</Display>
           <div className="mt-6 grid grid-cols-3 gap-2">
             {rows.map(([label, n, color], i) => (
               <motion.div key={label} {...rise(0.7 + i * 0.15)} className="rounded-xl bg-white/[0.07] px-3 py-3">
@@ -248,9 +248,9 @@ export const SHOWS_CARDS: NCard[] = [
       const m = d.top_movies[0];
       return (
         <Card year={d.year}>
-          <Kicker>Shows or movies?</Kicker>
+          <Kicker>{tr("Channels or movies?")}</Kicker>
           <Display size={120} delay={0.3} color={RED}><CountUp to={Math.round((episode.est_s / total) * 100)} format={(n) => `${Math.round(n)}%`} /></Display>
-          <Kicker delay={0.5}>of your watch time was shows</Kicker>
+          <Kicker delay={0.5}>{tr("of your watch time was channels")}</Kicker>
           <div className="mt-7 flex flex-col gap-3">
             {([["Episodes", episode.count, episode.est_s], ["Movies", movie.count, movie.est_s]] as [string, number, number][]).map(([label, n, t], i) => (
               <div key={label}>
@@ -360,7 +360,7 @@ export const SHOWS_CARDS: NCard[] = [
     ),
   },
   {
-    id: "discovery", label: "New show",
+    id: "discovery", get label() { return tr("New channel"); },
     when: (d) => !!d.discovery,
     render: (d) => {
       const s = d.discovery!;
@@ -420,7 +420,7 @@ function ShowsSummary({ d }: { d: ShowsWrappedData }) {
         </span>
         <span style={heavy} className="text-[32px] leading-none">{d.year}</span>
       </div>
-      <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Top shows</p>
+      <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">{tr("Top channels")}</p>
       <div className="mt-2 flex gap-1.5">
         {d.top_channels.slice(0, 5).map((c, i) => (
           <div key={c.key} className="relative min-w-0 flex-1">
@@ -431,8 +431,8 @@ function ShowsSummary({ d }: { d: ShowsWrappedData }) {
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Stat label="Hours watched" value={num(hrs(d.overview.est_s))} sub={d.has_times ? undefined : "estimated"} />
-        <Stat label="Titles" value={compact(d.overview.videos)} sub={`${num(d.progress.shows)} shows · ${num(d.kind_split.movie.count)} movies`} />
-        <Stat label="Shows finished" value={num(s.finished)} sub={`${num(s.dropped)} dropped`} />
+        <Stat label={tr("Videos")} value={compact(d.overview.videos)} sub={tr(`${num(d.progress.shows)} channels · ${num(d.kind_split.movie.count)} movies`)} />
+        <Stat label={tr("Channels finished")} value={num(s.finished)} sub={`${num(s.dropped)} dropped`} />
         <Stat label="Fastest season" value={d.binge ? days(d.binge.days) : "–"} sub={d.binge ? `${d.binge.title}` : undefined} />
       </div>
       {d.top_genres[0] && (

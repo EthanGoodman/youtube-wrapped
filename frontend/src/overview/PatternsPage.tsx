@@ -14,7 +14,7 @@ import {
 type Measure = "count" | "time";
 interface WW { count: number; time_s: number; days: number; avg_count_per_day: number; avg_time_s_per_day: number }
 
-const amount = (m: Measure, v: number, n = "videos") => (m === "time" ? duration(v) : `${num(v)} ${n}`);
+const amount = (m: Measure, v: number, n: string) => (m === "time" ? duration(v) : `${num(v)} ${n}`);
 
 export function PatternsPage() {
   const { filters } = useFilters();
@@ -111,7 +111,7 @@ function HourChart({ data, m }: { data?: HourPoint[]; m: Measure }) {
       </div>
       <HoverBars dark height={220} gap={4} radius={4} hint="Hover an hour to see it."
                  ariaLabel={`${m === "time" ? "Hours" : n} by hour of day. Busiest: ${hourLabel(peak)}.`}
-                 bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: v(h), display: amount(m, v(h)),
+                 bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: v(h), display: amount(m, v(h), n),
                                           color: h.hour === peak ? OV.mustard : h.hour < 5 ? "#8E8170" : "#5E554A" }))}
                  ticks={<Ticks dark labels={[0, 3, 6, 9, 12, 15, 18, 21].map(hourLabel)} />} />
     </section>
@@ -119,6 +119,7 @@ function HourChart({ data, m }: { data?: HourPoint[]; m: Measure }) {
 }
 
 function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
+  const n = useNoun().many;
   const [cell, setCell] = useState<[number, number] | null>(null);
   const [level, setLevel] = useState<number | null>(null);
   if (!grid) return <Skeleton h={300} />;
@@ -127,8 +128,8 @@ function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
   grid.forEach((row, d) => row.forEach((n, h) => { if (n > grid[best[0]][best[1]]) best = [d, h]; }));
   const days = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
   const [lo, hi] = level ? heatRange(level, max) : [0, 0];
-  const info = cell ? `${days[cell[0]]}, ${hourLabel(cell[1])} to ${hourLabel((cell[1] + 1) % 24)} · ${amount(m, grid[cell[0]][cell[1]])}`
-    : level != null ? (level === 0 ? "Hours you never watched" : `Hours with ${amount(m, lo)} to ${amount(m, hi)}`)
+  const info = cell ? `${days[cell[0]]}, ${hourLabel(cell[1])} to ${hourLabel((cell[1] + 1) % 24)} · ${amount(m, grid[cell[0]][cell[1]], n)}`
+    : level != null ? (level === 0 ? "Hours you never watched" : `Hours with ${amount(m, lo, n)} to ${amount(m, hi, n)}`)
     : "Hover a square to see it, or a shade to light up those hours.";
   return (
     <Card label="Day × hour" title={`${days[best[0]]} around ${hourLabel(best[1])}`}>
