@@ -17,7 +17,7 @@ type Tab = [string, string, boolean?, string?];
 type MoreLink = [string, string, string?];
 /* Each family's tabs follow the priority table: universal + must-haves are tabs, nice-to-haves and things people only
    look for on purpose live behind "More" (the third item is a capability the platform needs for that link). */
-const NAV: Record<"videos" | "shows", { tabs: Tab[]; more: MoreLink[] }> = {
+const NAV: Record<Family, { tabs: Tab[]; more: MoreLink[] }> = {
   videos: {
     tabs: [["/", "Overview", true], ["/top/channels", "Top channels"], ["/evolution", "Evolution"], ["/patterns", "Patterns"], ["/records", "Records"], ["/wrapped", "Wrapped"]],
     more: [["/top/videos", "Top videos"], ["/top/genres", "Top genres"], ["/ads", "Ads you saw", "ads"], ["/search", "Search history", "search"]],
@@ -27,11 +27,22 @@ const NAV: Record<"videos" | "shows", { tabs: Tab[]; more: MoreLink[] }> = {
     tabs: [["/", "Overview", true], ["/top/channels", "Top shows"], ["/shows", "How far you got"], ["/anime", "Anime", false, "anime"], ["/patterns", "Patterns"], ["/records", "Records"], ["/wrapped", "Wrapped"]],
     more: [["/evolution", "Evolution"], ["/top/genres", "Top genres"], ["/top/movies", "Top movies", "!anime"]],
   },
+  // music, from the priority table: top tracks / artists / albums / genres, evolution and records up front;
+  // patterns (stats.fm-style clock and days) as a nice-to-have
+  music: {
+    tabs: [["/", "Overview", true], ["/top/videos", "Top tracks"], ["/top/channels", "Top artists"], ["/top/albums", "Top albums"],
+           ["/top/genres", "Genres", false, "genres"], ["/evolution", "Evolution"], ["/records", "Records"], ["/wrapped", "Wrapped"]],
+    more: [["/patterns", "Patterns"]],
+  },
 };
 
-/** Which family's pages a platform gets: shows (Netflix) or videos (YouTube). */
-export function useFamily(): "videos" | "shows" {
-  return useCapability("series") ? "shows" : "videos";
+export type Family = "videos" | "shows" | "music";
+
+/** Which family's pages a platform gets: music (Spotify), shows (Netflix) or videos (YouTube). */
+export function useFamily(): Family {
+  const series = useCapability("series");
+  if (usePlatform()?.family === "music") return "music";
+  return series ? "shows" : "videos";
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -55,7 +66,7 @@ export function useCreator(): { one: string; many: string; Many: string } {
 }
 
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
-const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C" };
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F" };
 export function useAccent(): string {
   return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
 }
@@ -71,7 +82,8 @@ export function TopBar() {
   const wrappedYear = periodYear(filters.range, meta?.today) ?? meta?.today.slice(0, 4);
   const wq = q ? `${q}&` : "?";
   const caps = meta?.platform.capabilities;
-  const nav = NAV[useFamily()];
+  const family = useFamily();
+  const nav = NAV[family];
   const cr = useCreator();
   // a link that needs a capability ("!x": one the platform must not have)
   const has = (cap?: string) => !cap || !caps || (cap.startsWith("!") ? !caps.includes(cap.slice(1)) : caps.includes(cap));
@@ -90,7 +102,7 @@ export function TopBar() {
               <Link key={to} to={to + q} aria-current={on ? "page" : undefined}
                     className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium hover:underline"
                     style={on ? { background: OV.mustard, color: OV.ink } : undefined}>
-                {to === "/top/channels" ? `Top ${cr.many}` : label}
+                {to === "/top/channels" && family !== "music" ? `Top ${cr.many}` : label}
               </Link>
             );
           })}
@@ -222,6 +234,17 @@ export function Poster({ src, width, name, ring = OV.ink, className = "" }: { sr
                  style={{ ...box, background: OV.sand, color: OV.ink }} aria-hidden>{(name ?? "?").charAt(0).toUpperCase()}</span>;
   return <img src={src.replace("/w185/", "/w342/")} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
               className={`aspect-[2/3] shrink-0 rounded-lg border-[3px] object-cover ${className}`} style={box} />;
+}
+
+/** Album art: a square with the ink outline; a big initial when there's no picture yet. */
+export function Cover({ src, size, name, ring = OV.ink, className = "" }: { src?: string | null; size: string; name?: string | null; ring?: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  const box = { width: size, height: size, borderColor: ring };
+  if (!src || failed)
+    return <span className={`flex shrink-0 items-center justify-center rounded-md border-[3px] font-ov-display font-extrabold ${className}`}
+                 style={{ ...box, background: OV.sand, color: OV.ink, fontSize: `calc(${size} * 0.4)` }} aria-hidden>{(name ?? "?").charAt(0).toUpperCase()}</span>;
+  return <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
+              className={`shrink-0 rounded-md border-[3px] object-cover ${className}`} style={box} />;
 }
 
 /** The picture of a channel or a show: a round face, or a poster for shows (same height as the face would be). */

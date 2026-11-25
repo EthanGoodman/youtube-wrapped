@@ -6,13 +6,13 @@ import { Link, useCapability } from "../platform";
 import { Metric, useFilters, useLinkQuery } from "../filters";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { num, pct } from "../format";
-import { MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, usePrevRanks } from "./kit";
+import { Cover, MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, usePrevRanks } from "./kit";
 import { hoursShort, periodTitle, rankMove, rankingFilters } from "./takeaways";
 
-type Shape = "face" | "poster" | "thumb" | "none";
+type Shape = "face" | "poster" | "cover" | "thumb" | "none";
 /* `unit` is what the count counts; `once` lists are things you rarely repeat (their arrows would all say "new",
    and they rank by rewatches unless you ask for hours) */
-interface Kind { kind: string; label: string; noun: string; shape: Shape; unit: [string, string]; once?: boolean; link?: (k: string) => string; cap?: string; music?: boolean }
+interface Kind { kind: string; label: string; noun: string; shape: Shape; unit: [string, string]; once?: boolean; byCount?: boolean; link?: (k: string) => string; cap?: string; music?: boolean }
 const VIDEO_KINDS: Kind[] = [
   { kind: "channels", label: "Channels", noun: "channels", shape: "face", unit: ["video", "videos"], link: (k) => `/channel/${encodeURIComponent(k)}` },
   { kind: "videos", label: "Videos", noun: "videos", shape: "thumb", unit: ["time", "times"], once: true, link: (k) => `/video/${encodeURIComponent(k)}` },
@@ -28,6 +28,13 @@ const SHOW_KINDS: Kind[] = [
   { kind: "videos", label: "Titles", noun: "titles", shape: "thumb", unit: ["time", "times"], once: true, link: (k) => `/video/${encodeURIComponent(k)}` },
   { kind: "genres", label: "Genres", noun: "genres", shape: "none", unit: ["title", "titles"], link: (k) => `/genre/${encodeURIComponent(k)}` },
 ];
+/* music ranks tracks by streams by default (as stats.fm does); artists and albums by hours */
+const MUSIC_KINDS: Kind[] = [
+  { kind: "videos", label: "Tracks", noun: "tracks", shape: "cover", unit: ["stream", "streams"], byCount: true, link: (k) => `/video/${encodeURIComponent(k)}` },
+  { kind: "channels", label: "Artists", noun: "artists", shape: "face", unit: ["stream", "streams"], link: (k) => `/channel/${encodeURIComponent(k)}` },
+  { kind: "albums", label: "Albums", noun: "albums", shape: "cover", unit: ["stream", "streams"], link: (k) => `/album/${encodeURIComponent(k)}` },
+  { kind: "genres", label: "Genres", noun: "genres", shape: "none", unit: ["stream", "streams"], cap: "genres", link: (k) => `/genre/${encodeURIComponent(k)}` },
+];
 
 export function TopPage() {
   const { kind = "channels" } = useParams();
@@ -42,7 +49,8 @@ export function TopPage() {
   const n = useNoun();
   const anime = useCapability("anime");
   // shows family: the platform's own words (shows / series, titles / episodes); no movie list without movies
-  const KINDS = useFamily() === "shows"
+  const family = useFamily();
+  const KINDS = family === "music" ? MUSIC_KINDS : family === "shows"
     ? SHOW_KINDS.filter((x) => !(anime && x.kind === "movies")).map((x) =>
         x.kind === "channels" ? { ...x, label: cr.Many, noun: cr.many }
         : x.kind === "videos" ? { ...x, label: n.Many, noun: n.many }
@@ -51,7 +59,7 @@ export function TopPage() {
   const kinds = KINDS.filter((k) => (!k.music || meta?.has_music) && (!k.cap || !caps || caps.includes(k.cap)));
   const k = kinds.find((x) => x.kind === kind) ?? KINDS[0];
   // hours by default (like the home page); videos rank by rewatches unless you ask for hours
-  const metric: Metric = (params.get("metric") as Metric | null) ?? (KINDS.find((x) => x.kind === kind)?.once ? "count" : "time");
+  const metric: Metric = (params.get("metric") as Metric | null) ?? (KINDS.find((x) => x.kind === kind)?.once || KINDS.find((x) => x.kind === kind)?.byCount ? "count" : "time");
   const ranked = { ...(k.shape === "none" ? filters : rankingFilters(filters)), metric };
   const [limit, setLimit] = useState(50);
   const top = useStats<TopResponse>(`top/${k.kind}`, { limit }, { filters: ranked });
@@ -109,12 +117,16 @@ export function TopPage() {
   );
 }
 
+/** The line under a track or album: its channel or artist. */
+const byLine = (c: RankedItem) => c.channel ?? (c as RankedItem & { artist?: string | null }).artist ?? null;
+
 function href(k: Kind, c: RankedItem, q: string): string | null {
   return k.link ? k.link(c.key) + q : null;
 }
 
-function Picture({ c, k, size }: { c: RankedItem & { poster?: string | null }; k: Kind; size: number }) {
+function Picture({ c, k, size }: { c: RankedItem & { poster?: string | null; cover?: string | null }; k: Kind; size: number }) {
   if (k.shape === "face") return <Pic src={c.avatar_url} name={c.title} size={`${size}px`} />;
+  if (k.shape === "cover") return <Cover src={c.thumb ?? c.cover ?? c.avatar_url} name={c.title} size={`${size}px`} className={size < 60 ? "!border-2" : ""} />;
   if (k.shape === "poster") return <Poster src={c.avatar_url ?? c.poster ?? c.thumb} name={c.title} width={`${Math.round(size * 0.78)}px`} className={size < 60 ? "!rounded-md !border-2" : ""} />;
   if (k.shape === "thumb") {
     const src = c.thumb ?? (c.key && !c.key.includes(":") ? `https://i.ytimg.com/vi/${c.key}/mqdefault.jpg` : null);
@@ -152,7 +164,7 @@ function Podium({ items, k, value, move }: {
             </span>
             <Picture c={c} k={k} size={k.shape === "thumb" ? p.thumb : p.pic} />
             <span className="line-clamp-2 font-bold leading-snug" style={{ fontSize: p.name }}>{c.title ?? "Unknown"}</span>
-            {k.shape === "thumb" && c.channel && <span className="text-[13px]" style={{ color: c.rank === 1 ? OV.ink : OV.soft }}>{c.channel}</span>}
+            {(k.shape === "thumb" || k.kind === "videos" || k.kind === "albums") && byLine(c) && <span className="text-[13px]" style={{ color: c.rank === 1 ? OV.ink : OV.soft }}>{byLine(c)}</span>}
             <span className="font-ov-display font-extrabold leading-none" style={{ fontSize: p.value }}>{value(c)}</span>
             {k.shape === "none" && <span className="font-shelf-mono text-[12px]">in {pct(c.share)} of what you watched</span>}
             <MoveBadge m={move(c)} />
@@ -177,7 +189,7 @@ function Row({ c, k, value, share, move }: { c: RankedItem; k: Kind; value: stri
       <Picture c={c} k={k} size={44} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-[15px] font-bold">{c.title ?? "Unknown"}</span>
-        {k.shape === "thumb" && c.channel && <span className="truncate text-[12px]" style={{ color: OV.soft }}>{c.channel}</span>}
+        {(k.shape === "thumb" || k.kind === "videos" || k.kind === "albums") && byLine(c) && <span className="truncate text-[12px]" style={{ color: OV.soft }}>{byLine(c)}</span>}
       </span>
       <span aria-hidden className="hidden h-2.5 w-[28%] overflow-hidden rounded-full sm:block" style={{ background: OV.sand }}>
         <span className="block h-full rounded-full" style={{ width: `${Math.max(2, share * 100)}%`, background: OV.ink }} />

@@ -24,6 +24,7 @@ export interface PlatformInfo {
   export_steps: string[];
   export_wait: string;
   issue: number | null;
+  family?: "video" | "music" | "games" | "social" | "reading" | "fitness";
 }
 
 /** Platform id from the URL, or null outside a platform (the hub). */
