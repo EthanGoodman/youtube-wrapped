@@ -5,7 +5,7 @@ import { useLocation } from "react-router-dom";
 import { HubLink, Link, useCapability, usePlatform } from "../platform";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { ALL_BUCKETS, Bucket, Filters, useFilters, useLinkQuery } from "../filters";
-import { Comparison, Move, comparison } from "./takeaways";
+import { Comparison, Move, comparison, periodYear } from "./takeaways";
 
 /** The palette (shared by every platform; only `accent` is the app's own color). */
 export const OV = {
@@ -19,12 +19,12 @@ type MoreLink = [string, string, string?];
    look for on purpose live behind "More" (the third item is a capability the platform needs for that link). */
 const NAV: Record<"videos" | "shows", { tabs: Tab[]; more: MoreLink[] }> = {
   videos: {
-    tabs: [["/", "Overview", true], ["/top/channels", "Top channels"], ["/evolution", "Evolution"], ["/patterns", "Patterns"], ["/records", "Records"]],
+    tabs: [["/", "Overview", true], ["/top/channels", "Top channels"], ["/evolution", "Evolution"], ["/patterns", "Patterns"], ["/records", "Records"], ["/wrapped", "Wrapped"]],
     more: [["/top/videos", "Top videos"], ["/top/genres", "Top genres"], ["/ads", "Ads you saw", "ads"], ["/search", "Search history", "search"]],
   },
   shows: {
     // "Top shows" takes the platform's word (Top series); Anime is Crunchyroll's own tab
-    tabs: [["/", "Overview", true], ["/top/channels", "Top shows"], ["/shows", "How far you got"], ["/anime", "Anime", false, "anime"], ["/patterns", "Patterns"], ["/records", "Records"]],
+    tabs: [["/", "Overview", true], ["/top/channels", "Top shows"], ["/shows", "How far you got"], ["/anime", "Anime", false, "anime"], ["/patterns", "Patterns"], ["/records", "Records"], ["/wrapped", "Wrapped"]],
     more: [["/evolution", "Evolution"], ["/top/genres", "Top genres"], ["/top/movies", "Top movies", "!anime"]],
   },
 };
@@ -66,7 +66,10 @@ export function TopBar() {
   const q = useLinkQuery();
   const { pathname } = useLocation();
   const meta = useMeta().data;
-  const thisYear = meta?.today.slice(0, 4);
+  const { filters } = useFilters();
+  // the Wrapped button follows the year you're looking at (this year otherwise)
+  const wrappedYear = periodYear(filters.range, meta?.today) ?? meta?.today.slice(0, 4);
+  const wq = q ? `${q}&` : "?";
   const caps = meta?.platform.capabilities;
   const nav = NAV[useFamily()];
   const cr = useCreator();
@@ -109,11 +112,11 @@ export function TopBar() {
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <PeriodPicker />
           <ContentPicker />
-          {thisYear && (
-            <Link to={`/wrapped?year=${thisYear}`}
+          {wrappedYear && (
+            <Link to={`/wrapped${wq}year=${wrappedYear}`}
                   className="inline-flex min-h-10 items-center whitespace-nowrap rounded-[10px] px-4 text-[15px] font-bold hover:brightness-105"
                   style={{ background: OV.mustard, color: OV.ink }}>
-              Your {thisYear} Wrapped
+              Your {wrappedYear} Wrapped
             </Link>
           )}
         </div>
