@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changeLine, clockFacts, clockLine, comparison, hourLabel, hoursShort, oneIn, periodTitle, periodYear, rankMove,
-  rankingFilters, spanLabel, topHeadline, weekdayFacts, yearlyHours,
+  longestReign, rankingFilters, spanLabel, topHeadline, weekdayFacts, yearlyHours, yearsToShow,
 } from "./takeaways";
 
 describe("comparison", () => {
@@ -75,6 +75,25 @@ describe("rankingFilters", () => {
   it("ranks by long videos and music, unless only Shorts are picked", () => {
     expect(rankingFilters({ ...base, buckets: ["long", "short", "music", "unknown"] }).buckets).toEqual(["long", "music"]);
     expect(rankingFilters({ ...base, buckets: ["short"] }).buckets).toEqual(["short"]);
+  });
+});
+
+describe("#1 channel each year", () => {
+  it("only shows for Lifetime or ranges of 4+ years", () => {
+    expect(yearsToShow({ range: "all" }, "2018-11-30", "2026-11-25")).toEqual([2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]);
+    expect(yearsToShow({ range: "custom", start: "2022-06-28", end: "2026-11-25" }, null, "2026-11-25")).toEqual([2022, 2023, 2024, 2025, 2026]);
+    expect(yearsToShow({ range: "custom", start: "2024-01-01", end: "2026-11-25" }, null, "2026-11-25")).toBeNull();
+    expect(yearsToShow({ range: "this_year" }, "2018-11-30", "2026-11-25")).toBeNull();
+    expect(yearsToShow({ range: "2025" }, "2018-11-30", "2026-11-25")).toBeNull();
+  });
+  it("finds the longest run of the same #1", () => {
+    const tops = [
+      { year: 2019, title: "SquishyMuffinz" }, { year: 2020, title: "IMPAULSIVE" }, { year: 2021, title: "IMPAULSIVE" },
+      { year: 2022, title: "IMPAULSIVE" }, { year: 2025, title: "JomezPro" }, { year: 2026, title: "JomezPro" },
+    ];
+    expect(longestReign(tops)).toEqual({ title: "IMPAULSIVE", years: 3 });
+    expect(longestReign([{ year: 2020, title: "A" }, { year: 2022, title: "A" }])).toEqual({ title: "A", years: 1 });
+    expect(longestReign([])).toBeNull();
   });
 });
 

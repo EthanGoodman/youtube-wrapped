@@ -4,12 +4,12 @@
 import { ReactNode, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { HubLink, Link, useCapability } from "../platform";
-import { HourPoint, MonthPoint, Overview, RankedItem, TopResponse, useMeta, useStats } from "../api";
+import { HourPoint, Overview, RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { ALL_BUCKETS, Bucket, useFilters, useLinkQuery } from "../filters";
 import { compact, num } from "../format";
 import {
-  Comparison, DAYS, Move, changeLine, clockFacts, comparison, hourLabel, hoursShort, oneIn, periodTitle, rankMove,
-  rankingFilters, spanLabel, topHeadline, weekdayFacts, yearlyHours,
+  Comparison, DAYS, Move, changeLine, clockFacts, comparison, hourLabel, hoursShort, longestReign, oneIn, periodTitle, rankMove,
+  rankingFilters, spanLabel, topHeadline, weekdayFacts, yearsToShow,
 } from "./takeaways";
 
 /** The palette (shared by every platform; only `accent` is the app's own color). */
@@ -65,8 +65,8 @@ export function OverviewPage() {
                 title={periodTitle(filters, today)} topMove={top ? rankMove(1, prevRank(top)) : null} />
           <main className="mx-auto flex max-w-[1400px] flex-col gap-12 px-4 pb-16 pt-10 sm:px-8">
             <TopRow items={channels.data?.items} prevRank={prevRank} cmp={cmp} />
-            <Evolution />
             <Patterns />
+            <Evolution />
             <More />
           </main>
         </>
@@ -266,7 +266,8 @@ function Hero({ o, top, topLoading, prev, cmp, title, topMove }: {
     <section className="relative overflow-hidden" style={{ background: OV.ink, color: OV.paper }}>
       {/* warm two-tone backdrop: your #1's most-watched video, in red-orange and ink */}
       <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(120deg, ${OV.ink} 30%, ${OV.accent} 140%)` }}>
-        {backdropId && <Backdrop id={backdropId} />}
+        {/* keyed by video, so a new period or a new #1 swaps the picture (it remembers its fallback otherwise) */}
+        {backdropId && <Backdrop key={backdropId} id={backdropId} />}
       </div>
       <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${OV.ink} 0%, ${OV.ink}ee 38%, ${OV.ink}55 70%, ${OV.ink}22 100%)` }} />
       <div className="relative mx-auto flex min-h-[clamp(420px,62vh,640px)] max-w-[1400px] flex-col justify-center gap-8 px-4 py-10 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
@@ -354,17 +355,19 @@ function TopRow({ items, prevRank, cmp }: {
   return (
     <Band label={`By hours watched${cmp ? ` · arrows since ${cmp.label}` : ""}`} title="Your top 10 channels" link={["/top/channels", "All your channels"]}>
       {!items ? <Skeleton h={220} /> : !items.length ? <p style={{ color: OV.soft }}>No channels in this period.</p> : (
-        <ol className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+        // keyed by the period: a remount starts the row at #1 (scroll snapping would otherwise keep the old position)
+        <ol key={q} className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 lg:grid lg:grid-cols-10 lg:overflow-visible">
           {items.map((c) => (
-            <li key={c.key} className="w-[150px] shrink-0 snap-start">
+            <li key={c.key} className="w-[150px] shrink-0 snap-start lg:w-auto lg:min-w-0">
               <Link to={`/channel/${encodeURIComponent(c.key)}${q}`} className="group flex flex-col items-start gap-2">
                 <span className="relative">
-                  <Pic src={c.avatar_url} name={c.title} size="132px" />
+                  <Pic src={c.avatar_url} name={c.title} size="clamp(64px,7.6vw,112px)" />
                   <span className="absolute -left-1 -top-1 flex h-10 w-10 items-center justify-center rounded-full border-[3px] font-ov-display text-[16px] font-extrabold"
                         style={{ background: c.rank === 1 ? OV.mustard : OV.paper, borderColor: OV.ink }} aria-hidden>{c.rank}</span>
                 </span>
                 <span className="w-full truncate text-[16px] font-bold group-hover:underline">{c.title}</span>
-                <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{hoursShort(c.time_s)} · {num(c.count)} videos</span>
+                <span className="flex flex-col"><span className="font-ov-display text-[17px] font-extrabold leading-tight">{hoursShort(c.time_s)}</span>
+                  <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{num(c.count)} videos</span></span>
                 <MoveBadge m={rankMove(c.rank, prevRank(c))} />
               </Link>
             </li>
@@ -377,52 +380,48 @@ function TopRow({ items, prevRank, cmp }: {
 
 function Evolution() {
   const { filters } = useFilters();
-  const q = useLinkQuery();
+  const meta = useMeta().data;
+  // only for long periods: one year already has a single #1 (the hero shows it)
+  const years = yearsToShow(filters, meta?.first_date, meta?.today);
   const all = { ...rankingFilters(filters), range: "all", metric: "time" as const };
-  const months = useStats<{ data: MonthPoint[] }>("patterns/monthly", {}, { filters: { ...filters, range: "all" } });
-  const tops = useStats<YearTop[]>("evolution/top_per_year", {}, { filters: all });
-  const years = months.data ? yearlyHours(months.data.data) : null;
-  const best = years?.reduce((a, b) => (b.hours > a.hours ? b : a), years[0]);
-  const max = best?.hours || 1;
-  const thisYear = Number(useMeta().data?.today.slice(0, 4));
-  const topOf = (y: number) => tops.data?.find((t) => t.year === y);
+  const tops = useStats<YearTop[]>("evolution/top_per_year", {}, { filters: all, enabled: !!years });
+  if (!years) return null;
+  const rows = tops.data?.filter((t) => years.includes(t.year));
+  const reign = rows ? longestReign(rows) : null;
+  const thisYear = Number(meta?.today.slice(0, 4));
+  const title = reign && reign.years >= 2 ? `${reign.title} was your #1 ${reign.years} years running.` : "A different #1 almost every year.";
   return (
-    <Band label="Evolution · your #1 channel each year" link={["/evolution", "See how it changed"]}
-          title={best ? `${best.year} was your biggest year: ${num(best.hours)} hours.` : "Your years"}>
-      {!years ? <Skeleton h={260} /> : (
+    <Band label="Your #1 channel each year" title={title} link={["/evolution", "See how it changed"]}>
+      {/* about the channels: each year's hours here are that channel's, never your total */}
+      {!rows ? <Skeleton h={160} /> : (
         <>
           <div className="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-            <div className="grid min-w-[640px] items-end gap-3" style={{ gridTemplateColumns: `repeat(${years.length},minmax(0,1fr))` }}>
-              {years.map((y) => {
-                const t = topOf(y.year);
-                const unfinished = y.year === thisYear;
+            <ol className="grid min-w-[560px] gap-3" style={{ gridTemplateColumns: `repeat(${rows.length},minmax(0,1fr))` }}>
+              {rows.map((t) => {
+                const now = t.year === thisYear;
                 return (
-                  <Link key={y.year} to={`/wrapped?year=${y.year}`} className="group flex flex-col items-center gap-1.5"
-                        aria-label={`${y.year}: ${num(y.hours)} hours${unfinished ? " so far" : ""}; top channel ${t?.title ?? "unknown"}. Open its Wrapped`}>
-                    <Pic src={t?.avatar_url} name={t?.title} size="clamp(40px,4.4vw,64px)" />
-                    <span className="max-w-full truncate text-center text-[12px] font-bold">{t?.title ?? " "}</span>
-                    <span className="flex h-[180px] w-full flex-col justify-end">
-                      <span className="text-center font-shelf-mono text-[12px]">{num(y.hours)}</span>
-                      <span className={`block w-full rounded-t-lg border-2 group-hover:brightness-95 ${unfinished ? "border-dashed" : ""}`}
-                            style={{ height: `${Math.max(4, (y.hours / max) * 100)}%`, borderColor: OV.ink,
-                                     background: y.year === best?.year ? OV.accent : unfinished ? OV.mustard : OV.sand }} />
-                    </span>
-                    <span className="font-shelf-mono text-[13px]">{y.year}{unfinished ? "*" : ""}</span>
-                  </Link>
+                  <li key={t.year} className="min-w-0">
+                    <Link to={`/wrapped?year=${t.year}`} className="group flex h-full flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center hover:bg-black/[0.03]"
+                          style={{ borderColor: now ? OV.mustard : "#D9CDB6" }}
+                          aria-label={`${t.year}: your #1 was ${t.title ?? "unknown"}, ${hoursShort(t.time_s)}${now ? " so far" : ""}. Open ${t.year} Wrapped`}>
+                      <span className="font-shelf-mono text-[12px] font-medium">{t.year}{now ? " so far" : ""}</span>
+                      <Pic src={t.avatar_url} name={t.title} size="56px" />
+                      <span className="w-full truncate text-[13px] font-bold group-hover:underline">{t.title}</span>
+                      <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{hoursShort(t.time_s)}</span>
+                    </Link>
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           </div>
           <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>
-            Hours per year, with that year's most-watched channel. * {thisYear} isn't over yet. Pick a year to open its Wrapped.
-            {" "}<Link to={"/evolution" + q} className="underline underline-offset-4">More on how your taste changed ›</Link>
+            Hours are what you watched of that channel that year{filters.range === "custom" ? " (whole calendar years)" : ""}. Pick a year to open its Wrapped.
           </p>
         </>
       )}
     </Band>
   );
 }
-
 function Patterns() {
   const clock = useStats<{ data: HourPoint[] }>("patterns/clock");
   const heat = useStats<{ data: { count: number[][] } }>("patterns/heatmap");

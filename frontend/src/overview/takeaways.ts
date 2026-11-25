@@ -110,6 +110,35 @@ export function yearlyHours(months: MonthPoint[]): { year: number; hours: number
     .filter((y, i, all) => y.hours > 0 || i > all.findIndex((x) => x.hours > 0));
 }
 
+/** The calendar years a "#1 channel each year" view should show, or null when the period is too short for one
+ *  (a single year already has one #1). Lifetime, or a custom range of 4+ years. */
+export function yearsToShow(f: { range: string; start?: string; end?: string }, firstDate: string | null | undefined,
+                            today: string | undefined): number[] | null {
+  let start: string | null | undefined, end: string | null | undefined;
+  if (f.range === "all") [start, end] = [firstDate, today];
+  else if (f.range === "custom" && f.start && f.end) {
+    const days = (Date.parse(f.end) - Date.parse(f.start)) / 86_400_000;
+    if (days < 4 * 365) return null;
+    [start, end] = [f.start, f.end];
+  } else return null;
+  if (!start || !end) return null;
+  const out: number[] = [];
+  for (let y = Number(start.slice(0, 4)); y <= Number(end.slice(0, 4)); y++) out.push(y);
+  return out;
+}
+
+/** The longest run of consecutive years with the same #1 channel. */
+export function longestReign(tops: { year: number; title?: string | null }[]): { title: string; years: number } | null {
+  let best: { title: string; years: number } | null = null;
+  let run = 0;
+  tops.forEach((t, i) => {
+    const prev = tops[i - 1];
+    run = prev && prev.title === t.title && prev.year === t.year - 1 ? run + 1 : 1;
+    if (t.title && (!best || run > best.years)) best = { title: t.title, years: run };
+  });
+  return best;
+}
+
 /** "Sep 24 to Oct 15" from two ISO dates. */
 export function spanLabel(start: string, end: string): string {
   const fmt = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
