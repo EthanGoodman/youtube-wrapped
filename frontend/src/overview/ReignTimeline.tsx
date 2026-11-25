@@ -2,7 +2,7 @@
    run, and the longest run is highlighted. Shared by the home page and the Evolution page. */
 import { Link } from "../platform";
 import { useMeta } from "../api";
-import { OV, Pic } from "./kit";
+import { Avatar, OV, useCreator } from "./kit";
 import { groupReigns, hoursShort, longestReign, monthDay } from "./takeaways";
 
 export interface YearTop { year: number; channel_id: string; title?: string | null; avatar_url?: string | null; time_s: number; count: number }
@@ -14,6 +14,7 @@ export function reignTitle(rows: YearTop[]): string {
 }
 
 export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]; calendarYears?: boolean }) {
+  const cr = useCreator();
   const meta = useMeta().data;
   const reign = longestReign(rows);
   const thisYear = Number(meta?.today.slice(0, 4));
@@ -33,7 +34,7 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
               <>
                 <span className="flex flex-col font-shelf-mono text-[12px] font-medium">{span}
                   {partial && <span className="text-[11px] font-normal" style={{ color: OV.soft }}>from {monthDay(meta?.first_date)}</span>}</span>
-                <Pic src={g.first.avatar_url} name={g.first.title} size={star ? "68px" : "48px"} />
+                <Avatar src={g.first.avatar_url} name={g.first.title} size={star ? 68 : 48} />
                 <span className="w-full truncate text-[14px] font-bold">{g.first.title}</span>
                 <span className="font-ov-display text-[20px] font-extrabold leading-none">{hoursShort(g.total_s)}</span>
                 {g.years.length > 1 && (
@@ -42,7 +43,7 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
                       <Link key={y.year} to={`/wrapped?year=${y.year}`}
                             className="rounded-full border px-2 py-0.5 font-shelf-mono text-[11px] hover:underline"
                             style={{ borderColor: OV.ink, background: star ? OV.paper : "transparent" }}
-                            aria-label={`${y.year}: ${hoursShort(y.time_s)} of ${g.first.title ?? "this channel"}. Open ${y.year} Wrapped`}>
+                            aria-label={`${y.year}: ${hoursShort(y.time_s)} of ${g.first.title ?? `this ${cr.one}`}. Open ${y.year} Wrapped`}>
                         {y.year} · {hoursShort(y.time_s)}
                       </Link>
                     ))}
@@ -66,7 +67,7 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
         </ol>
       </div>
       <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>
-        Hours are what you watched of that channel{calendarYears ? " in those calendar years" : ""}. Pick a year to open its Wrapped.
+        Hours are what you watched of that {cr.one}{calendarYears ? " in those calendar years" : ""}. Pick a year to open its Wrapped.
       </p>
     </>
   );

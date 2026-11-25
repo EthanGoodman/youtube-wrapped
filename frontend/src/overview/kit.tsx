@@ -38,6 +38,11 @@ export function useNoun(): { one: string; many: string; Many: string } {
   return useFamily() === "shows" ? { one: "title", many: "titles", Many: "Titles" } : { one: "video", many: "videos", Many: "Videos" };
 }
 
+/** What the things you return to are called: channels (YouTube) or shows. */
+export function useCreator(): { one: string; many: string; Many: string } {
+  return useFamily() === "shows" ? { one: "show", many: "shows", Many: "Shows" } : { one: "channel", many: "channels", Many: "Channels" };
+}
+
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
 const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A" };
 export function useAccent(): string {
@@ -197,6 +202,13 @@ export function Poster({ src, width, name, ring = OV.ink, className = "" }: { sr
                  style={{ ...box, background: OV.sand, color: OV.ink }} aria-hidden>{(name ?? "?").charAt(0).toUpperCase()}</span>;
   return <img src={src.replace("/w185/", "/w342/")} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
               className={`aspect-[2/3] shrink-0 rounded-lg border-[3px] object-cover ${className}`} style={box} />;
+}
+
+/** The picture of a channel or a show: a round face, or a poster for shows (same height as the face would be). */
+export function Avatar({ src, name, size, ring }: { src?: string | null; name?: string | null; size: number; ring?: string }) {
+  return useFamily() === "shows"
+    ? <Poster src={src} name={name} width={`${Math.round(size * 0.78)}px`} ring={ring} className={size < 56 ? "!rounded-md !border-2 !text-[14px]" : ""} />
+    : <Pic src={src} name={name} size={`${size}px`} ring={ring} />;
 }
 
 export const MOVE_COLORS: Record<Move["tone"], [string, string]> = {

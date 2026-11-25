@@ -5,7 +5,7 @@ import { Link, useCapability } from "../platform";
 import { MonthPoint, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { date, num, pct } from "../format";
-import { OV, PageBody, PageHeader, Pic, Seg, Skeleton, StatsFrame, kicker } from "./kit";
+import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useCreator, useNoun } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
 import { Readout } from "./charts";
 import { hoursShort, raceAt, raceColors, rankingFilters, yearlyHours } from "./takeaways";
@@ -24,6 +24,7 @@ const RACE_COLORS = [...MIX_COLORS, "#A34E6E", "#2F4A7A", "#7FA27A", "#8C6239"];
 const OTHER = "#CDBFA6";
 
 export function EvolutionPage() {
+  const cr = useCreator();
   const { filters } = useFilters();
   const all = { ...rankingFilters(filters), range: "all", metric: "time" as const };
   const tops = useStats<YearTop[]>("evolution/top_per_year", {}, { filters: all });
@@ -35,7 +36,7 @@ export function EvolutionPage() {
       </PageHeader>
       <PageBody>
         <section className="flex flex-col gap-4">
-          <span className={kicker} style={{ color: OV.soft }}>Your #1 channel each year</span>
+          <span className={kicker} style={{ color: OV.soft }}>Your #1 {cr.one} each year</span>
           {!tops.data ? <Skeleton h={180} /> : <ReignTimeline rows={tops.data} />}
         </section>
         <YearTotals months={months.data?.data} />
@@ -64,6 +65,7 @@ function Card({ label, title, children }: { label: string; title?: string; child
 }
 
 function YearTotals({ months }: { months?: MonthPoint[] }) {
+  const cr = useCreator();
   const thisYear = Number(useMeta().data?.today.slice(0, 4));
   const [on, setOn] = useState<number | null>(null);
   if (!months) return <Skeleton h={220} />;
@@ -90,26 +92,27 @@ function YearTotals({ months }: { months?: MonthPoint[] }) {
           </Link>
         ))}
       </div>
-      <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>All channels together. * {thisYear} isn't over yet.</p>
+      <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>All your {cr.many} together. * {thisYear} isn't over yet.</p>
     </Card>
   );
 }
 
 function LoyalCard() {
+  const n = useNoun();
   const meta = useMeta().data;
   const q = useLinkQuery();
   const loyal = useStats<Loyal[]>("evolution/loyalty", { limit: 10 });
   const allYears = meta?.years ?? [];
   const top = loyal.data?.[0];
   return (
-    <Card label="Most loyal · 3+ videos a year" title={top ? `${top.title}: ${top.years} different years` : "Most loyal"}>
+    <Card label={`Most loyal · 3+ ${n.many} a year`} title={top ? `${top.title}: ${top.years} different years` : "Most loyal"}>
       {!loyal.data ? <Skeleton h={300} /> : !loyal.data.length ? <p style={{ color: OV.soft }}>Not enough data yet.</p> : (
         <ol className="flex flex-col">
           {loyal.data.map((c, i) => (
             <li key={c.channel_id}>
               <Link to={`/channel/${encodeURIComponent(c.channel_id)}${q}`} className="flex items-center gap-3 border-b py-2 hover:bg-black/[0.03]" style={{ borderColor: "#E0D5C1" }}>
                 <span className="w-5 text-right font-ov-display text-[15px] font-extrabold">{i + 1}</span>
-                <Pic src={c.avatar_url} name={c.title} size="36px" />
+                <Avatar src={c.avatar_url} name={c.title} size={36} />
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="truncate text-[14px] font-bold">{c.title}</span>
                   <span className="flex gap-1" aria-label={`watched in ${c.year_list.join(", ")}`}>
@@ -137,7 +140,7 @@ function FellOffCard() {
           {fell.data.map((c) => (
             <li key={c.channel_id}>
               <Link to={`/channel/${encodeURIComponent(c.channel_id)}${q}`} className="flex items-center gap-3 border-b py-2 hover:bg-black/[0.03]" style={{ borderColor: "#E0D5C1" }}>
-                <span className="opacity-75 grayscale"><Pic src={c.avatar_url} name={c.title} size="36px" /></span>
+                <span className="opacity-75 grayscale"><Avatar src={c.avatar_url} name={c.title} size={36} /></span>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[14px] font-bold">{c.title}</span>
                   <span className="text-[12px]" style={{ color: OV.soft }}>peak {c.peak_year} · last watched {date(c.last_watched)}</span>
@@ -156,6 +159,7 @@ function FellOffCard() {
 }
 
 function Discoveries() {
+  const cr = useCreator();
   const { filters } = useFilters();
   const q = useLinkQuery();
   const disc = useStats<Discovery[]>("evolution/discoveries", { limit: 12 }, { filters: { ...rankingFilters(filters), metric: "time" } });
@@ -165,7 +169,7 @@ function Discoveries() {
       <div className="flex flex-col gap-1 border-b-2 pb-3" style={{ borderColor: OV.ink }}>
         <span className={kicker} style={{ color: OV.soft }}>New discoveries</span>
         <h2 className="font-ov-display text-[clamp(24px,2.6vw,32px)] font-extrabold leading-tight">
-          {filters.range === "all" ? "Your biggest channels, and when you found them" : "Channels you watched for the first time"}
+          {filters.range === "all" ? `Your biggest ${cr.many}, and when you found them` : `${cr.Many} you watched for the first time`}
         </h2>
       </div>
       {!disc.data ? <Skeleton h={180} /> : (
@@ -173,7 +177,7 @@ function Discoveries() {
           {disc.data.map((c) => (
             <li key={c.channel_id} className="min-w-0">
               <Link to={`/channel/${encodeURIComponent(c.channel_id)}${q}`} className="group flex flex-col items-center gap-1.5 text-center">
-                <Pic src={c.avatar_url} name={c.title} size="84px" />
+                <Avatar src={c.avatar_url} name={c.title} size={84} />
                 <span className="w-full truncate text-[14px] font-bold group-hover:underline">{c.title}</span>
                 <span className="font-ov-display text-[15px] font-extrabold">{hoursShort(c.time_s)}</span>
                 <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>found {date(c.first_watched)}</span>
@@ -237,7 +241,7 @@ function BarRace() {
                 <div key={r.channel_id} className="absolute inset-x-0 flex items-center gap-3"
                      style={{ top: rank * ROW, height: ROW - 6, transition: "top 450ms cubic-bezier(.4,0,.2,1)" }}>
                   <span className="w-5 text-right font-ov-display text-[14px] font-extrabold">{rank + 1}</span>
-                  <Pic src={c?.avatar_url} name={c?.title} size="30px" />
+                  <Avatar src={c?.avatar_url} name={c?.title} size={30} />
                   <span className={`w-[150px] shrink-0 truncate ${rank === 0 ? "text-[14px] font-extrabold" : "text-[13px] font-bold"}`}>{c?.title ?? "Unknown"}</span>
                   <span className="relative h-full flex-1">
                     <span className="absolute inset-y-1 left-0 rounded-r-md" style={{ width: `${(r.value / max) * 100}%`, background: colors[r.channel_id] ?? OV.ink }} />
