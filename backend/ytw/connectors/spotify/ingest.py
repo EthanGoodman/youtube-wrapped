@@ -122,6 +122,46 @@ def ingest(conn: sqlite3.Connection, folder: Path) -> dict:
     return {"files": files, "plays": len(plays), "sources": sorted({p[0] for p in plays})}
 
 
+def _lookups(conn: sqlite3.Connection) -> tuple[dict, dict]:
+    """Cached Web API answers (api.py), or nothing when they were never fetched."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'sp_tracks'").fetchone():
+        return {}, {}
+    tracks = {f"track:{t}": json.loads(d) for t, d in conn.execute("SELECT track_id, data FROM sp_tracks WHERE data IS NOT NULL")}
+    artists = {a: json.loads(d) for a, d in conn.execute("SELECT artist_id, data FROM sp_artists WHERE data IS NOT NULL")}
+    return tracks, artists
+
+
+def _apply_lookups(conn: sqlite3.Connection, items: dict, creators: dict, albums: dict) -> None:
+    """Album art on tracks and albums, photos on artists. Our artist ids come from names (the export has no artist
+    ids), so a Spotify artist is matched through the tracks: a track's main artist with the same name."""
+    tracks, artists = _lookups(conn)
+    if not tracks:
+        return
+    for item_id, it in items.items():
+        t = tracks.get(item_id)
+        if not t:
+            continue
+        al = t["album"]
+        it.thumb_small, it.thumb_large = al.get("small"), al.get("large")
+        it.duration_s = round(t["duration_ms"] / 1000) if t.get("duration_ms") else None
+        if it.album_id and it.album_id in albums and not albums[it.album_id].cover_small:
+            a = albums[it.album_id]
+            a.cover_small, a.cover_large, a.released = al.get("small"), al.get("large"), al.get("released")
+        main = (t.get("artists") or [None])[0]
+        cr = creators.get(it.creator_id or "")
+        if main and cr and not cr.url and (main.get("name") or "").casefold() == (cr.title or "").casefold():
+            info = artists.get(main["id"]) or {}
+            cr.avatar_url = info.get("small")
+            cr.url = f"https://open.spotify.com/artist/{main['id']}"
+            cr.extra = json.dumps({"spotify_id": main["id"], "genres": info.get("genres") or []})
+
+
+def _genres(conn: sqlite3.Connection, items: dict, creators: dict) -> dict[str, list[str]]:
+    """Genres per track: its main artist's (Spotify keeps genres on artists, not tracks)."""
+    by_artist = {cid: json.loads(c.extra).get("genres") or [] for cid, c in creators.items() if c.extra}
+    return {i: [g.title() for g in by_artist[it.creator_id]] for i, it in items.items() if by_artist.get(it.creator_id or "")}
+
+
 def _track_id(uri: str | None, artist: str, track: str) -> str:
     """Spotify's id when the export has it; otherwise a name-based id (account data)."""
     return f"track:{uri.rsplit(':', 1)[-1]}" if uri else f"track:{slug(artist, track)}"
@@ -163,6 +203,7 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, session_gap_s: int = 1800) -> 
         local = datetime.fromtimestamp(start, tz)
         views.append(View(pid, "track", item_id, artist_id, start, local, round(ms / 1000), "exact",
                           duration_s=round(ms / 1000), bucket="music"))
+    _apply_lookups(conn, items, creators, albums)
     views = dedupe_listens(views)
     conn.execute("PRAGMA foreign_keys=OFF")  # no YouTube-style raw `entries` table here
     store.assign_sessions(views, session_gap_s)
@@ -172,6 +213,8 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, session_gap_s: int = 1800) -> 
     store.write_items(conn, items.values())
     store.write_creators(conn, creators.values())
     write_albums(conn, albums.values())
-    db.set_meta(conn, "extra_capabilities", "time_of_day")
+    genres = _genres(conn, items, creators)
+    store.write_genres(conn, genres)
+    db.set_meta(conn, "extra_capabilities", "time_of_day,genres" if genres else "time_of_day")
     finish_build(conn)
     return n

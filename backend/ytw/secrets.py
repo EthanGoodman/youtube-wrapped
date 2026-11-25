@@ -21,6 +21,8 @@ KNOWN = {
     "YOUTUBE_API_KEY": "YouTube Data API key (optional enrichment)",
     "TMDB_TOKEN": "TMDB API Read Access Token (Netflix posters and episodes)",
     "CRUNCHYROLL_ETP_RT": "Crunchyroll etp_rt cookie (treat it like a password)",
+    "SPOTIFY_CLIENT_ID": "Spotify developer app Client ID (album art, artist photos, genres)",
+    "SPOTIFY_CLIENT_SECRET": "Spotify developer app Client secret (treat it like a password)",
 }
 _NAME = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 log = logging.getLogger("ytw.secrets")

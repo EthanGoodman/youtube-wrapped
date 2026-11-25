@@ -90,3 +90,41 @@ def test_music_stats_and_api(tmp_path):
     assert a["album"]["title"] == "Night Ferry" and a["all_time"]["videos"] == 3
     assert client.get(f"/api/music/records?{q}").status_code == 200
     assert client.get("/api/music/records?platform=netflix").status_code == 404   # not a music platform
+
+
+class FakeSpotify:
+    """Knows T1 and T3 (T2 unknown to Spotify); one artist has genres and a photo."""
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, path, params):
+        self.calls.append((path, params["ids"]))
+        ids = params["ids"].split(",")
+        if path == "tracks":
+            known = {"T1": ("Night Ferry", "A1", "The Paper Lanterns"), "T3": ("Salt Year", "A3", "Low Tide Choir")}
+            return {"tracks": [None if i not in known else {
+                "id": i, "duration_ms": 200000,
+                "album": {"id": "AL" + i, "name": known[i][0], "release_date": "2019-05-01",
+                          "images": [{"url": f"https://i.scdn.co/image/big{i}", "width": 640},
+                                     {"url": f"https://i.scdn.co/image/mid{i}", "width": 300}]},
+                "artists": [{"id": known[i][1], "name": known[i][2]}]} for i in ids]}
+        return {"artists": [{"id": a, "name": "x", "genres": ["indie folk", "dream pop"] if a == "A1" else [],
+                             "images": [{"url": f"https://i.scdn.co/image/face{a}", "width": 320}]} for a in ids]}
+
+
+def test_enrich_art_photos_genres(tmp_path):
+    from ytw.connectors.spotify import api
+    conn, _, _ = _built(tmp_path)
+    fake = FakeSpotify()
+    r = api.enrich(conn, fake)
+    assert (r["tracks"], r["tracks_found"], r["artists_found"]) == (3, 2, 2) and r["requests"] == 2
+    sp.build(conn, NY)
+    t1 = conn.execute("SELECT thumb_small, thumb_large, duration_s FROM items WHERE item_id = 'track:T1'").fetchone()
+    assert tuple(t1) == ("https://i.scdn.co/image/midT1", "https://i.scdn.co/image/bigT1", 200)
+    lanterns = conn.execute("SELECT avatar_url, url FROM creators WHERE creator_id = 'artist:the-paper-lanterns'").fetchone()
+    assert lanterns[0] == "https://i.scdn.co/image/faceA1" and lanterns[1].endswith("/artist/A1")
+    assert conn.execute("SELECT cover_small FROM albums WHERE album_id = 'album:the-paper-lanterns|night-ferry'").fetchone()[0]
+    assert {g for (g,) in conn.execute("SELECT genre FROM item_genres WHERE item_id = 'track:T1'")} == {"Indie Folk", "Dream Pop"}
+    assert db.get_meta(conn, "extra_capabilities") == "time_of_day,genres"
+    api.enrich(conn, fake)                                  # cached: no new requests
+    assert len(fake.calls) == 2
