@@ -44,13 +44,16 @@ def _paths(client, platform: str) -> list[str]:
         out += [f"/api/overview?{rq}", f"/api/recent?{rq}&limit=100", f"/api/records?{rq}", f"/api/ads?{rq}"]
         for m in ("count", "time"):
             mq = f"{rq}&metric={m}&limit=200"
-            out += [f"/api/top/{k}?{mq}" for k in ("channels", "videos", "genres", "categories", "tags", "movies")]
+            out += [f"/api/top/{k}?{mq}" for k in ("channels", "videos", "genres", "categories", "tags", "movies", "albums")]
             out += [f"/api/evolution/{k}?{mq}" for k in ("top_per_year", "bar_race", "discoveries", "loyalty", "fell_off", "mix")]
             out += [f"/api/shows/{k}?{mq}" for k in ("home", "progress", "binges", "days", "rewatches", "split", "anime", "anime_page")]
         out += [f"/api/patterns/{k}?{rq}" for k in ("clock", "heatmap", "weekday_weekend", "calendar", "monthly")]
+        out.append(f"/api/music/records?{rq}")
     out += [f"/api/wrapped/{y}?{q}" for y in years] + [f"/api/year/{y}?{q}" for y in years]
     for c in client.get(f"/api/top/channels?{q}&range=all&limit=10").json()["items"]:
         out += [f"/api/channel/{c['key']}?{q}&range=all", f"/api/show/{c['key']}?{q}&range=all"]
+    for a in client.get(f"/api/top/albums?{q}&range=all&limit=5").json().get("items", []):
+        out.append(f"/api/album/{a['key']}?{q}&range=all")
     return out
 
 
@@ -60,7 +63,7 @@ def _same_everywhere(tmp_path: Path, platform: str, built: Path) -> None:
         path = tmp_path / f"{platform}-{seed}.db"
         _shuffled_copy(built, path, seed)
         # the other platforms point at files that don't exist (YouTube's database has its own argument)
-        others = {p: tmp_path / f"none-{p}.db" for p in ("netflix", "crunchyroll") if p != platform}
+        others = {p: tmp_path / f"none-{p}.db" for p in ("netflix", "crunchyroll", "spotify") if p != platform}
         app = (create_app(load_config(), db_path=path, db_paths=others, static_dir=tmp_path / "nodist") if platform == "youtube"
                else create_app(load_config(), db_paths={platform: path, **others}, static_dir=tmp_path / "nodist"))
         clients[seed] = make_client(app)
@@ -103,3 +106,10 @@ def test_crunchyroll_order_independent(tmp_path):
     conn, _ = _cr_db(tmp_path)
     conn.close()
     _same_everywhere(tmp_path, "crunchyroll", tmp_path / "crunchyroll.db")
+
+
+def test_spotify_order_independent(tmp_path):
+    from test_spotify import _built as spotify_built
+    conn, _, _ = spotify_built(tmp_path)
+    conn.close()
+    _same_everywhere(tmp_path, "spotify", tmp_path / "spotify.db")

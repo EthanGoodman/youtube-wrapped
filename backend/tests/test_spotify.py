@@ -66,3 +66,27 @@ def test_never_stores_ip_or_country(tmp_path):
     dump = "\n".join(str(tuple(r)) for t in ("plays", "watches", "items", "creators", "albums")
                      for r in conn.execute(f"SELECT * FROM {t}"))  # nosec B608 - fixed table names
     assert "203.0.113.7" not in dump and "'US'" not in dump
+
+
+def test_music_stats_and_api(tmp_path):
+    from conftest import make_client
+    from ytw.api import create_app
+    from ytw.config import load_config
+    from ytw.stats import music
+    from ytw.stats.common import Filters, resolve_range
+
+    conn, _, _ = _built(tmp_path)
+    r, f = resolve_range(conn, "all"), Filters()
+    albums = music.top_albums(conn, r, f)
+    assert albums[0]["title"] == "Night Ferry" and albums[0]["artist"] == "The Paper Lanterns" and albums[0]["count"] == 3
+    rec = music.records(conn, r, f)
+    assert rec["on_repeat"]["title"] == "Harbor Lights" and rec["on_repeat"]["count"] == 2
+    assert rec["most_skipped"]["skips"] == 1
+    conn.close()
+    client = make_client(create_app(load_config(), db_paths={"spotify": tmp_path / "spotify.db"}, static_dir=tmp_path / "x"))
+    q = "platform=spotify&range=all"
+    assert client.get(f"/api/meta?platform=spotify").json()["platform"]["family"] == "music"
+    a = client.get(f"/api/album/{albums[0]['key']}?{q}").json()
+    assert a["album"]["title"] == "Night Ferry" and a["all_time"]["videos"] == 3
+    assert client.get(f"/api/music/records?{q}").status_code == 200
+    assert client.get("/api/music/records?platform=netflix").status_code == 404   # not a music platform

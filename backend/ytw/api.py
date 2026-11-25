@@ -28,7 +28,7 @@ import logging
 
 from . import db, images, platforms, secrets, security, sources
 from .config import Config
-from .stats import ads, details, evolution, overview, patterns, records, search, shows, tops
+from .stats import ads, details, evolution, music, overview, patterns, records, search, shows, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, check_year, data_bounds, resolve_range
 from .wrapped import (MODES as WRAPPED_MODES, METRICS as YT_METRICS, NETFLIX_METRICS, load_personalities,
                       netflix_wrapped, personalities_file, wrapped as wrapped_data)
@@ -36,7 +36,7 @@ from .wrapped import (MODES as WRAPPED_MODES, METRICS as YT_METRICS, NETFLIX_MET
 TOP_KINDS: dict[str, Callable] = {
     "channels": tops.top_channels, "videos": tops.top_videos, "categories": tops.top_categories,
     "genres": tops.top_genres, "tags": tops.top_tags, "artists": tops.top_artists, "songs": tops.top_songs,
-    "movies": shows.top_movies,
+    "movies": shows.top_movies, "albums": music.top_albums,
 }
 SHOW_KINDS: dict[str, Callable] = {
     "progress": lambda c, r, f, n: shows.progress(c, r, f, n),
@@ -151,6 +151,11 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         p = platform_of(request)
         if not p.has(capability):
             raise HTTPException(404, f"{p.name} has no {capability} data")
+
+    def require_family(request: Request, family: str) -> None:
+        p = platform_of(request)
+        if p.family != family:
+            raise HTTPException(404, f"{p.name} isn't a {family} platform")
 
     def today() -> date:
         return datetime.now(cfg.tz).date()
@@ -369,6 +374,18 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     def get_channel(channel_id: str, request: Request):
         r, f = parse(request)
         return _or_404(cached(request, lambda: details.channel(conn(request), channel_id, r, f)), "channel")
+
+    @app.get("/api/album/{album_id}")
+    def get_album(album_id: str, request: Request):
+        require_family(request, "music")
+        r, f = parse(request)
+        return _or_404(cached(request, lambda: music.album(conn(request), album_id, r, f)), "album")
+
+    @app.get("/api/music/records")
+    def get_music_records(request: Request):
+        require_family(request, "music")
+        r, f = parse(request)
+        return cached(request, lambda: {"range": r.to_dict(), **music.records(conn(request), r, f)})
 
     @app.get("/api/video/{video_id}")
     def get_video(video_id: str, request: Request):
