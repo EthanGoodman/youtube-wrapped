@@ -1,5 +1,5 @@
 """Games-only stats (#21): achievements. Playtime uses the shared lists and pages (items = creators = games).
-Reads the platform's achievement table (Steam: st_achievements); every function returns empty results without one."""
+Reads the games family's game_achievements table (connectors/games.py); every function returns empty results without one."""
 from __future__ import annotations
 
 import json
@@ -8,7 +8,7 @@ from datetime import datetime
 
 from .common import Range
 
-TABLE = "st_achievements"   # other game platforms (PSN trophies, Xbox) will expose the same columns
+TABLE = "game_achievements"
 
 
 def _has(conn: sqlite3.Connection) -> bool:
@@ -33,7 +33,7 @@ def achievements_summary(conn: sqlite3.Connection, r: Range, tz) -> dict:
     if not _has(conn):
         return {"unlocked": 0, "per_month": [], "best_day": None, "rarest": [], "recent": [], "perfect": [], "total": 0}
     rows = [(f"game:{a}", api, name, desc, ts, rarity, datetime.fromtimestamp(ts, tz)) for a, api, name, desc, ts, rarity in conn.execute(
-        f"SELECT appid, api, name, description, unlocked, rarity FROM {TABLE} WHERE unlocked IS NOT NULL ORDER BY unlocked, appid, api")]
+        f"SELECT game, api, name, description, unlocked, rarity FROM {TABLE} WHERE unlocked IS NOT NULL ORDER BY unlocked, game, api")]
     lo, hi = r.start.isoformat(), r.end.isoformat()
     inr = [x for x in rows if lo <= x[6].date().isoformat() <= hi]
     per_month, per_day = {}, {}
@@ -50,7 +50,7 @@ def achievements_summary(conn: sqlite3.Connection, r: Range, tz) -> dict:
     rarest = sorted((x for x in inr if x[5] is not None), key=lambda x: (x[5], x[4], x[0]))[:5]
     # perfect: every achievement unlocked, the last one inside the range
     perfect = []
-    for appid, n, got, last in conn.execute(f"SELECT appid, COUNT(*), COUNT(unlocked), MAX(unlocked) FROM {TABLE} GROUP BY appid"):
+    for appid, n, got, last in conn.execute(f"SELECT game, COUNT(*), COUNT(unlocked), MAX(unlocked) FROM {TABLE} GROUP BY game"):
         if n and n == got and lo <= datetime.fromtimestamp(last, tz).date().isoformat() <= hi:
             perfect.append((f"game:{appid}", n, datetime.fromtimestamp(last, tz)))
     pg = _games(conn, [p[0] for p in perfect])
@@ -68,9 +68,9 @@ def achievements_summary(conn: sqlite3.Connection, r: Range, tz) -> dict:
 
 def game_achievements(conn: sqlite3.Connection, key: str, tz) -> dict | None:
     """One game's achievement checklist: unlocked first (in order), then the rest, rarest first."""
-    if not _has(conn) or not key.startswith("game:") or not key[5:].isdigit():
+    if not _has(conn) or not key.startswith("game:") or not key[5:]:
         return None
-    rows = conn.execute(f"SELECT api, name, description, unlocked, rarity FROM {TABLE} WHERE appid = ?", (int(key[5:]),)).fetchall()
+    rows = conn.execute(f"SELECT api, name, description, unlocked, rarity FROM {TABLE} WHERE game = ?", (key[5:],)).fetchall()
     items = [{"api": a, "name": n or a, "description": d, "unlocked": _local(u, tz) if u else None, "rarity": rr}
              for a, n, d, u, rr in rows]
     items.sort(key=lambda i: (i["unlocked"] is None, i["unlocked"] or "", i["rarity"] if i["rarity"] is not None else 101, i["api"]))
