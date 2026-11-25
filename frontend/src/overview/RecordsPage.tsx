@@ -210,12 +210,13 @@ function Milestones({ items }: { items?: Milestone[] }) {
         <h2 className="font-ov-display text-[clamp(26px,3vw,36px)] font-extrabold leading-tight">Your 1st, 1,000th and {num(items[items.length - 1].n)}th {n.one}</h2>
       </div>
       <ScrollRow outer="-mx-4 sm:mx-0" className="px-4 pb-2 sm:px-0">
-        <ol className="relative flex w-max min-w-full gap-4">
-          <span aria-hidden className="absolute left-0 right-0 top-[18px] h-[2px]" style={{ background: OV.ink }} />
-          {items.map((m) => {
+        <ol className="relative flex w-max gap-4">
+          {items.map((m, i) => {
             const thumb = m.thumb ?? (m.video_id && !m.video_id.includes(":") ? `https://i.ytimg.com/vi/${m.video_id}/mqdefault.jpg` : null);
             return (
               <li key={m.n} className="relative w-[200px] shrink-0">
+                {/* the line runs from each milestone to the next (into the 16px gap), so it ends at the last one */}
+                {i < items.length - 1 && <span aria-hidden className="absolute left-4 right-[-16px] top-[18px] h-[2px]" style={{ background: OV.ink }} />}
                 <Link to={m.video_id ? `/video/${m.video_id}${q}` : "#"} className="group flex flex-col gap-2">
                   <span className="relative z-10 w-fit rounded-full border-2 px-3 py-1 font-ov-display text-[15px] font-extrabold"
                         style={{ background: OV.mustard, borderColor: OV.ink }}>#{num(m.n)}</span>
