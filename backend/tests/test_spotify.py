@@ -85,7 +85,7 @@ def test_music_stats_and_api(tmp_path):
     conn.close()
     client = make_client(create_app(load_config(), db_paths={"spotify": tmp_path / "spotify.db"}, static_dir=tmp_path / "x"))
     q = "platform=spotify&range=all"
-    assert client.get(f"/api/meta?platform=spotify").json()["platform"]["family"] == "music"
+    assert client.get("/api/meta?platform=spotify").json()["platform"]["family"] == "music"
     a = client.get(f"/api/album/{albums[0]['key']}?{q}").json()
     assert a["album"]["title"] == "Night Ferry" and a["all_time"]["videos"] == 3
     assert client.get(f"/api/music/records?{q}").status_code == 200
