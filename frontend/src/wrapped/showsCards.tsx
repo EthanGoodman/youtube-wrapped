@@ -1,99 +1,16 @@
-/* Netflix Wrapped cards: same 360 x 640 design size and player as YouTube's, Netflix look
-   (near-black, Netflix red, heavy Inter headlines, posters instead of avatars). */
+/* Wrapped cards for platforms with shows (Netflix, Crunchyroll), in the shared look: same 360 x 640 cards and parts as
+   YouTube's (./kit), posters instead of faces, and each platform's own words (shows / series, titles / episodes). */
 import { platformName, tr } from "../platform";
-import { ReactNode, useState } from "react";
 import { motion } from "framer-motion";
 import { compact, date, hourLabel, num } from "../format";
-import { CardDef, CountUp, RadialClock, pop, rise } from "./cards";
-import { ShowsWrappedData, img } from "./types";
+import { OV } from "../overview/kit";
+import { CardDef, CountUp, Personality, PersonalityStrip, RadialClock, SmallLabel } from "./cards";
+import { Big, GrowBar, Kicker, Label, PosterImg, StatBox, Sticker, StreakStrip, WCard, Wordmark, fit, pop, rise } from "./kit";
+import { ShowsWrappedData } from "./types";
 
-const RED = "rgb(var(--c-accent))";  // the platform accent (Netflix red, Crunchyroll orange)
-// Inter Black, like the dashboard (Netflix's own type is a heavy sans, not a condensed display face)
-const DISPLAY = "Inter, system-ui, sans-serif";
-/** Inter is much wider than the condensed face these sizes were set for: scale headlines to fit. */
-const FIT = 0.74;
-const heavy = { fontFamily: `var(--font-display), ${DISPLAY}`, fontWeight: 900, letterSpacing: "-0.035em" } as const;
 const hrs = (s: number) => Math.round(s / 3600);
 const days = (n: number) => (n === 1 ? "1 day" : `${num(n)} days`);
-/** TMDB posters: ask for a bigger size when shown big. */
-const poster = (url: string | null | undefined, big = false) => img(big && url ? url.replace("/w185/", "/w500/") : url);
-
-// ------------------------------------------------------------------ building blocks
-
-
-/** Our own mark (not Netflix's N), shared with the dashboard's top bar. */
-import { WrappedMark as NMark } from "../families/shows/Shell";
-export { NMark };
-
-function Card({ children, footer = true, year, glow = "top" }: {
-  children: ReactNode; footer?: boolean; year?: number; glow?: "top" | "bottom" | "center" | "none";
-}) {
-  const glowAt = { top: "50% -10%", bottom: "50% 115%", center: "50% 45%", none: "" }[glow];
-  return (
-    <div className="story-card relative flex h-full w-full flex-col overflow-hidden text-white"
-         style={{ background: "rgb(var(--c-bg))", fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
-      {glow !== "none" && (
-        <div className="pointer-events-none absolute inset-0"
-             style={{ background: `radial-gradient(ellipse 120% 70% at ${glowAt}, rgb(var(--c-accent) / 0.55), rgb(var(--c-accent) / 0.08) 55%, transparent 75%)` }} />
-      )}
-      <div className="relative z-10 flex flex-1 flex-col px-7 pb-6 pt-16">{children}</div>
-      {footer && (
-        <div className="relative z-10 flex items-center justify-between px-7 pb-6">
-          <span className="flex items-center gap-2"><NMark size={18} />
-            <span className="text-[15px] font-extrabold tracking-tight">{platformName()} Wrapped</span>
-          </span>
-          {year && <span className="text-[15px] font-extrabold text-white/70">{year}</span>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Kicker({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
-  return <motion.p {...rise(delay)} className="text-[17px] font-medium leading-snug text-white/80">{children}</motion.p>;
-}
-
-/** Heavy headline (Inter Black). */
-function Display({ children, size = 64, delay = 0.2, color, className = "" }: {
-  children: ReactNode; size?: number; delay?: number; color?: string; className?: string;
-}) {
-  return (
-    <motion.div {...rise(delay)} className={`leading-[0.95] ${className}`}
-                style={{ ...heavy, fontSize: Math.round(size * FIT), color }}>
-      {children}
-    </motion.div>
-  );
-}
-
-function Poster({ src, name, w, big = false, className = "" }: {
-  src?: string | null; name?: string | null; w: number; big?: boolean; className?: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  const url = poster(src, big);
-  const h = Math.round(w * 1.5);
-  if (!url || failed)
-    return (
-      <div className={`flex shrink-0 items-center justify-center rounded-md bg-white/10 px-2 text-center ${className}`}
-           style={{ width: w, height: h, ...heavy, fontSize: Math.max(12, w / 7) }}>
-        {name ?? "?"}
-      </div>
-    );
-  return <img src={url} alt="" onError={() => setFailed(true)} className={`shrink-0 rounded-md object-cover ${className}`} style={{ width: w, height: h }} />;
-}
-
-/** Outlined rank number, the same numeral as the dashboard's Top 10 rows (SVG, so it exports cleanly). */
-function Rank({ n, size }: { n: number; size: number }) {
-  return (
-    <svg viewBox="0 0 100 150" width={size * 0.66} height={size} aria-hidden className="shrink-0">
-      <text x={n >= 10 ? 52 : 60} y="140" textAnchor="middle" fontSize="150" fontWeight="900" letterSpacing="-14"
-            fontFamily="Inter, sans-serif" fill="#0b0b0b" stroke="rgba(255,255,255,0.7)" strokeWidth="4" paintOrder="stroke fill">
-        {n}
-      </text>
-    </svg>
-  );
-}
-
-// ------------------------------------------------------------------ cards
+const eps = (n: number) => `${num(n)} episode${n === 1 ? "" : "s"}`;
 
 type NCard = CardDef<ShowsWrappedData>;
 
@@ -101,14 +18,14 @@ export const SHOWS_CARDS: NCard[] = [
   {
     id: "intro", label: "Intro",
     render: (d) => (
-      <Card footer={false} glow="center">
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <motion.div {...pop(0.1)}><NMark size={96} /></motion.div>
-          <Display size={150} delay={0.4} className="mt-4">{d.year}</Display>
-          <motion.p {...rise(0.7)} className="mt-1 text-[21px] font-bold">Your year on {platformName()}</motion.p>
-          <motion.p {...rise(1.1)} className="mt-10 text-sm text-white/60">Tap to start ▸</motion.p>
+      <WCard tone="ink" footer={false} ring="bl">
+        <div className="flex flex-1 flex-col justify-center">
+          <motion.div {...pop(0.1)}><Wordmark size={22} /></motion.div>
+          <Big size={116} delay={0.4} hi className="mt-5 whitespace-nowrap">{d.year}</Big>
+          <motion.p {...rise(0.7)} className="mt-4 font-ov-display text-[28px] font-extrabold leading-tight">Your year on {platformName()}.</motion.p>
+          <motion.p {...rise(1.1)} className="mt-12 font-shelf-mono text-[13px]" style={{ color: OV.mute }}>Tap to start ›</motion.p>
         </div>
-      </Card>
+      </WCard>
     ),
   },
   {
@@ -116,22 +33,22 @@ export const SHOWS_CARDS: NCard[] = [
     render: (d) => {
       const o = d.overview;
       return (
-        <Card year={d.year}>
+        <WCard tone="cream" tag={String(d.year)}>
           <Kicker>In {d.year} you watched about</Kicker>
-          <Display size={140} delay={0.3} color={RED}><CountUp to={hrs(o.est_s)} /></Display>
-          <Display size={44} delay={0.4}>hours of {platformName()}</Display>
-          <motion.div {...rise(1.1)} className="mt-8 space-y-3 text-[17px]">
+          <Big size={104} delay={0.3} hi><CountUp to={hrs(o.est_s)} /></Big>
+          <Big size={36} delay={0.4}>hours of {platformName()}</Big>
+          <motion.div {...rise(1.1)} className="mt-8 flex flex-col gap-2.5 text-[17px]">
             <p>That's <b>{(o.est_s / 86400).toFixed(1)} full days</b>.</p>
-            <p><b>{num(d.kind_split.episode.count)} episodes</b> of <b>{num(d.progress.shows)} {tr("channels")}</b>
+            <p><b>{eps(d.kind_split.episode.count)}</b> of <b>{num(d.progress.shows)} {tr("channels")}</b>
               {d.kind_split.movie.count ? <> and <b>{num(d.kind_split.movie.count)} movies</b></> : null}.</p>
             <p>You pressed play on <b>{num(o.active_days)} of {o.days} days</b>.</p>
           </motion.div>
           {!d.has_times && (
-            <motion.p {...rise(1.7)} className="mt-auto text-[11px] text-white/50">
+            <Label delay={1.7} className="mt-auto normal-case tracking-normal">
               Estimated from each episode's and movie's runtime: {platformName() === "Netflix" ? "Netflix's quick download" : `your ${platformName()} history`} has no watch times.
-            </motion.p>
+            </Label>
           )}
-        </Card>
+        </WCard>
       );
     },
   },
@@ -141,20 +58,18 @@ export const SHOWS_CARDS: NCard[] = [
     render: (d) => {
       const s = d.top_channels[0];
       return (
-        <Card year={d.year} glow="center">
-          <Kicker>{tr("Your #1 channel of")} {d.year}</Kicker>
+        <WCard tone="mustard" tag={String(d.year)}>
+          <Kicker>{tr("Your #1 channel of")} {d.year} was…</Kicker>
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <motion.div initial={{ opacity: 0, rotateY: 90, scale: 0.8 }} animate={{ opacity: 1, rotateY: 0, scale: 1 }}
-                        transition={{ delay: 0.8, duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
-                        style={{ boxShadow: "0 20px 60px rgb(var(--c-accent) / 0.45)" }} className="rounded-md">
-              <Poster src={s.avatar_url} name={s.title} w={196} big />
+                        transition={{ delay: 0.8, duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }} className="relative">
+              <PosterImg src={s.avatar_url} name={s.title} w={176} big />
+              <Sticker size={64} delay={1.5}>#1</Sticker>
             </motion.div>
-            <Display size={44} delay={1.5} className="mt-6">{s.title}</Display>
-            <motion.p {...rise(1.8)} className="mt-2 text-[16px] text-white/80">
-              {num(s.count)} episodes · about {num(hrs(s.time_s))} hours
-            </motion.p>
+            <Big size={fit(s.title, 38)} delay={1.5} className="mt-5">{s.title}</Big>
+            <motion.p {...rise(1.8)} className="mt-2 font-shelf-mono text-[14px]">{eps(s.count)} · about {num(hrs(s.time_s))} hours</motion.p>
           </div>
-        </Card>
+        </WCard>
       );
     },
   },
@@ -162,21 +77,22 @@ export const SHOWS_CARDS: NCard[] = [
     id: "top-5", get label() { return tr("Top 5 channels"); },
     when: (d) => d.top_channels.length > 1,
     render: (d) => (
-      <Card year={d.year}>
-        <Display size={46} delay={0}>{tr("Your Top 5 channels")}</Display>
-        <div className="mt-4 flex flex-col gap-2">
+      <WCard tone="paper" tag={String(d.year)}>
+        <Big size={40} delay={0}>{tr("Your top 5 channels")}</Big>
+        <ol className="mt-5 flex flex-col gap-2.5">
           {d.top_channels.slice(0, 5).map((s, i) => (
-            <motion.div key={s.key} {...rise(0.3 + i * 0.18)} className="flex items-center">
-              <div className="flex w-[66px] justify-end"><Rank n={i + 1} size={76} /></div>
-              <Poster src={s.avatar_url} name={s.title} w={48} className="-ml-3 relative" />
-              <div className="ml-3 min-w-0">
-                <div className="truncate text-[17px] font-bold">{s.title}</div>
-                <div className="text-[13px] text-white/65">{num(s.count)} episodes</div>
+            <motion.li key={s.key} {...rise(0.3 + i * 0.16)} className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[3px] font-ov-display text-[16px] font-extrabold"
+                    style={{ background: i === 0 ? OV.mustard : OV.paper, borderColor: OV.ink }}>{i + 1}</span>
+              <PosterImg src={s.avatar_url} name={s.title} w={50} />
+              <div className="min-w-0">
+                <div className="truncate text-[18px] font-bold">{s.title}</div>
+                <div className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{eps(s.count)}</div>
               </div>
-            </motion.div>
+            </motion.li>
           ))}
-        </div>
-      </Card>
+        </ol>
+      </WCard>
     ),
   },
   {
@@ -185,25 +101,25 @@ export const SHOWS_CARDS: NCard[] = [
     render: (d) => {
       const b = d.binge!;
       return (
-        <Card year={d.year} glow="bottom">
+        <WCard tone="ink" tag={String(d.year)}>
           <Kicker>Your fastest binge</Kicker>
-          <div className="mt-6 flex items-end gap-5">
-            <motion.div {...pop(0.4)}><Poster src={b.avatar_url} name={b.title} w={130} big /></motion.div>
+          <div className="mt-5 flex items-end gap-4">
+            <motion.div {...pop(0.4)}><PosterImg src={b.avatar_url} name={b.title} w={120} big /></motion.div>
             <div className="min-w-0 pb-1">
-              <Display size={34} delay={0.7}>{b.title}</Display>
-              <motion.p {...rise(0.9)} className="mt-1 text-[16px] text-white/80">Season {b.season} · {num(b.episodes)} episodes</motion.p>
+              <Big size={fit(b.title, 32, 22)} delay={0.7}>{b.title}</Big>
+              <motion.p {...rise(0.9)} className="mt-1 font-shelf-mono text-[13px]" style={{ color: OV.mute }}>Season {b.season} · {eps(b.episodes)}</motion.p>
             </div>
           </div>
           <div className="flex flex-1 flex-col justify-center">
-            <Display size={120} delay={1.2} color={RED} className="pb-[0.22em]">{days(b.days)}</Display>
-            <Kicker delay={1.4}>start to finish. That's {num(Math.round(b.per_day * 10) / 10)} episodes a day.</Kicker>
+            <Big size={Math.min(100, Math.round(300 / (days(b.days).length * 0.6)))} delay={1.2} hi className="whitespace-nowrap">{days(b.days)}</Big>
+            <Kicker delay={1.4}>start to finish. That's {eps(Math.round(b.per_day * 10) / 10)} a day.</Kicker>
           </div>
           {d.episode_day && (
-            <motion.p {...rise(1.8)} className="rounded-xl bg-white/10 px-4 py-3 text-[14px]">
-              Most in one day: <b>{num(d.episode_day.episodes)} episodes</b> of {d.episode_day.title} on {date(d.episode_day.date)}.
+            <motion.p {...rise(1.8)} className="rounded-xl border-2 px-4 py-3 text-[14px]" style={{ borderColor: OV.paper, background: "rgba(251,246,236,0.08)" }}>
+              Most in one day: <b>{eps(d.episode_day.episodes)}</b> of {d.episode_day.title} on {date(d.episode_day.date)}.
             </motion.p>
           )}
-        </Card>
+        </WCard>
       );
     },
   },
@@ -212,30 +128,30 @@ export const SHOWS_CARDS: NCard[] = [
     when: (d) => d.progress.shows > 0,
     render: (d) => {
       const s = d.progress.summary;
-      const rows: [string, number, string][] = [["Finished", s.finished, "#46d369"], ["Still watching", s.watching, RED], ["Dropped", s.dropped, "rgba(255,255,255,0.45)"]];
+      const rows: [string, number, string, string][] = [["Finished", s.finished, OV.teal, OV.paper], ["Still watching", s.watching, OV.mustard, OV.ink], ["Dropped", s.dropped, OV.sand, OV.ink]];
       return (
-        <Card year={d.year}>
+        <WCard tone="cream" tag={String(d.year)}>
           <Kicker>You started</Kicker>
-          <Display size={84} delay={0.3}><CountUp to={d.progress.shows} /> {tr("channels")}</Display>
+          <Big size={80} delay={0.3}><CountUp to={d.progress.shows} /> {tr("channels")}</Big>
           <div className="mt-6 grid grid-cols-3 gap-2">
-            {rows.map(([label, n, color], i) => (
-              <motion.div key={label} {...rise(0.7 + i * 0.15)} className="rounded-xl bg-white/[0.07] px-3 py-3">
-                <div style={{ ...heavy, fontSize: 38, color, lineHeight: 1 }}>{num(n)}</div>
-                <div className="mt-1 text-[12px] font-medium text-white/75">{label}</div>
+            {rows.map(([label, n, bg, fg], i) => (
+              <motion.div key={label} {...rise(0.7 + i * 0.15)} className="rounded-xl border-2 px-3 py-3" style={{ background: bg, color: fg, borderColor: OV.ink }}>
+                <div className="font-ov-display text-[34px] font-extrabold leading-none">{num(n)}</div>
+                <div className="mt-1 text-[12px] font-bold">{label}</div>
               </motion.div>
             ))}
           </div>
           {d.progress.finished.length > 0 && (
             <>
-              <motion.p {...rise(1.3)} className="mt-7 text-[12px] font-bold uppercase tracking-[0.18em] text-white/60">Seen through to the end</motion.p>
+              <Label delay={1.3} className="mt-7">Seen through to the end</Label>
               <div className="mt-3 grid grid-cols-4 gap-2">
                 {d.progress.finished.slice(0, 8).map((f, i) => (
-                  <motion.div key={f.key} {...pop(1.5 + i * 0.08)}><Poster src={f.avatar_url} name={f.title} w={70} /></motion.div>
+                  <motion.div key={f.key} {...pop(1.5 + i * 0.08)}><PosterImg src={f.avatar_url} name={f.title} w={66} /></motion.div>
                 ))}
               </div>
             </>
           )}
-        </Card>
+        </WCard>
       );
     },
   },
@@ -247,31 +163,24 @@ export const SHOWS_CARDS: NCard[] = [
       const total = episode.est_s + movie.est_s || 1;
       const m = d.top_movies[0];
       return (
-        <Card year={d.year}>
+        <WCard tone="teal" tag={String(d.year)}>
           <Kicker>{tr("Channels or movies?")}</Kicker>
-          <Display size={120} delay={0.3} color={RED}><CountUp to={Math.round((episode.est_s / total) * 100)} format={(n) => `${Math.round(n)}%`} /></Display>
+          <Big size={112} delay={0.3} hi><CountUp to={Math.round((episode.est_s / total) * 100)} format={(n) => `${Math.round(n)}%`} /></Big>
           <Kicker delay={0.5}>{tr("of your watch time was channels")}</Kicker>
-          <div className="mt-7 flex flex-col gap-3">
-            {([["Episodes", episode.count, episode.est_s], ["Movies", movie.count, movie.est_s]] as [string, number, number][]).map(([label, n, t], i) => (
-              <div key={label}>
-                <div className="mb-1 flex justify-between text-[15px] font-bold"><span>{label} · {compact(n)}</span><span>{num(hrs(t))}h</span></div>
-                <div className="h-3.5 overflow-hidden rounded-full bg-white/10">
-                  <motion.div className="h-full rounded-full" style={{ background: i ? "#fff" : RED }} initial={{ width: 0 }}
-                              animate={{ width: `${(t / total) * 100}%` }} transition={{ delay: 0.8 + i * 0.2, duration: 1 }} />
-                </div>
-              </div>
-            ))}
+          <div className="mt-7 flex flex-col gap-4">
+            <GrowBar label={`Episodes · ${compact(episode.count)}`} value={`${num(hrs(episode.est_s))}h`} share={episode.est_s / total} delay={0.8} color={OV.mustard} />
+            <GrowBar label={`Movies · ${compact(movie.count)}`} value={`${num(hrs(movie.est_s))}h`} share={movie.est_s / total} delay={1} color={OV.paper} />
           </div>
           {m && (
-            <motion.div {...rise(1.5)} className="mt-auto flex items-center gap-4 rounded-xl bg-white/[0.07] p-3">
-              <Poster src={m.thumb} name={m.title} w={60} />
+            <motion.div {...rise(1.5)} className="mt-auto flex items-center gap-4 rounded-xl border-2 p-3" style={{ borderColor: OV.paper, background: "rgba(251,246,236,0.12)" }}>
+              <PosterImg src={m.thumb} name={m.title} w={56} />
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">{d.top_movies.length > 1 ? "A movie you watched" : "Your movie of the year"}</p>
-                <p className="line-clamp-2 text-[18px] font-bold leading-tight">{m.title}</p>
+                <Label>{d.top_movies.length > 1 ? "A movie you watched" : "Your movie of the year"}</Label>
+                <p className="line-clamp-2 font-ov-display text-[19px] font-extrabold leading-tight">{m.title}</p>
               </div>
             </motion.div>
           )}
-        </Card>
+        </WCard>
       );
     },
   },
@@ -283,29 +192,29 @@ export const SHOWS_CARDS: NCard[] = [
       const total = a.sub + a.dub;
       const sub = Math.round((a.sub / total) * 100);
       return (
-        <Card year={d.year}>
+        <WCard tone="ink" tag={String(d.year)}>
           <Kicker>Sub or dub?</Kicker>
-          <Display size={120} delay={0.3} color={RED}><CountUp to={sub} format={(n) => `${Math.round(n)}%`} /></Display>
+          <Big size={112} delay={0.3} hi><CountUp to={sub} format={(n) => `${Math.round(n)}%`} /></Big>
           <Kicker delay={0.5}>{sub >= 50 ? "of your episodes were subbed" : "of your episodes were subbed. Team dub!"}</Kicker>
-          <div className="mt-5 flex h-3 gap-0.5">
-            <motion.div style={{ background: RED }} initial={{ width: 0 }} animate={{ width: `${sub}%` }} transition={{ delay: 0.8, duration: 1 }} />
-            <motion.div style={{ background: "#2abdbb" }} initial={{ width: 0 }} animate={{ width: `${100 - sub}%` }} transition={{ delay: 1, duration: 1 }} />
+          <div className="mt-5 flex h-4 overflow-hidden rounded-full border-2" style={{ borderColor: OV.paper }}>
+            <motion.div style={{ background: OV.mustard }} initial={{ width: 0 }} animate={{ width: `${sub}%` }} transition={{ delay: 0.8, duration: 1 }} />
+            <motion.div style={{ background: OV.teal }} initial={{ width: 0 }} animate={{ width: `${100 - sub}%` }} transition={{ delay: 1, duration: 1 }} />
           </div>
-          <div className="mt-2 flex justify-between text-[13px] text-white/70"><span>{num(a.sub)} sub</span><span>{num(a.dub)} dub</span></div>
+          <div className="mt-2 flex justify-between font-shelf-mono text-[12px]" style={{ color: OV.mute }}><span>{num(a.sub)} subbed</span><span>{num(a.dub)} dubbed</span></div>
           {a.studio && (
-            <motion.div {...rise(1.4)} className="mt-8">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Your studio</p>
-              <p style={heavy} className="mt-1 text-[30px] leading-none">{a.studio.name}</p>
-              <p className="mt-1 text-[13px] text-white/70">{num(a.studio.count)} episodes</p>
-              <div className="mt-3 flex gap-2">{a.studio.series.map((s) => <Poster key={s.key} src={s.poster} name={s.title} w={58} />)}</div>
+            <motion.div {...rise(1.4)} className="mt-7">
+              <Label>Your studio</Label>
+              <p className="mt-1 font-ov-display text-[30px] font-extrabold leading-none">{a.studio.name}</p>
+              <p className="mt-1 font-shelf-mono text-[12px]" style={{ color: OV.mute }}>{eps(a.studio.count)}</p>
+              <div className="mt-3 flex gap-2">{a.studio.series.slice(0, 4).map((s) => <PosterImg key={s.key} src={s.poster} name={s.title} w={56} />)}</div>
             </motion.div>
           )}
           {a.simulcast > 0 && (
-            <motion.p {...rise(1.9)} className="mt-auto rounded-xl bg-white/[0.07] px-4 py-3 text-[14px]">
-              ⏱️ <b>{num(a.simulcast)} episodes</b> watched within a week of airing{a.simulcast_series[0] ? <>, mostly {a.simulcast_series[0].title}</> : null}.
+            <motion.p {...rise(1.9)} className="mt-auto rounded-xl border-2 px-4 py-3 text-[14px]" style={{ borderColor: OV.paper, background: "rgba(251,246,236,0.08)" }}>
+              <b>{eps(a.simulcast)}</b> watched within a week of airing{a.simulcast_series[0] ? <>, mostly {a.simulcast_series[0].title}</> : null}.
             </motion.p>
           )}
-        </Card>
+        </WCard>
       );
     },
   },
@@ -313,50 +222,52 @@ export const SHOWS_CARDS: NCard[] = [
     id: "genres", label: "Top genres",
     when: (d) => d.top_genres.length > 0,
     render: (d) => (
-      <Card year={d.year} glow="bottom">
+      <WCard tone="mustard" tag={String(d.year)}>
         <Kicker>You couldn't get enough of</Kicker>
-        <Display size={78} delay={0.3} color={RED}>{d.top_genres[0].title}</Display>
-        <div className="mt-8 flex flex-col gap-2.5">
+        <Big size={fit(d.top_genres[0].title, 70)} delay={0.3}>{d.top_genres[0].title}</Big>
+        <ol className="mt-8 flex flex-col gap-2.5">
           {d.top_genres.slice(1, 5).map((g, i) => (
-            <motion.div key={g.key} {...rise(0.8 + i * 0.15)} className="flex items-center gap-4 rounded-xl bg-white/[0.07] px-4 py-3">
-              <span style={heavy} className="w-6 text-[24px] leading-none text-white/50">{i + 2}</span>
+            <motion.li key={g.key} {...rise(0.8 + i * 0.15)} className="flex items-center gap-4 rounded-xl border-2 px-4 py-3"
+                       style={{ borderColor: OV.ink, background: "rgba(251,246,236,0.45)" }}>
+              <span className="w-6 font-ov-display text-[22px] font-extrabold leading-none">{i + 2}</span>
               <span className="text-[18px] font-bold">{g.title}</span>
-            </motion.div>
+            </motion.li>
           ))}
-        </div>
-      </Card>
+        </ol>
+      </WCard>
     ),
   },
   {
     id: "clock", label: "Watch clock",
     when: (d) => d.has_times && d.clock.length > 0,
     render: (d) => (
-      <Card year={d.year}>
+      <WCard tone="ink" tag={String(d.year)}>
         <Kicker>When you pressed play</Kicker>
-        <Display size={52} delay={0.2}>Peak hour: {hourLabel(d.peak_hour ?? 0)}</Display>
+        <Big size={36} delay={0.2}>Peak hour: <span style={{ color: OV.mustard }}>{hourLabel(d.peak_hour ?? 0)}</span></Big>
         <div className="flex flex-1 items-center justify-center">
           <RadialClock data={d.clock.map((h) => h.count)} peak={d.peak_hour ?? 0} />
         </div>
-      </Card>
+      </WCard>
     ),
   },
   {
     id: "biggest-day", label: "Biggest day",
     when: (d) => !!d.biggest_day,
     render: (d) => (
-      <Card year={d.year}>
+      <WCard tone="teal" tag={String(d.year)}>
         <Kicker>Your biggest day was</Kicker>
-        <Display size={58} delay={0.3}>{date(d.biggest_day!.date)}</Display>
+        <Big size={44} delay={0.3}>{date(d.biggest_day!.date)}</Big>
         <div className="flex flex-1 flex-col justify-center">
-          <Display size={150} delay={0.7} color={RED}><CountUp to={d.biggest_day!.count} /></Display>
-          <Kicker delay={0.9}>{platformName() === "Crunchyroll" ? "episodes" : "titles"} in a single day</Kicker>
+          <Big size={140} delay={0.7} hi><CountUp to={d.biggest_day!.count} /></Big>
+          <Kicker delay={0.9}>{tr("videos")} in a single day</Kicker>
           {d.streak && d.streak.days > 1 && (
-            <motion.p {...rise(1.4)} className="mt-10 rounded-xl bg-white/[0.07] px-4 py-3 text-[16px]">
-              🔥 Longest streak: <b>{days(d.streak.days)}</b> in a row, {date(d.streak.start)} – {date(d.streak.end)}.
-            </motion.p>
+            <motion.div {...rise(1.4)} className="mt-8 flex flex-col gap-3">
+              <p className="text-[16px]">Longest streak: <b>{days(d.streak.days)}</b> in a row, {date(d.streak.start)} – {date(d.streak.end)}.</p>
+              <StreakStrip days={d.streak.days} delay={1.6} />
+            </motion.div>
           )}
         </div>
-      </Card>
+      </WCard>
     ),
   },
   {
@@ -365,99 +276,57 @@ export const SHOWS_CARDS: NCard[] = [
     render: (d) => {
       const s = d.discovery!;
       return (
-        <Card year={d.year} glow="center">
+        <WCard tone="cream" tag={String(d.year)}>
           <Kicker>New to you this year</Kicker>
           <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <motion.div {...pop(0.5)}><Poster src={s.avatar_url} name={s.title} w={170} big /></motion.div>
-            <Display size={42} delay={1} className="mt-6">{s.title}</Display>
-            <motion.p {...rise(1.3)} className="mt-2 text-[16px] text-white/80">
+            <motion.div {...pop(0.5)} className="relative">
+              <PosterImg src={s.avatar_url} name={s.title} w={160} big />
+              <Sticker size={60} delay={1}>New</Sticker>
+            </motion.div>
+            <Big size={fit(s.title, 36)} delay={1} className="mt-5">{s.title}</Big>
+            <motion.p {...rise(1.3)} className="mt-2 text-[16px]" style={{ color: OV.soft }}>
               First episode {date(s.first_watched)}, then {num(s.count)} in total.
             </motion.p>
           </div>
-        </Card>
+        </WCard>
       );
     },
   },
-  {
-    id: "personality", label: "Personality",
-    render: (d) => {
-      const p = d.personality;
-      return (
-        <Card year={d.year} glow="none">
-          <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse 110% 70% at 50% 40%, ${p.color ?? RED}cc, transparent 72%)` }} />
-          <div className="relative flex flex-1 flex-col">
-            <Kicker>Your viewer personality is</Kicker>
-            <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }}
-                          transition={{ delay: 0.5, type: "spring", stiffness: 110, damping: 10 }} className="text-[110px] leading-none">
-                {p.emoji}
-              </motion.div>
-              <Display size={60} delay={1.1} className="mt-5">{p.name}</Display>
-              {p.tagline && <motion.p {...rise(1.4)} className="mt-2 text-[17px] italic text-white/90">“{p.tagline}”</motion.p>}
-              <motion.p {...rise(1.8)} className="mt-8 rounded-xl bg-black/40 px-4 py-3 text-[15px]">{p.reason}</motion.p>
-              {p.also.length > 0 && (
-                <motion.p {...rise(2.2)} className="mt-4 text-[13px] text-white/70">
-                  Also a bit of: {p.also.map((a) => `${a.emoji} ${a.name.replace(/^The /, "")}`).join(" · ")}
-                </motion.p>
-              )}
-            </div>
-          </div>
-        </Card>
-      );
-    },
-  },
+  { id: "personality", label: "Personality", render: (d) => <Personality d={d} tagText={String(d.year)} /> },
   { id: "summary", label: "Summary", render: (d) => <ShowsSummary d={d} /> },
 ];
 
 function ShowsSummary({ d }: { d: ShowsWrappedData }) {
-  const p = d.personality;
   const s = d.progress.summary;
   return (
-    <Card footer={false}>
-      <div className="-mt-4 flex items-center justify-between">
-        <span className="flex items-center gap-2"><NMark size={26} />
-          <span className="text-[20px] font-extrabold tracking-tight">{platformName()} Wrapped</span>
-        </span>
-        <span style={heavy} className="text-[32px] leading-none">{d.year}</span>
+    <WCard tone="cream" footer={false} ring="none">
+      <div className="-mt-4 flex items-start justify-between">
+        <Wordmark size={17} />
+        <span className="font-ov-display text-[36px] font-extrabold leading-none" style={{ color: OV.accent }}>{d.year}</span>
       </div>
-      <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">{tr("Top channels")}</p>
-      <div className="mt-2 flex gap-1.5">
+      <div className="mt-4"><SmallLabel>{tr("Top channels")}</SmallLabel></div>
+      <ol className="mt-2 flex gap-2">
         {d.top_channels.slice(0, 5).map((c, i) => (
-          <div key={c.key} className="relative min-w-0 flex-1">
-            <Poster src={c.avatar_url} name={c.title} w={58} />
-            <span className="absolute -bottom-1 left-1"><Rank n={i + 1} size={34} /></span>
-          </div>
+          <li key={c.key} className="relative min-w-0">
+            <PosterImg src={c.avatar_url} name={c.title} w={54} />
+            <span className="absolute -left-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 font-ov-display text-[11px] font-extrabold"
+                  style={{ background: i === 0 ? OV.mustard : OV.paper, borderColor: OV.ink }}>{i + 1}</span>
+          </li>
         ))}
-      </div>
+      </ol>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Stat label="Hours watched" value={num(hrs(d.overview.est_s))} sub={d.has_times ? undefined : "estimated"} />
-        <Stat label={tr("Videos")} value={compact(d.overview.videos)} sub={tr(`${num(d.progress.shows)} channels · ${num(d.kind_split.movie.count)} movies`)} />
-        <Stat label={tr("Channels finished")} value={num(s.finished)} sub={`${num(s.dropped)} dropped`} />
-        <Stat label="Fastest season" value={d.binge ? days(d.binge.days) : "–"} sub={d.binge ? `${d.binge.title}` : undefined} />
+        <StatBox label="Hours watched" value={num(hrs(d.overview.est_s))} sub={d.has_times ? undefined : "estimated"} />
+        <StatBox label={tr("Videos")} value={compact(d.overview.videos)} sub={tr(`${num(d.progress.shows)} channels`) + (d.kind_split.movie.count ? ` · ${num(d.kind_split.movie.count)} movies` : "")} />
+        <StatBox label={tr("Channels finished")} value={num(s.finished)} sub={`${num(s.dropped)} dropped`} />
+        <StatBox label="Fastest season" value={d.binge ? days(d.binge.days) : "–"} sub={d.binge?.title} />
       </div>
       {d.top_genres[0] && (
-        <div className="mt-2 rounded-xl bg-white/[0.07] px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">Top genres</p>
+        <div className="mt-2 rounded-xl border-2 px-3 py-2" style={{ borderColor: OV.ink, background: OV.paper }}>
+          <SmallLabel>Top genres</SmallLabel>
           <p className="truncate text-[15px] font-bold">{d.top_genres.slice(0, 3).map((g) => g.title).join(" · ")}</p>
         </div>
       )}
-      <div className="mt-auto flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: RED }}>
-        <span className="text-[38px] leading-none">{p.emoji}</span>
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/80">Viewer personality</p>
-          <p style={heavy} className="text-[21px] leading-tight">{p.name}</p>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="min-w-0 rounded-xl bg-white/[0.07] px-3 py-2">
-      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">{label}</p>
-      <p style={heavy} className="truncate text-[25px] leading-none">{value}</p>
-      {sub && <p className="truncate text-[10px] text-white/60">{sub}</p>}
-    </div>
+      <PersonalityStrip p={d.personality} />
+    </WCard>
   );
 }
