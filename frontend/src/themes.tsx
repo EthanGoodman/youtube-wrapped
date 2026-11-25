@@ -194,6 +194,7 @@ export const THEMES: Record<string, PlatformTheme> = {
   },
   // planned platforms: hub tiles for now; their family config comes with their connector
   spotify: { family: "videos", creatorShape: "circle", tile: { bg: "linear-gradient(140deg,#1ed760,#0b5c2a)", fg: "#0b0b0b" }, wrapped: YOUTUBE_WRAPPED },
+  steam: { family: "videos", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#2a475e,#171a21)", fg: "#ffffff" }, wrapped: YOUTUBE_WRAPPED },
   prime_video: {
     family: "shows", creatorShape: "poster",
     tile: { bg: "linear-gradient(140deg,#00a8e1,#0b2a4a)" },
@@ -240,6 +241,7 @@ const SHELF: Record<string, [string, string]> = {
   netflix: ["#B8322A", "#FFFFFF"],
   crunchyroll: ["#E58A2E", "#141312"],
   spotify: ["#3E8E5E", "#FFFFFF"],
+  steam: ["#2F4A7A", "#FFFFFF"],
   prime_video: ["#2F5D8A", "#FFFFFF"],
 };
 const SHELF_FALLBACK: [string, string][] = [["#7A5C99", "#FFFFFF"], ["#C9A227", "#141312"], ["#4F7F7A", "#FFFFFF"], ["#9C4F6B", "#FFFFFF"]];

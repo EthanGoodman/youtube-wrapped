@@ -7,7 +7,7 @@ import { useMeta } from "./api";
 import { themeOf } from "./themes";
 
 /** Known platform ids: the built-in ones, plus every id /api/platforms reports (registerPlatforms). */
-export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll"];
+export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll", "steam"];
 
 export function registerPlatforms(ids: string[]) {
   ids.forEach((id) => { if (!PLATFORM_IDS.includes(id)) PLATFORM_IDS.push(id); });

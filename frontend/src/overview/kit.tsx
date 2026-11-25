@@ -35,14 +35,23 @@ const NAV: Record<Family, { tabs: Tab[]; more: MoreLink[] }> = {
            ["/top/genres", "Genres", false, "genres"], ["/evolution", "Evolution"], ["/records", "Records"], ["/wrapped", "Wrapped"]],
     more: [["/patterns", "Patterns"]],
   },
+  // games, from the priority table: hours played and top games; evolution, patterns, records; genres as a nice-to-have.
+  // Achievements are the games family's own tab (dated history even before the app tracked playtime)
+  games: {
+    tabs: [["/", "Overview", true], ["/top/channels", "Top games"], ["/achievements", "Achievements", false, "achievements"],
+           ["/evolution", "Evolution"], ["/patterns", "Patterns"], ["/records", "Records"], ["/wrapped", "Wrapped"]],
+    more: [["/top/genres", "Top genres", "genres"]],
+  },
 };
 
-export type Family = "videos" | "shows" | "music";
+export type Family = "videos" | "shows" | "music" | "games";
 
 /** Which family's pages a platform gets: music (Spotify), shows (Netflix) or videos (YouTube). */
 export function useFamily(): Family {
   const series = useCapability("series");
-  if (usePlatform()?.family === "music") return "music";
+  const fam = usePlatform()?.family;
+  if (fam === "music") return "music";
+  if (fam === "games") return "games";
   return series ? "shows" : "videos";
 }
 
@@ -81,7 +90,7 @@ export function useCreator(): { one: string; many: string; Many: string } {
 }
 
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
-const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F" };
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A" };
 export function useAccent(): string {
   return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
 }
@@ -117,7 +126,7 @@ export function TopBar() {
               <Link key={to} to={to + q} aria-current={on ? "page" : undefined}
                     className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium hover:underline"
                     style={on ? { background: OV.mustard, color: OV.ink } : undefined}>
-                {to === "/top/channels" && family !== "music" ? `Top ${cr.many}` : label}
+                {to === "/top/channels" && family !== "music" && family !== "games" ? `Top ${cr.many}` : label}
               </Link>
             );
           })}
@@ -264,7 +273,8 @@ export function Cover({ src, size, name, ring = OV.ink, className = "" }: { src?
 
 /** The picture of a channel or a show: a round face, or a poster for shows (same height as the face would be). */
 export function Avatar({ src, name, size, ring }: { src?: string | null; name?: string | null; size: number; ring?: string }) {
-  return useFamily() === "shows"
+  const fam = useFamily();
+  return fam === "shows" || fam === "games"
     ? <Poster src={src} name={name} width={`${Math.round(size * 0.78)}px`} ring={ring} className={size < 56 ? "!rounded-md !border-2 !text-[14px]" : ""} />
     : <Pic src={src} name={name} size={`${size}px`} ring={ring} />;
 }

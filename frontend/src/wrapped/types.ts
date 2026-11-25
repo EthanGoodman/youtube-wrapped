@@ -107,7 +107,32 @@ export interface MusicWrappedData {
   personality: Personality;
 }
 
-export type AnyWrapped = (WrappedData & { platform?: undefined; kind?: undefined }) | ShowsWrappedData | MusicWrappedData;
+/** Games Wrapped (Steam, …): hours before the first daily snapshot are estimates. */
+type GameCard = { key: string; title: string | null; poster: string | null; header: string | null };
+export interface GamesWrappedData {
+  kind: "games";
+  platform: string;
+  year: number;
+  mode: "all";
+  empty: boolean;
+  estimated: boolean;
+  tracked_since: string | null;
+  overview: { videos: number; unique_channels: number; est_s: number; active_days: number; days: number; change: Record<string, number | null> };
+  top_games: RankedItem[];
+  top_genres: RankedItem[];
+  achievements: {
+    unlocked: number;
+    best_day: { date: string; game: GameCard; count: number } | null;
+    rarest: { game: GameCard; api: string; name: string; description: string | null; unlocked: string; rarity: number | null }[];
+    perfect: { game: GameCard; achievements: number; completed: string }[];
+  };
+  streak: { days: number; start: string; end: string } | null;
+  biggest_day: { date: string; count: number; time_s: number } | null;
+  discovery: { channel_id: string; title: string | null; avatar_url: string | null; first_watched: string; count: number; time_s: number } | null;
+  personality: Personality;
+}
+
+export type AnyWrapped = (WrappedData & { platform?: undefined; kind?: undefined }) | ShowsWrappedData | MusicWrappedData | GamesWrappedData;
 
 /** Route every YouTube image through the local relay so cards can be exported as PNG. */
 // <img src> can't send headers, so the relay takes the app token as a query parameter
