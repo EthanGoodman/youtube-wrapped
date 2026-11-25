@@ -38,7 +38,7 @@ import { applyThemeColors, themeOf } from "./themes";
 /** Platforms on the new stats pages (the rest keep the old layout until they move over). */
 const SHOWS_NEW = ["netflix", "crunchyroll"];
 const MUSIC_NEW = ["spotify"];
-const GAMES_NEW = ["steam"];
+const GAMES_NEW = ["steam", "epic"];
 const NEW_LOOK = ["youtube", ...SHOWS_NEW, ...MUSIC_NEW, ...GAMES_NEW];
 
 /** Sections of a platform. Old single-platform links (/top/channels, …) redirect to /youtube/… */

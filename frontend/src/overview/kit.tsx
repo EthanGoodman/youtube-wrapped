@@ -90,7 +90,7 @@ export function useCreator(): { one: string; many: string; Many: string } {
 }
 
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
-const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A" };
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A", epic: "#4A4560" };
 export function useAccent(): string {
   return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
 }

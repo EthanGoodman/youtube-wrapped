@@ -24,6 +24,8 @@ KNOWN = {
     "LASTFM_API_KEY": "Last.fm API key (music genres from listeners' tags)",
     "STEAM_API_KEY": "Steam Web API key (your library, playtime and achievements)",
     "STEAM_PROFILE": "Your Steam profile link or SteamID64 (which library to read)",
+    "EPIC_AUTH_CODE": "Epic one-time sign-in code (used once by the next fetch, then deleted)",
+    "EPIC_REFRESH_TOKEN": "Epic sign-in, saved by fetch (treat it like a password)",
 }
 _NAME = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 log = logging.getLogger("ytw.secrets")

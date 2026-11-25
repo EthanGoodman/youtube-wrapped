@@ -14,6 +14,7 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 | Instagram | Planned ([#6](https://github.com/EthanGoodman/youtube-wrapped/issues/6)) |
 | Crunchyroll | ✅ Supported, unofficial (see [Crunchyroll](#crunchyroll)) |
 | Steam | ✅ Supported (see [Steam](#steam)) |
+| Epic Games | ✅ Supported, unofficial (see [Epic Games](#epic-games)) |
 
 Every platform uses the same layout and look (top lists, patterns, records, evolution and a Wrapped story), worded for what it is: channels and videos, shows and episodes, artists and songs. The steps below cover YouTube.
 
@@ -181,6 +182,22 @@ Notes on the data:
 How the hours are dated: Steam only gives lifetime hours per game, not a play log. So the app saves a snapshot of your library every day, and the growth between snapshots is real play on that day. Hours from before the first snapshot are **estimated**: each game's hours are spread over the days you unlocked its achievements (or its last-played day when it has none). The pages and Wrapped say which hours are estimates. Achievements are dated exactly, including how rare each one is.
 
 What's stored: per game its name, minutes and last-played time; per achievement its name, description, unlock time and rarity; genres from the Steam store. Nothing about friends or your profile. Wrapped has its own games story and player personalities in `personalities-steam.toml`.
+
+## Epic Games
+
+Epic has no public API or export for playtime, so this reads your own data from the Epic Games Launcher's endpoints, the way the open-source launchers Legendary, Heroic and Playnite do. It's **unofficial** (Epic could change it) and **read-only**: nothing is ever written to your account.
+
+1. Sign in at [epicgames.com](https://www.epicgames.com) in your browser, then open [this page](https://www.epicgames.com/id/api/redirect?clientId=34a02cf8f4414e29b15921876da36f9a&responseType=code). It shows a short JSON answer; copy the `authorizationCode` value (or the whole thing).
+2. Save it, then fetch within a few minutes (the code works once):
+   ```bash
+   python backend/cli.py secrets set EPIC_AUTH_CODE
+   python backend/cli.py fetch --platform epic
+   ```
+3. That's it: the fetch trades the code for a sign-in kept in your OS keychain (`EPIC_REFRESH_TOKEN`) and deletes the code. It syncs once a day on its own, which keeps the sign-in alive. If it ever expires, repeat steps 1–2.
+
+Hours are dated like Steam's: daily snapshots from now on, and earlier hours spread over your achievement days. Epic doesn't say when you last played a game, so a game with no achievements has its earlier hours on the day before tracking began.
+
+What's stored: per game its name, minutes, cover art and store link; per achievement its name, description, unlock time and rarity. Nothing about friends, purchases or your account. Wrapped uses `personalities-epic.toml`.
 
 ## Crunchyroll
 

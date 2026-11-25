@@ -1,0 +1,17 @@
+{
+ "day": "2026-11-20",
+ "games": [
+  {
+   "id": "Ghost",
+   "name": "Ghost",
+   "minutes": 30,
+   "last_played": null
+  },
+  {
+   "id": "Sugar",
+   "name": "Sugar Rush",
+   "minutes": 600,
+   "last_played": null
+  }
+ ]
+}
