@@ -21,6 +21,7 @@ from .. import store
 from ..base import finish_build
 from ..music import Album, dedupe_listens, is_stream, write_albums
 from ..store import Creator, Item, View, slug
+from . import lastfm
 
 PLAYS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS plays (
@@ -122,44 +123,41 @@ def ingest(conn: sqlite3.Connection, folder: Path) -> dict:
     return {"files": files, "plays": len(plays), "sources": sorted({p[0] for p in plays})}
 
 
-def _lookups(conn: sqlite3.Connection) -> tuple[dict, dict]:
-    """Cached Web API answers (api.py), or nothing when they were never fetched."""
-    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'sp_tracks'").fetchone():
-        return {}, {}
-    tracks = {f"track:{t}": json.loads(d) for t, d in conn.execute("SELECT track_id, data FROM sp_tracks WHERE data IS NOT NULL")}
-    artists = {a: json.loads(d) for a, d in conn.execute("SELECT artist_id, data FROM sp_artists WHERE data IS NOT NULL")}
-    return tracks, artists
+def album_key(artist: str, album: str) -> str:
+    """Our id for an album (the export has album names, not ids)."""
+    return f"album:{slug(artist, album)}"
 
 
 def _apply_lookups(conn: sqlite3.Connection, items: dict, creators: dict, albums: dict) -> None:
-    """Album art on tracks and albums, photos on artists. Our artist ids come from names (the export has no artist
-    ids), so a Spotify artist is matched through the tracks: a track's main artist with the same name."""
-    tracks, artists = _lookups(conn)
-    if not tracks:
+    """Album art on albums and their tracks, photos on artists (from api.py's caches). Our artist ids come from names
+    (the export has no artist ids), so a Spotify artist is matched through an album: its main artist, same name."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'sp_albums'").fetchone():
         return
-    for item_id, it in items.items():
-        t = tracks.get(item_id)
-        if not t:
-            continue
-        al = t["album"]
-        it.thumb_small, it.thumb_large = al.get("small"), al.get("large")
-        it.duration_s = round(t["duration_ms"] / 1000) if t.get("duration_ms") else None
-        if it.album_id and it.album_id in albums and not albums[it.album_id].cover_small:
-            a = albums[it.album_id]
+    found = {aid: json.loads(d) for aid, d in conn.execute("SELECT album_id, data FROM sp_albums WHERE data IS NOT NULL")}
+    photos = {a: json.loads(d) for a, d in conn.execute("SELECT artist_id, data FROM sp_artists WHERE data IS NOT NULL")}
+    for aid, t in found.items():
+        al, a = t["album"], albums.get(aid)
+        if a:
             a.cover_small, a.cover_large, a.released = al.get("small"), al.get("large"), al.get("released")
         main = (t.get("artists") or [None])[0]
-        cr = creators.get(it.creator_id or "")
+        cr = creators.get(a.creator_id or "") if a else None
         if main and cr and not cr.url and (main.get("name") or "").casefold() == (cr.title or "").casefold():
-            info = artists.get(main["id"]) or {}
-            cr.avatar_url = info.get("small")
+            cr.avatar_url = (photos.get(main["id"]) or {}).get("small")
             cr.url = f"https://open.spotify.com/artist/{main['id']}"
-            cr.extra = json.dumps({"spotify_id": main["id"], "genres": info.get("genres") or []})
+    for it in items.values():
+        a = albums.get(it.album_id or "")
+        if a and a.cover_small:
+            it.thumb_small, it.thumb_large = a.cover_small, a.cover_large
 
 
 def _genres(conn: sqlite3.Connection, items: dict, creators: dict) -> dict[str, list[str]]:
-    """Genres per track: its main artist's (Spotify keeps genres on artists, not tracks)."""
-    by_artist = {cid: json.loads(c.extra).get("genres") or [] for cid, c in creators.items() if c.extra}
-    return {i: [g.title() for g in by_artist[it.creator_id]] for i, it in items.items() if by_artist.get(it.creator_id or "")}
+    """Genres per track: its artist's (Last.fm tags are per artist)."""
+    by_name = lastfm.artist_genres(conn)
+    if not by_name:
+        return {}
+    title = {cid: c.title for cid, c in creators.items()}
+    return {i: by_name[title[it.creator_id]] for i, it in items.items()
+            if it.creator_id in title and by_name.get(title[it.creator_id])}
 
 
 def _track_id(uri: str | None, artist: str, track: str) -> str:
@@ -188,7 +186,7 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, session_gap_s: int = 1800) -> 
         uri = uri or uri_for.get((artist, track))
         item_id = _track_id(uri, artist, track)
         artist_id = f"artist:{slug(artist)}"
-        album_id = f"album:{slug(artist, album)}" if album else None
+        album_id = album_key(artist, album) if album else None
         counts[item_id]["plays"] += 1
         if album_id and album_id not in albums:
             albums[album_id] = Album(album_id, album, artist_id)

@@ -93,38 +93,50 @@ def test_music_stats_and_api(tmp_path):
 
 
 class FakeSpotify:
-    """Knows T1 and T3 (T2 unknown to Spotify); one artist has genres and a photo."""
+    """Answers one track or artist at a time (as new apps must ask): knows T1 and T3, not T2."""
     def __init__(self):
         self.calls = []
 
-    def __call__(self, path, params):
-        self.calls.append((path, params["ids"]))
-        ids = params["ids"].split(",")
-        if path == "tracks":
+    def __call__(self, path):
+        self.calls.append(path)
+        kind, sid = path.split("/")
+        if kind == "tracks":
             known = {"T1": ("Night Ferry", "A1", "The Paper Lanterns"), "T3": ("Salt Year", "A3", "Low Tide Choir")}
-            return {"tracks": [None if i not in known else {
-                "id": i, "duration_ms": 200000,
-                "album": {"id": "AL" + i, "name": known[i][0], "release_date": "2019-05-01",
-                          "images": [{"url": f"https://i.scdn.co/image/big{i}", "width": 640},
-                                     {"url": f"https://i.scdn.co/image/mid{i}", "width": 300}]},
-                "artists": [{"id": known[i][1], "name": known[i][2]}]} for i in ids]}
-        return {"artists": [{"id": a, "name": "x", "genres": ["indie folk", "dream pop"] if a == "A1" else [],
-                             "images": [{"url": f"https://i.scdn.co/image/face{a}", "width": 320}]} for a in ids]}
+            if sid not in known:
+                return {}
+            return {"id": sid, "album": {"id": "AL" + sid, "name": known[sid][0], "release_date": "2019-05-01",
+                                         "images": [{"url": f"https://i.scdn.co/image/big{sid}", "width": 640},
+                                                    {"url": f"https://i.scdn.co/image/mid{sid}", "width": 300}]},
+                    "artists": [{"id": known[sid][1], "name": known[sid][2]}]}
+        return {"id": sid, "name": "x", "images": [{"url": f"https://i.scdn.co/image/face{sid}", "width": 320}]}
 
 
-def test_enrich_art_photos_genres(tmp_path):
-    from ytw.connectors.spotify import api
+def fake_lastfm(artist):
+    tags = {"The Paper Lanterns": [{"name": "indie folk", "count": 100}, {"name": "seen live", "count": 90},
+                                   {"name": "dream pop", "count": 40}, {"name": "2010s", "count": 30},
+                                   {"name": "rare tag", "count": 3}]}
+    return {"toptags": {"tag": tags[artist]}} if artist in tags else {"error": 6, "message": "not found"}
+
+
+def test_enrich_quick_then_rest(tmp_path):
+    from ytw.connectors.spotify import api, lastfm
     conn, _, _ = _built(tmp_path)
     fake = FakeSpotify()
-    r = api.enrich(conn, fake)
-    assert (r["tracks"], r["tracks_found"], r["artists_found"]) == (3, 2, 2) and r["requests"] == 2
+    first = api.enrich(conn, fake, limit=1)                  # the quick pass: the most-played album only
+    assert fake.calls == ["tracks/T1", "artists/A1"] and first["left"] > 0
+    r = api.enrich(conn, fake)                               # everything else
+    assert r["albums_found"] == 2 and r["artists_found"] == 2 and r["left"] == 0
+    assert "tracks/T2" in fake.calls                         # asked, unknown to Spotify: cached as not found
+    n = len(fake.calls)
+    api.enrich(conn, fake)
+    assert len(fake.calls) == n                              # all cached: no new requests
+    g = lastfm.enrich(conn, fake_lastfm)
+    assert g["artists_with_genres"] == 1 and g["left"] == 0
     sp.build(conn, NY)
-    t1 = conn.execute("SELECT thumb_small, thumb_large, duration_s FROM items WHERE item_id = 'track:T1'").fetchone()
-    assert tuple(t1) == ("https://i.scdn.co/image/midT1", "https://i.scdn.co/image/bigT1", 200)
+    t1 = conn.execute("SELECT thumb_small, thumb_large FROM items WHERE item_id = 'track:T1'").fetchone()
+    assert tuple(t1) == ("https://i.scdn.co/image/midT1", "https://i.scdn.co/image/bigT1")
     lanterns = conn.execute("SELECT avatar_url, url FROM creators WHERE creator_id = 'artist:the-paper-lanterns'").fetchone()
     assert lanterns[0] == "https://i.scdn.co/image/faceA1" and lanterns[1].endswith("/artist/A1")
-    assert conn.execute("SELECT cover_small FROM albums WHERE album_id = 'album:the-paper-lanterns|night-ferry'").fetchone()[0]
+    # tags that aren't genres (seen live, a decade, light ones) are dropped
     assert {g for (g,) in conn.execute("SELECT genre FROM item_genres WHERE item_id = 'track:T1'")} == {"Indie Folk", "Dream Pop"}
     assert db.get_meta(conn, "extra_capabilities") == "time_of_day,genres"
-    api.enrich(conn, fake)                                  # cached: no new requests
-    assert len(fake.calls) == 2
