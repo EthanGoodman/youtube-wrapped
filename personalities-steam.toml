@@ -1,0 +1,106 @@
+# Player personalities for games Wrapped stories (Steam, and later other game platforms). Edit freely; reload the
+# Wrapped page to see changes.
+#
+# Same rules as personalities.toml: each personality looks at one metric for the year, its score is
+# value / threshold, and the highest score wins if it reaches 1. Otherwise the fallback is used.
+#
+# Metrics (all for the chosen year; shares are 0..1). Hours before the app's first daily snapshot are estimates
+# (spread over your achievement days), so the time-based ones are approximate for past years.
+#   top_game_share     hours in your #1 game / all hours
+#   games_count        how many different games you played
+#   new_game_share     hours in games you first played this year (not used in your first year of data)
+#   achievements       achievements unlocked
+#   rare_achievements  of the rarest you unlocked, how many fewer than 10% of players have
+#   weekend_share      hours on Saturday or Sunday (an even spread is ~0.29)
+#   night_share        hours started between midnight and 5am
+#   hours_per_day      hours per day you played
+#
+# In `reason`, {pct} is the value as a percentage, {value} the number rounded, {value1} with one decimal.
+
+[[personality]]
+id = "devoted"
+name = "The Devoted"
+emoji = "🛡️"
+color = "#6E4C7E"
+metric = "top_game_share"
+threshold = 0.5
+tagline = "One game. Every evening."
+reason = "{pct} of your playtime went to a single game."
+
+[[personality]]
+id = "sampler"
+name = "The Sampler"
+emoji = "🎲"
+color = "#4C7DA8"
+metric = "games_count"
+threshold = 15
+tagline = "So many games, so little time."
+reason = "You played {value} different games this year."
+
+[[personality]]
+id = "trailblazer"
+name = "The New-Game Hunter"
+emoji = "🧭"
+color = "#8A8B3C"
+metric = "new_game_share"
+threshold = 0.6
+tagline = "The backlog fears you."
+reason = "{pct} of your hours were in games you started this year."
+
+[[personality]]
+id = "completionist"
+name = "The Completionist"
+emoji = "🏆"
+color = "#E2A93B"
+metric = "achievements"
+threshold = 60
+tagline = "If there's a checkbox, it gets ticked."
+reason = "You unlocked {value} achievements this year."
+
+[[personality]]
+id = "elite"
+name = "The Elite"
+emoji = "💎"
+color = "#2E6B63"
+metric = "rare_achievements"
+threshold = 2
+tagline = "Rare air."
+reason = "{value} of your achievements are ones fewer than 1 in 10 players have."
+
+[[personality]]
+id = "weekend"
+name = "The Weekend Warrior"
+emoji = "🎮"
+color = "#B83A24"
+metric = "weekend_share"
+threshold = 0.45
+tagline = "Weekdays are for waiting."
+reason = "{pct} of your playtime was on weekends."
+
+[[personality]]
+id = "night_owl"
+name = "The Night Raider"
+emoji = "🌙"
+color = "#2F4A7A"
+metric = "night_share"
+threshold = 0.2
+tagline = "One more round. It's 3am."
+reason = "{pct} of your playtime started after midnight."
+
+[[personality]]
+id = "marathon"
+name = "The Marathoner"
+emoji = "⏱️"
+color = "#A34E6E"
+metric = "hours_per_day"
+threshold = 4
+tagline = "Sessions measured in hours."
+reason = "{value1} hours a day on the days you played."
+
+[fallback]
+id = "casual"
+name = "The Casual"
+emoji = "🕹️"
+color = "#2E6B63"
+tagline = "Games when you feel like it."
+reason = "No single habit ran your year: a bit of everything, when it suited you."

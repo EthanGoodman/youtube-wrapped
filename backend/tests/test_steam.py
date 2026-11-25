@@ -135,3 +135,17 @@ def test_achievement_stats_and_api(tmp_path):
     top = client.get(f"/api/top/channels?{q}&metric=time").json()["items"]
     assert top[0]["title"] == "Starfall Tactics" and round(top[0]["time_s"] / 3600, 1) == 21.5
     assert client.get("/api/games/achievements?platform=spotify").status_code in (404, 503)
+
+
+def test_games_wrapped(tmp_path):
+    from conftest import make_client
+    from ytw.api import create_app
+    from ytw.config import load_config
+    conn, _, _ = _built(tmp_path)
+    conn.close()
+    client = make_client(create_app(load_config(), db_paths={"steam": tmp_path / "steam.db"}, static_dir=tmp_path / "x"))
+    w = client.get("/api/wrapped/2024?platform=steam").json()
+    assert w["kind"] == "games" and w["platform"] == "steam" and not w["empty"] and w["estimated"]
+    assert w["top_games"][0]["title"] == "Starfall Tactics" and w["achievements"]["unlocked"] == 2
+    assert w["personality"]["name"] and "top_game_share" in w["metrics"]
+    assert client.get("/api/wrapped/2019?platform=steam").json()["empty"] is True

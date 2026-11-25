@@ -31,7 +31,8 @@ from .config import Config
 from .stats import ads, details, evolution, games, music, overview, patterns, records, search, shows, tops
 from .stats.common import ALL_BUCKETS, Filters, Range, check_year, data_bounds, resolve_range
 from .wrapped import (MODES as WRAPPED_MODES, METRICS as YT_METRICS, NETFLIX_METRICS, load_personalities,
-                      netflix_wrapped, personalities_file, wrapped as wrapped_data, MUSIC_METRICS, music_wrapped)
+                      netflix_wrapped, personalities_file, wrapped as wrapped_data, MUSIC_METRICS, music_wrapped,
+                      GAMES_METRICS, games_wrapped)
 
 TOP_KINDS: dict[str, Callable] = {
     "channels": tops.top_channels, "videos": tops.top_videos, "categories": tops.top_categories,
@@ -428,7 +429,8 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         personalities_path = personalities_file(cfg.root, p.id)
         try:
             mtime = personalities_path.stat().st_mtime
-            pcfg = load_personalities(personalities_path, MUSIC_METRICS if p.family == "music" else NETFLIX_METRICS if p.has("series") else YT_METRICS)
+            pcfg = load_personalities(personalities_path, MUSIC_METRICS if p.family == "music" else GAMES_METRICS if p.family == "games"
+                                      else NETFLIX_METRICS if p.has("series") else YT_METRICS)
         except FileNotFoundError:
             mtime, pcfg = 0, {}
         except (ValueError, tomllib.TOMLDecodeError) as e:
@@ -440,6 +442,9 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             raise HTTPException(400, f"mode must be one of {', '.join(WRAPPED_MODES)}")
         # what this platform's data can show (e.g. real times of day) is stored with the data
         p = p.with_extra(db.get_meta(conn(request), "extra_capabilities"))
+        if p.family == "games":
+            return cache_for(request).get_or_compute(stamp, key, lambda: {**games_wrapped(conn(request), year, f, pcfg, cfg.tz, today()),
+                                                                           "platform": p.id})
         if p.family == "music":
             return cache_for(request).get_or_compute(stamp, key, lambda: {**music_wrapped(conn(request), year, f, pcfg, today()),
                                                                            "platform": p.id})
