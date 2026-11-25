@@ -119,10 +119,10 @@ function PlatformApp() {
       <Route path="ads" element={<Gate capability="ads">{platform === "youtube" ? <AdsPage /> : <Layout><Ads /></Layout>}</Gate>} />
       <Route path="search" element={<Gate capability="search">{platform === "youtube" ? <SearchPage /> : <Layout><Search /></Layout>}</Gate>} />
       <Route path="channel/:id" element={SHOWS_NEW.includes(platform) ? <ShowDetailPage /> : GAMES_NEW.includes(platform) ? <GameDetailPage /> : platform === "youtube" || MUSIC_NEW.includes(platform) ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
-      <Route path="video/:id" element={platform === "youtube" || MUSIC_NEW.includes(platform) ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
+      <Route path="video/:id" element={GAMES_NEW.includes(platform) ? <GameRedirect /> : platform === "youtube" || MUSIC_NEW.includes(platform) ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
       <Route path="category/:id" element={platform === "youtube" ? <CategoryDetailPage /> : <Layout><CategoryPage /></Layout>} />
       <Route path="genre/:topic" element={platform === "youtube" || MUSIC_NEW.includes(platform) || GAMES_NEW.includes(platform) ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
-      <Route path="year/:year" element={platform === "youtube" || MUSIC_NEW.includes(platform) ? <YearDetailPage /> : <Layout showRange={false}><YearPage /></Layout>} />
+      <Route path="year/:year" element={platform === "youtube" || MUSIC_NEW.includes(platform) || GAMES_NEW.includes(platform) ? <YearDetailPage /> : <Layout showRange={false}><YearPage /></Layout>} />
       <Route path="achievements" element={GAMES_NEW.includes(platform) ? <AchievementsPage /> : <Navigate to=".." replace />} />
       <Route path="album/:id" element={MUSIC_NEW.includes(platform) ? <AlbumDetailPage /> : <Navigate to=".." replace />} />
       <Route path="wrapped" element={<WrappedPage />} />
@@ -161,4 +161,11 @@ function NotFound() {
 function BuildCheck() {
   useBuildCheck();
   return null;
+}
+
+/** A game is both the thing played and the thing returned to: its one page is the game page. */
+function GameRedirect() {
+  const { id = "" } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={`../channel/${encodeURIComponent(id)}${search}`} replace />;
 }

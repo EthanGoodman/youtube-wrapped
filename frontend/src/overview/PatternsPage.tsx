@@ -197,6 +197,7 @@ function Weekends({ ww, m, counts, busiest = true }: { ww?: { weekday: WW; weeke
  *  to light only the days at that level. */
 function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
   const n = useNoun().many;
+  const { verb, verbed } = useVerb();
   const [day, setDay] = useState<DayPoint | null>(null);
   const [level, setLevel] = useState<number | null>(null);
   if (!days) return <Skeleton h={180} />;
@@ -208,8 +209,8 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
   const unit = m === "time" ? "" : ` ${n}`;
   const fmt = (x: number) => (m === "time" ? duration(x) : num(x));
   const nice = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-  const info = day ? `${nice(day.date)} · ${day.count ? `${num(day.count)} ${n} · ${duration(day.time_s)}` : "nothing watched"}`
-    : level != null ? (level === 0 ? "Days you didn't watch" : `Days with ${fmt(heatRange(level, max)[0])}–${fmt(heatRange(level, max)[1])}${unit}`)
+  const info = day ? `${nice(day.date)} · ${day.count ? `${num(day.count)} ${n} · ${duration(day.time_s)}` : `nothing ${verbed}`}`
+    : level != null ? (level === 0 ? `Days you didn't ${verb}` : `Days with ${fmt(heatRange(level, max)[0])}–${fmt(heatRange(level, max)[1])}${unit}`)
     : "Hover a day to see it, or a shade to light up those days.";
   // a month name over the first week that holds its 1st (and over the first column)
   const monthOf = (w: (DayPoint | null)[], i: number) => {
@@ -217,10 +218,10 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
     return first ? new Date(first.date + "T00:00:00").toLocaleDateString("en-US", { month: "short" }) : "";
   };
   return (
-    <Card label="Every day" title={`You watched on ${num(active)} of ${num(days.length)} days`}>
+    <Card label="Every day" title={`You ${verbed} on ${num(active)} of ${num(days.length)} days`}>
       <Readout text={info} active={!!day || level != null} />
       <ScrollRow bg={OV.paper} className="pb-1">
-        <div onMouseLeave={() => setDay(null)} className="grid gap-[3px]" role="img" aria-label={`One square per day. You watched on ${active} of ${days.length} days.`}
+        <div onMouseLeave={() => setDay(null)} className="grid gap-[3px]" role="img" aria-label={`One square per day. You ${verbed} on ${active} of ${days.length} days.`}
              style={{ gridTemplateColumns: `30px repeat(${W},minmax(0,1fr))`, width: `min(100%, ${W * 30 + 34}px)`, minWidth: `${W * 12 + 34}px` }}>
           <span />
           {weeks.map((w, i) => <span key={`m${i}`} className="overflow-visible whitespace-nowrap font-shelf-mono text-[10px]" style={{ color: OV.soft }}>{monthOf(w, i)}</span>)}
