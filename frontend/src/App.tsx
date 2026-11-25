@@ -21,6 +21,7 @@ import { TopPage } from "./overview/TopPage";
 import { PatternsPage } from "./overview/PatternsPage";
 import { RecordsPage } from "./overview/RecordsPage";
 import { EvolutionPage } from "./overview/EvolutionPage";
+import { CategoryDetailPage, ChannelDetailPage, GenreDetailPage, VideoDetailPage, YearDetailPage } from "./overview/DetailPages";
 import { usePlatforms } from "./api";
 import { HubLink, PLATFORM_IDS, setVocab, useCapability } from "./platform";
 import { setChartTheme } from "./theme";
@@ -98,11 +99,11 @@ function PlatformApp() {
       <Route path="evolution" element={platform === "youtube" ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
       <Route path="ads" element={<Gate capability="ads"><Layout><Ads /></Layout></Gate>} />
       <Route path="search" element={<Gate capability="search"><Layout><Search /></Layout></Gate>} />
-      <Route path="channel/:id" element={<Layout><ChannelPage /></Layout>} />
-      <Route path="video/:id" element={<Layout showRange={false}><VideoPage /></Layout>} />
-      <Route path="category/:id" element={<Layout><CategoryPage /></Layout>} />
-      <Route path="genre/:topic" element={<Layout><GenrePage /></Layout>} />
-      <Route path="year/:year" element={<Layout showRange={false}><YearPage /></Layout>} />
+      <Route path="channel/:id" element={platform === "youtube" ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
+      <Route path="video/:id" element={platform === "youtube" ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
+      <Route path="category/:id" element={platform === "youtube" ? <CategoryDetailPage /> : <Layout><CategoryPage /></Layout>} />
+      <Route path="genre/:topic" element={platform === "youtube" ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
+      <Route path="year/:year" element={platform === "youtube" ? <YearDetailPage /> : <Layout showRange={false}><YearPage /></Layout>} />
       <Route path="wrapped" element={<WrappedPage />} />
       <Route path="*" element={<Layout><PageTitle title="Not found" /></Layout>} />
     </Routes>
