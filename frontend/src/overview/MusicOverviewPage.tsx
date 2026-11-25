@@ -1,6 +1,7 @@
-/* The home page for music platforms (Spotify first), in the shared look. From the priority table: hours listened and
+/* The home page for music platforms (Spotify first), in the shared look. From the priority table: hours listened (the
+   headline, like every platform; minutes under it) and
    your top songs up top; then the must-haves (top artists, top albums, evolution, records); patterns as a link.
-   Ranked like stats.fm: songs by streams (plays of 30 s or more), artists and albums by hours. */
+   Ranked like stats.fm: songs by streams (plays of 30 s or more), artists and albums by minutes. */
 import { ReactNode } from "react";
 import { Link, useCapability } from "../platform";
 import { HourPoint, Overview, RankedItem, TopResponse, useMeta, useStats } from "../api";
@@ -9,7 +10,7 @@ import { compact, date, num } from "../format";
 import { Band, Cover, MoveBadge, OV, Pic, ScrollRow, Skeleton, StatsFrame, kicker, useAccent, usePrevRanks } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
 import {
-  Comparison, Move, changeLine, clockFacts, hourLabel, hoursShort, periodTitle, rankMove, spanLabel, topHeadline,
+  Comparison, Move, changeLine, clockFacts, hourLabel, periodTitle, rankMove, spanLabel, topHeadline,
   yearsToShow,
 } from "./takeaways";
 
@@ -20,6 +21,7 @@ interface MusicRecords { on_repeat: { key: string; title: string; artist: string
 
 const streams = (n: number) => `${num(n)} stream${n === 1 ? "" : "s"}`;
 const songLink = (k: string) => `/video/${encodeURIComponent(k)}`;
+const minutes_ = (s: number) => `${num(Math.round(s / 60))} min`;
 
 export function MusicOverviewPage() {
   const meta = useMeta();
@@ -80,7 +82,7 @@ function Hero({ o, top, topLoading, prev, cmp, title, topMove }: {
                 <span className="text-[clamp(96px,13vw,190px)] tracking-[-0.05em]" style={{ color: OV.mustard }}>{num(hours)}</span>
                 <span className="flex flex-col gap-1">
                   <span className="text-[clamp(26px,2.6vw,38px)]">hours</span>
-                  <span className="font-shelf-mono text-[12px] font-normal" style={{ color: OV.mute }}>of listening</span>
+                  <span className="font-shelf-mono text-[12px] font-normal" style={{ color: OV.mute }}>{num(Math.round(o.est_s / 60))} minutes</span>
                 </span>
               </h1>
               {change && <p className="text-[18px]">{change}</p>}
@@ -106,7 +108,7 @@ function Hero({ o, top, topLoading, prev, cmp, title, topMove }: {
                 <span className="font-ov-display text-[clamp(24px,2.4vw,34px)] font-extrabold leading-tight group-hover:underline">
                   {topHeadline(top.title, topMove?.tone === "same" ? 1 : undefined)}
                 </span>
-                <span className="font-shelf-mono text-[13px]" style={{ color: OV.mute }}>{hoursShort(top.time_s)} · {streams(top.count)}</span>
+                <span className="font-shelf-mono text-[13px]" style={{ color: OV.mute }}>{minutes_(top.time_s)} · {streams(top.count)}</span>
               </span>
             </Link>
           ) : topLoading ? <Skeleton h={200} dark /> : null}
@@ -161,12 +163,12 @@ function SongsRow({ items, prevRank, cmp }: { items?: Music[]; prevRank: (c: Ran
 function ArtistsBand({ items }: { items?: RankedItem[] }) {
   const q = useLinkQuery();
   return (
-    <Band label="By hours listened" title="Top artists" link={["/top/channels", "All your artists"]}>
+    <Band label="By minutes listened" title="Top artists" link={["/top/channels", "All your artists"]}>
       {!items ? <Skeleton h={220} /> : (
         <ol className="flex flex-col">
           {items.slice(0, 6).map((c) => (
             <RowLink key={c.key} to={`/channel/${encodeURIComponent(c.key)}${q}`} rank={c.rank}
-                     pic={<Pic src={c.avatar_url} name={c.title} size="48px" />} title={c.title} sub={streams(c.count)} value={hoursShort(c.time_s)}
+                     pic={<Pic src={c.avatar_url} name={c.title} size="48px" />} title={c.title} sub={streams(c.count)} value={minutes_(c.time_s)}
                      share={c.time_s / Math.max(1, items[0].time_s)} />
           ))}
         </ol>
@@ -181,13 +183,13 @@ function AlbumsBand() {
   const albums = useStats<{ items: Music[] }>("top/albums", { limit: 6 }, { filters: { ...filters, metric: "time" } });
   const items = albums.data?.items;
   return (
-    <Band label="By hours listened" title="Top albums" link={["/top/albums", "All your albums"]}>
+    <Band label="By minutes listened" title="Top albums" link={["/top/albums", "All your albums"]}>
       {!items ? <Skeleton h={220} /> : !items.length ? <p style={{ color: OV.soft }}>No albums in this period.</p> : (
         <ol className="flex flex-col">
           {items.map((a) => (
             <RowLink key={a.key} to={`/album/${encodeURIComponent(a.key)}${q}`} rank={a.rank}
                      pic={<Cover src={a.cover} name={a.title} size="48px" className="!border-2" />} title={a.title} sub={a.artist ?? ""}
-                     value={hoursShort(a.time_s)} share={a.time_s / Math.max(1, items[0].time_s)} />
+                     value={minutes_(a.time_s)} share={a.time_s / Math.max(1, items[0].time_s)} />
           ))}
         </ol>
       )}

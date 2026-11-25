@@ -100,7 +100,7 @@ export const MUSIC_CARDS: MCard[] = [
             <motion.div {...pop(0.5)}><CoverImg src={a.cover} name={a.title} w={220} /></motion.div>
             <Big size={fit(a.title, 32, 20)} delay={1} className="mt-6">{a.title}</Big>
             <motion.p {...rise(1.3)} className="mt-2 font-shelf-mono text-[13px]" style={{ color: OV.mute }}>
-              {a.artist} · {num(Math.round(a.time_s / 3600))} hours
+              {a.artist} · {num(Math.round(a.time_s / 60))} minutes
             </motion.p>
           </div>
         </WCard>

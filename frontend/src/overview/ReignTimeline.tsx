@@ -2,8 +2,8 @@
    run, and the longest run is highlighted. Shared by the home page and the Evolution page. */
 import { Link } from "../platform";
 import { useMeta } from "../api";
-import { Avatar, OV, ScrollRow, useCreator, useVerb } from "./kit";
-import { groupReigns, hoursShort, longestReign, monthDay } from "./takeaways";
+import { Avatar, OV, ScrollRow, useCreator, useTime, useVerb } from "./kit";
+import { groupReigns, longestReign, monthDay } from "./takeaways";
 
 export interface YearTop { year: number; channel_id: string; title?: string | null; avatar_url?: string | null; time_s: number; count: number }
 
@@ -14,6 +14,7 @@ export function reignTitle(rows: YearTop[]): string {
 }
 
 export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]; calendarYears?: boolean }) {
+  const tm = useTime();
   const cr = useCreator();
   const { verbed } = useVerb();
   const meta = useMeta().data;
@@ -37,15 +38,15 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
                   {partial && <span className="text-[11px] font-normal" style={{ color: OV.soft }}>from {monthDay(meta?.first_date)}</span>}</span>
                 <Avatar src={g.first.avatar_url} name={g.first.title} size={star ? 68 : 48} />
                 <span className="w-full truncate text-[14px] font-bold">{g.first.title}</span>
-                <span className="font-ov-display text-[20px] font-extrabold leading-none">{hoursShort(g.total_s)}</span>
+                <span className="font-ov-display text-[20px] font-extrabold leading-none">{tm.fmt(g.total_s)}</span>
                 {g.years.length > 1 && (
                   <span className="mt-1 flex flex-wrap justify-center gap-1.5">
                     {g.years.map((y) => (
                       <Link key={y.year} to={`/wrapped?year=${y.year}`}
                             className="rounded-full border px-2 py-0.5 font-shelf-mono text-[11px] hover:underline"
                             style={{ borderColor: OV.ink, background: star ? OV.paper : "transparent" }}
-                            aria-label={`${y.year}: ${hoursShort(y.time_s)} of ${g.first.title ?? `this ${cr.one}`}. Open ${y.year} Wrapped`}>
-                        {y.year} · {hoursShort(y.time_s)}
+                            aria-label={`${y.year}: ${tm.fmt(y.time_s)} of ${g.first.title ?? `this ${cr.one}`}. Open ${y.year} Wrapped`}>
+                        {y.year} · {tm.fmt(y.time_s)}
                       </Link>
                     ))}
                   </span>
@@ -57,7 +58,7 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
             return g.years.length === 1 ? (
               <li key={g.from} className="min-w-0" style={{ gridColumn: style.gridColumn }}>
                 <Link to={`/wrapped?year=${g.from}`} className={`${cls} group hover:brightness-[0.98]`} style={style}
-                      aria-label={`${g.from}: your #1 was ${g.first.title ?? "unknown"}, ${hoursShort(g.total_s)}. Open ${g.from} Wrapped`}>
+                      aria-label={`${g.from}: your #1 was ${g.first.title ?? "unknown"}, ${tm.fmt(g.total_s)}. Open ${g.from} Wrapped`}>
                   {body}
                 </Link>
               </li>
@@ -68,7 +69,7 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
         </ol>
       </ScrollRow>
       <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>
-        Hours are what you {verbed} of that {cr.one}{calendarYears ? " in those calendar years" : ""}. Pick a year to open its Wrapped.
+        {tm.Unit} are what you {verbed} of that {cr.one}{calendarYears ? " in those calendar years" : ""}. Pick a year to open its Wrapped.
       </p>
     </>
   );

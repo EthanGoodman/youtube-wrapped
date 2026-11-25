@@ -5,10 +5,10 @@ import { Link, useCapability } from "../platform";
 import { MonthPoint, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { date, num, pct } from "../format";
-import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useCreator, useNoun, useVerb } from "./kit";
+import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useCreator, useNoun, useTime, useVerb } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
 import { Readout } from "./charts";
-import { hoursShort, raceAt, raceColors, rankingFilters, yearlyHours } from "./takeaways";
+import { raceAt, raceColors, rankingFilters, yearlyHours } from "./takeaways";
 
 interface Ref { channel_id: string; title?: string | null; avatar_url?: string | null }
 type Discovery = Ref & { first_watched: string; count: number; time_s: number };
@@ -159,6 +159,7 @@ function FellOffCard() {
 }
 
 function Discoveries() {
+  const tm = useTime();
   const { verbed } = useVerb();
   const cr = useCreator();
   const { filters } = useFilters();
@@ -180,7 +181,7 @@ function Discoveries() {
               <Link to={`/channel/${encodeURIComponent(c.channel_id)}${q}`} className="group flex flex-col items-center gap-1.5 text-center">
                 <Avatar src={c.avatar_url} name={c.title} size={84} />
                 <span className="w-full truncate text-[14px] font-bold group-hover:underline">{c.title}</span>
-                <span className="font-ov-display text-[15px] font-extrabold">{hoursShort(c.time_s)}</span>
+                <span className="font-ov-display text-[15px] font-extrabold">{tm.fmt(c.time_s)}</span>
                 <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>found {date(c.first_watched)}</span>
               </Link>
             </li>
@@ -197,6 +198,7 @@ const MS_PER_MONTH = 1000;
 const ROW = 40;
 
 function BarRace() {
+  const tm = useTime();
   const { filters } = useFilters();
   const cr = useCreator();
   // a few extra channels per month, so newcomers slide up from below instead of appearing out of nowhere
@@ -231,11 +233,11 @@ function BarRace() {
   const shown = frames.length ? frames[Math.min(last, Math.ceil(t - 1e-6))].month : null;
   const label = shown ? new Date(shown + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "";
   return (
-    <Card label="Bar chart race · hours so far" title={label ? `As of ${label}` : "Bar chart race"}>
+    <Card label={`Bar chart race · ${tm.unit} so far`} title={label ? `As of ${label}` : "Bar chart race"}>
       {!race.data ? <Skeleton h={420} /> : (
         <>
           <div className="relative" style={{ height: ROW * 10 }} role="img"
-               aria-label={`Top ${cr.many} by hours as of ${label}: ${rows.slice(0, 3).map((r) => race.data!.channels[r.channel_id]?.title).join(", ")}`}>
+               aria-label={`Top ${cr.many} by ${tm.unit} as of ${label}: ${rows.slice(0, 3).map((r) => race.data!.channels[r.channel_id]?.title).join(", ")}`}>
             {rows.map((r, rank) => {
               const c = race.data!.channels[r.channel_id];
               return (
@@ -248,7 +250,7 @@ function BarRace() {
                   <span className="relative h-full flex-1">
                     <span className="absolute inset-y-1 left-0 rounded-r-md" style={{ width: `${(r.value / max) * 100}%`, background: colors[r.channel_id] ?? OV.ink }} />
                   </span>
-                  <span className="w-[64px] text-right font-shelf-mono text-[12px] tabular-nums">{hoursShort(r.value)}</span>
+                  <span className="w-[64px] text-right font-shelf-mono text-[12px] tabular-nums">{tm.fmt(r.value)}</span>
                 </div>
               );
             })}

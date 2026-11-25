@@ -6,8 +6,8 @@ import { Link, useCapability } from "../platform";
 import { Metric, useFilters, useLinkQuery } from "../filters";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { num, pct } from "../format";
-import { Cover, MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, usePrevRanks, useVerb } from "./kit";
-import { hoursShort, periodTitle, rankMove, rankingFilters } from "./takeaways";
+import { Cover, MoveBadge, OV, PageBody, PageHeader, Pic, Poster, Seg, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, usePrevRanks, useTime, useVerb } from "./kit";
+import { periodTitle, rankMove, rankingFilters } from "./takeaways";
 
 type Shape = "face" | "poster" | "cover" | "thumb" | "none";
 /* `unit` is what the count counts; `once` lists are things you rarely repeat (their arrows would all say "new",
@@ -37,6 +37,7 @@ const MUSIC_KINDS: Kind[] = [
 ];
 
 export function TopPage() {
+  const tm = useTime();
   const { kind = "channels" } = useParams();
   const { filters } = useFilters();
   const [params, setParams] = useSearchParams();
@@ -72,7 +73,7 @@ export function TopPage() {
   const prevRank = (c: RankedItem) => (moves ? prev.prevRank(c) : undefined);
   const items = top.data?.items;
   const setMetric = (m: Metric) => setParams((p) => { const n = new URLSearchParams(p); n.set("metric", m); return n; }, { replace: true });
-  const value = (c: RankedItem) => (metric === "time" ? hoursShort(c.time_s) : `${num(c.count)} ${k.unit[c.count === 1 ? 0 : 1]}`);
+  const value = (c: RankedItem) => (metric === "time" ? tm.fmt(c.time_s) : `${num(c.count)} ${k.unit[c.count === 1 ? 0 : 1]}`);
   const max = items?.length ? Math.max(1, metric === "time" ? items[0].time_s : items[0].count) : 1;
   const share = (c: RankedItem) => (metric === "time" ? c.time_s : c.count) / max;
 
@@ -83,10 +84,10 @@ export function TopPage() {
           <Seg label="List" dark value={k.kind} options={kinds.map((x) => [x.kind, x.label])}
                onChange={(v) => { setLimit(50); navigate(`/${meta?.platform.id ?? "youtube"}/top/${v}${q}`); }} />
           <span className="ml-2 font-shelf-mono text-[12px] uppercase tracking-[0.1em]" style={{ color: OV.mute }} aria-hidden>Rank by</span>
-          <Seg label="Rank by" dark value={metric} options={[["time", "Hours"], ["count", k.once ? "Rewatches" : k.unit[1].charAt(0).toUpperCase() + k.unit[1].slice(1)]]} onChange={setMetric} />
+          <Seg label="Rank by" dark value={metric} options={[["time", tm.Unit], ["count", k.once ? "Rewatches" : k.unit[1].charAt(0).toUpperCase() + k.unit[1].slice(1)]]} onChange={setMetric} />
         </div>
         <p className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>
-          Ranked by {metric === "time" ? `hours ${verbed}${estimated ? " (estimated)" : ""}` : k.once ? `how often you ${verbed} it` : `${k.unit[1]} ${verbed}`}
+          Ranked by {metric === "time" ? `${tm.unit} ${verbed}${estimated ? " (estimated)" : ""}` : k.once ? `how often you ${verbed} it` : `${k.unit[1]} ${verbed}`}
           {shorts && k.shape !== "none" && filters.buckets.includes("long") ? " · long videos only (pick Shorts in the top bar to rank those)" : ""}
           {cmp ? ` · arrows since ${cmp.label}` : ""}
         </p>

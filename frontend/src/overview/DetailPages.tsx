@@ -6,7 +6,7 @@ import { Link, useCapability, usePlatform } from "../platform";
 import { HourPoint, MonthPoint, Overview, RankedItem, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { clockTime, compact, date, duration, num, pct, safeHref } from "../format";
-import { Cover, OV, Pic, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, useVerb } from "./kit";
+import { Cover, OV, Pic, Skeleton, StatsFrame, kicker, useCreator, useFamily, useNoun, useTime, useVerb } from "./kit";
 import { HoverBars, Ticks } from "./charts";
 import { changeLine, hourLabel, hoursShort, periodTitle } from "./takeaways";
 
@@ -100,6 +100,7 @@ function VideoList({ items, empty = "Nothing in this period." }: { items: Ranked
 }
 
 function FaceRow({ items }: { items: RankedItem[] }) {
+  const tm = useTime();
   const q = useLinkQuery();
   const n = useNoun().many;
   if (!items.length) return <p style={{ color: OV.soft }}>Nothing in this period.</p>;
@@ -110,7 +111,7 @@ function FaceRow({ items }: { items: RankedItem[] }) {
           <Link to={`/channel/${encodeURIComponent(c.key)}${q}`} className="group flex flex-col items-center gap-1 text-center">
             <Pic src={c.avatar_url} name={c.title} size="72px" />
             <span className="w-full truncate text-[13px] font-bold group-hover:underline">{c.title}</span>
-            <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>{c.time_s >= 3600 ? hoursShort(c.time_s) : duration(c.time_s)} · {num(c.count)} {n}</span>
+            <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>{tm.unit === "minutes" || c.time_s >= 3600 ? tm.fmt(c.time_s) : duration(c.time_s)} · {num(c.count)} {n}</span>
           </Link>
         </li>
       ))}
@@ -134,13 +135,15 @@ function fillMonths(data: MonthPoint[]): MonthPoint[] {
 }
 
 function MonthBars({ data }: { data: MonthPoint[] }) {
+  const n = useNoun().many;
+  const tm = useTime();
   const months = fillMonths(data);
   if (!months.length) return <p style={{ color: OV.soft }}>No watches.</p>;
   const many = months.length > 24;
   const label = (k: string) => new Date(k + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
   return (
     <HoverBars height={150} gap={2} radius={2} hint="Hover a month to see it." ariaLabel="Hours per month"
-               bars={months.map((x) => ({ key: x.month, label: label(x.month), value: x.time_s, display: `${hoursShort(x.time_s)} · ${num(x.count)} videos`, color: OV.ink }))}
+               bars={months.map((x) => ({ key: x.month, label: label(x.month), value: x.time_s, display: `${tm.fmt(x.time_s)} · ${num(x.count)} ${n}`, color: OV.ink }))}
                ticks={<Ticks labels={months.map((x) => (many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "")
                                                             : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })))} />} />
   );
@@ -158,7 +161,9 @@ function ClockBars({ data }: { data: HourPoint[] }) {
   );
 }
 
-function OverTime({ d, monthsLabel = "Over time · all time, hours per month" }: { d: SubsetBase; monthsLabel?: string }) {
+function OverTime({ d, monthsLabel }: { d: SubsetBase; monthsLabel?: string }) {
+  const tm = useTime();
+  monthsLabel = monthsLabel ?? `Over time · all time, ${tm.unit} per month`;
   const { verb } = useVerb();
   const hasTimes = useCapability("time_of_day");
   return (
@@ -182,13 +187,14 @@ function Chips({ items, to }: { items: string[]; to?: (s: string) => string }) {
 
 /** Hours, how many, first and last time: in the platform's words (videos watched, streams listened…). */
 function useSubsetNumbers(d: SubsetBase | undefined, range: string): [string, ReactNode, ReactNode?][] {
+  const tm = useTime();
   const n = useNoun();
   const music = useFamily() === "music";
   const verbed = music ? "listened" : "watched";
   if (!d) return [];
   const all = range === "all";
   return [
-    ["Hours", hoursShort(d.in_range.est_s), all ? undefined : `${hoursShort(d.all_time.est_s)} all time`],
+    [tm.Unit, tm.fmt(d.in_range.est_s), all ? undefined : `${tm.fmt(d.all_time.est_s)} all time`],
     [music ? "Streams" : n.Many, num(d.in_range.videos), all ? undefined : `${num(d.all_time.videos)} all time`],
     [`First ${verbed}`, date(d.all_time.first_watched)],
     [`Last ${verbed}`, date(d.all_time.last_watched)],

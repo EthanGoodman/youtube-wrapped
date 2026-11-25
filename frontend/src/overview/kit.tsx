@@ -5,7 +5,8 @@ import { useLocation } from "react-router-dom";
 import { HubLink, Link, useCapability, usePlatform } from "../platform";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { ALL_BUCKETS, Bucket, Filters, useFilters, useLinkQuery } from "../filters";
-import { Comparison, Move, comparison, periodYear } from "./takeaways";
+import { num } from "../format";
+import { Comparison, Move, comparison, hoursShort, periodYear } from "./takeaways";
 
 /** The palette (shared by every platform; only `accent` is the app's own color). */
 export const OV = {
@@ -54,6 +55,14 @@ export function useNoun(): { one: string; many: string; Many: string } {
   const one = v?.item ?? (shows ? "title" : "video");
   const many = v?.items ?? (shows ? "titles" : "videos");
   return { one, many, Many: cap(many) };
+}
+
+/** Time the way each family reads it: minutes for music ("9,615 min", like stats.fm), hours otherwise ("160 h").
+ *  `per` is seconds per unit. */
+export function useTime(): { fmt: (s: number) => string; unit: string; Unit: string; per: number } {
+  return useFamily() === "music"
+    ? { fmt: (s) => `${num(Math.round(s / 60))} min`, unit: "minutes", Unit: "Minutes", per: 60 }
+    : { fmt: hoursShort, unit: "hours", Unit: "Hours", per: 3600 };
 }
 
 /** The verb: watch (video, shows) or listen (music), from the platform's own words. */
