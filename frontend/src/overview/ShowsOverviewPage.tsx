@@ -222,6 +222,7 @@ export function ProgressRow({ s, rank }: { s: ShowProgress; rank?: number }) {
 }
 
 function HowFar() {
+  const q = useLinkQuery();
   const prog = useStats<{ data: { summary: Record<ShowStatus, number>; shows: ShowProgress[] } }>("shows/progress", { limit: 6 });
   const d = prog.data?.data;
   return (
@@ -230,7 +231,7 @@ function HowFar() {
         <div className="grid min-w-0 gap-4 lg:grid-cols-[1fr_2fr]">
           <div className="grid min-w-0 grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-1">
             {(["finished", "watching", "dropped"] as const).map((k) => (
-              <Link key={k} to={`/shows?status=${k}`} className="flex min-w-0 flex-col justify-center gap-1 rounded-2xl border-2 px-3 py-3 transition-transform sm:px-4 hover:-translate-y-0.5"
+              <Link key={k} to={`/shows${q ? `${q}&` : "?"}status=${k}`} className="flex min-w-0 flex-col justify-center gap-1 rounded-2xl border-2 px-3 py-3 transition-transform sm:px-4 hover:-translate-y-0.5"
                     style={{ background: STATUS[k].bg, color: STATUS[k].fg, borderColor: OV.ink }}>
                 <span className="font-ov-display text-[clamp(30px,3.4vw,44px)] font-extrabold leading-none">{num(d.summary[k])}</span>
                 <span className="text-[13px] font-bold leading-tight sm:text-[14px]">{STATUS[k].label}</span>
