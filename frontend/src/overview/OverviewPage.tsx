@@ -2,36 +2,20 @@
    row, then the must-have sections (here Evolution and Patterns), then a short strip of nice-to-haves. Our own look:
    ink hero with a warm two-tone backdrop, cream page, mustard / teal / red-orange accents; not the service's UI. */
 import { ReactNode, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { HubLink, Link, useCapability } from "../platform";
+import { Link } from "../platform";
 import { HourPoint, Overview, RankedItem, TopResponse, useMeta, useStats } from "../api";
-import { ALL_BUCKETS, Bucket, useFilters, useLinkQuery } from "../filters";
+import { useFilters, useLinkQuery } from "../filters";
+import { Band, MoveBadge, OV, Pic, Skeleton, StatsFrame, kicker, usePrevRanks } from "./kit";
 import { compact, num } from "../format";
 import {
-  Comparison, DAYS, Move, changeLine, clockFacts, comparison, hourLabel, hoursShort, groupReigns, longestReign, oneIn, periodTitle, rankMove,
+  Comparison, DAYS, Move, changeLine, clockFacts, hourLabel, hoursShort, groupReigns, longestReign, oneIn, periodTitle, rankMove,
   monthDay, rankingFilters, spanLabel, topHeadline, weekdayFacts, yearsToShow,
 } from "./takeaways";
-
-/** The palette (shared by every platform; only `accent` is the app's own color). */
-export const OV = {
-  bg: "#F4EEE3", paper: "#FBF6EC", ink: "#1A1714", ink2: "#24201C", soft: "#5C5348", sand: "#E3D8C2",
-  mustard: "#E2A93B", teal: "#2E6B63", accent: "#B83A24", mute: "#B9AE9C",
-};
 
 interface Streak { days: number; start: string; end: string }
 interface RecordsResponse { streaks: { longest: Streak | null } }
 interface YearTop { year: number; channel_id: string; title?: string | null; avatar_url?: string | null; time_s: number }
 interface ChannelDetail { top_videos: RankedItem[] }
-
-type Tab = [string, string, boolean?];
-const TABS: Tab[] = [
-  ["/", "Overview", true], ["/top/channels", "Top channels"], ["/evolution", "Evolution"], ["/patterns", "Patterns"],
-  ["/records", "Records"],
-];
-/* nice-to-haves and things people only look for on purpose live behind "More" */
-const MORE: [string, string, string?][] = [
-  ["/top/videos", "Top videos"], ["/top/genres", "Top genres"], ["/ads", "Ads you saw", "ads"], ["/search", "Search history", "search"],
-];
 
 export function OverviewPage() {
   const meta = useMeta();
@@ -41,212 +25,24 @@ export function OverviewPage() {
   // like Wrapped: rank by what you sat down to watch (Shorts only when that's all you picked), and by hours
   const byTime = { ...rankingFilters(filters), metric: "time" as const };
   const channels = useStats<TopResponse>("top/channels", { limit: 10 }, { filters: byTime });
-  // "this year" compares with the same dates last year; other periods use the API's previous period
-  const cmp = comparison(filters, today);
+  // arrows compare with the same dates last year ("this year") or the API's previous period
+  const { cmp, prevRank } = usePrevRanks("channels", byTime);
   const sameSpan = cmp?.start ? { ...filters, range: "custom", start: cmp.start, end: cmp.end } : null;
   const lastOv = useStats<Overview>("overview", {}, { filters: sameSpan ?? filters, enabled: !!sameSpan });
-  const lastTop = useStats<TopResponse>("top/channels", { limit: 200 },
-                                        { filters: sameSpan ? { ...byTime, ...sameSpan, metric: "time" } : byTime, enabled: !!sameSpan });
-  const prevRank = (c: RankedItem): number | null | undefined => {
-    if (!cmp) return undefined;
-    if (!sameSpan) return c.prev_rank;
-    if (!lastTop.data) return undefined;
-    return lastTop.data.items.find((x) => x.key === c.key)?.rank ?? null;
-  };
   const prevHours = sameSpan ? lastOv.data?.est_s : ov.data?.previous.est_s;
   const top = channels.data?.items[0];
 
   return (
-    <div className="min-h-[100dvh] font-shelf-sans" style={{ background: OV.bg, color: OV.ink, colorScheme: "light" }}>
-      <TopBar />
-      {meta.error ? <p className="mx-auto max-w-[1400px] p-6">Can't reach your data. {meta.error.message}</p> : (
-        <>
-          <Hero o={ov.data} top={top} topLoading={!channels.data} prev={prevHours} cmp={cmp}
-                title={periodTitle(filters, today)} topMove={top ? rankMove(1, prevRank(top)) : null} />
-          <main className="mx-auto flex max-w-[1400px] flex-col gap-12 px-4 pb-16 pt-10 sm:px-8">
-            <TopRow items={channels.data?.items} prevRank={prevRank} cmp={cmp} />
-            <Patterns />
-            <Evolution />
-            <More />
-          </main>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------ frame
-
-function TopBar() {
-  const q = useLinkQuery();
-  const { pathname } = useLocation();
-  const meta = useMeta().data;
-  const thisYear = meta?.today.slice(0, 4);
-  const caps = meta?.platform.capabilities;
-  const more = MORE.filter(([, , cap]) => !cap || !caps || caps.includes(cap));
-  return (
-    <header style={{ background: OV.ink, color: OV.paper }}>
-      <div className="mx-auto flex min-h-16 max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-8 lg:h-16 lg:flex-nowrap lg:py-0">
-        <HubLink to="/" className="inline-flex min-h-11 items-center font-shelf-mono text-[13px] hover:underline">‹ Shelf</HubLink>
-        <span className="font-ov-display text-[26px] font-extrabold tracking-[-0.02em]">{meta?.platform.name ?? "YouTube"}</span>
-        <nav aria-label="Sections" className="no-scrollbar order-last -mx-1 flex w-full items-center gap-1 overflow-x-auto px-1 lg:order-none lg:mx-0 lg:w-auto lg:flex-1 lg:overflow-visible lg:px-0">
-          {TABS.map(([to, label, end]) => {
-            const on = end ? pathname.replace(/\/$/, "").split("/").length <= 2 : pathname.includes(to);
-            return (
-              <Link key={to} to={to + q} aria-current={on ? "page" : undefined}
-                    className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium hover:underline"
-                    style={on ? { background: OV.mustard, color: OV.ink } : undefined}>
-                {label}
-              </Link>
-            );
-          })}
-          {/* phones: the extras are just more tabs in the scrolling row (a dropdown would be clipped there) */}
-          {more.map(([to, label]) => (
-            <Link key={to} to={to + q} className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium lg:hidden">{label}</Link>
-          ))}
-          <details className="relative hidden shrink-0 lg:block">
-            <summary className="inline-flex min-h-10 cursor-pointer list-none items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium hover:underline">More ▾</summary>
-            <div className="absolute left-0 top-full z-50 mt-1 flex w-48 flex-col rounded-xl border-2 p-1 shadow-xl"
-                 style={{ background: OV.paper, color: OV.ink, borderColor: OV.ink }}>
-              {more.map(([to, label]) => (
-                <Link key={to} to={to + q} className="rounded-lg px-3 py-2.5 text-[14px] hover:bg-black/5">{label}</Link>
-              ))}
-            </div>
-          </details>
-        </nav>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <PeriodPicker />
-          <ContentPicker />
-          {thisYear && (
-            <Link to={`/wrapped?year=${thisYear}`}
-                  className="inline-flex min-h-10 items-center whitespace-nowrap rounded-[10px] px-4 text-[15px] font-bold hover:brightness-105"
-                  style={{ background: OV.mustard, color: OV.ink }}>
-              Your {thisYear} Wrapped
-            </Link>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-}
-
-const selectCls = "min-h-10 w-[122px] rounded-[10px] border-2 px-2 font-shelf-mono text-[13px]";
-const selectStyle = { borderColor: "#4A433B", background: OV.ink2, color: OV.paper, colorScheme: "dark" as const };
-
-function PeriodPicker() {
-  const { filters, update } = useFilters();
-  const meta = useMeta().data;
-  const [custom, setCustom] = useState(false);
-  const years = [...(meta?.years ?? [])].reverse();
-  return (
-    <div className="relative">
-      <label>
-        <span className="sr-only">Period</span>
-        <select className={selectCls} style={selectStyle} value={filters.range}
-                onChange={(e) => (e.target.value === "custom" || e.target.value === "pick" ? setCustom(true) : update({ range: e.target.value }))}>
-          <option value="this_year">This year</option>
-          <option value="4w">Past 4 weeks</option>
-          <option value="6m">Past 6 months</option>
-          <option value="all">Lifetime</option>
-          {years.map((y) => <option key={y} value={String(y)}>{y}</option>)}
-          {/* choosing the selected option fires no change, so an active custom range gets its own way back to the dates */}
-          {filters.range === "custom" && <option value="custom">{`${filters.start} – ${filters.end}`}</option>}
-          <option value="pick">{filters.range === "custom" ? "Change dates…" : "Custom…"}</option>
-        </select>
-      </label>
-      {custom && <CustomDates onDone={() => setCustom(false)} min={meta?.first_date} max={meta?.today} />}
-    </div>
-  );
-}
-
-function CustomDates({ onDone, min, max }: { onDone: () => void; min?: string | null; max?: string }) {
-  const { filters, update } = useFilters();
-  const [start, setStart] = useState(filters.start ?? min ?? "");
-  const [end, setEnd] = useState(filters.end ?? max ?? "");
-  const input = "mt-1 w-full rounded-lg border-2 px-2 py-1.5 text-sm";
-  return (
-    <form className="absolute right-0 top-full z-50 mt-2 flex w-64 flex-col gap-2 rounded-xl border-2 p-3 shadow-lg"
-          style={{ borderColor: OV.ink, background: OV.paper, color: OV.ink, colorScheme: "light" }}
-          onSubmit={(e) => { e.preventDefault(); if (start && end) { update({ range: "custom", start, end }); onDone(); } }}>
-      <label className="text-xs">From
-        <input type="date" value={start} min={min ?? undefined} max={max} onChange={(e) => setStart(e.target.value)}
-               className={input} style={{ borderColor: OV.ink }} />
-      </label>
-      <label className="text-xs">To
-        <input type="date" value={end} min={min ?? undefined} max={max} onChange={(e) => setEnd(e.target.value)}
-               className={input} style={{ borderColor: OV.ink }} />
-      </label>
-      <div className="mt-1 flex gap-2">
-        <button type="submit" className="min-h-10 flex-1 rounded-lg font-bold" style={{ background: OV.ink, color: OV.bg }}>Apply</button>
-        <button type="button" onClick={onDone} className="min-h-10 flex-1 rounded-lg border-2" style={{ borderColor: OV.ink }}>Cancel</button>
-      </div>
-    </form>
-  );
-}
-
-const CONTENT: [string, string, Bucket[]][] = [
-  ["all", "All videos", ALL_BUCKETS], ["videos", "Long videos", ["long", "music"]], ["shorts", "Shorts", ["short"]],
-];
-
-function ContentPicker() {
-  const { filters, update } = useFilters();
-  if (!useCapability("shorts")) return null;
-  const same = (a: Bucket[], b: Bucket[]) => a.length === b.length && a.every((x) => b.includes(x));
-  const current = CONTENT.find(([, , b]) => same(filters.buckets, b))?.[0] ?? "custom";
-  return (
-    <label>
-      <span className="sr-only">Show</span>
-      <select className={selectCls} style={selectStyle} value={current}
-              onChange={(e) => { const c = CONTENT.find(([k]) => k === e.target.value); if (c) update({ buckets: c[2] }); }}>
-        {CONTENT.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-        {current === "custom" && <option value="custom">Custom mix</option>}
-      </select>
-    </label>
-  );
-}
-
-// ------------------------------------------------------------------ small parts
-
-function Pic({ src, size, name, ring = OV.ink }: { src?: string | null; size: string; name?: string | null; ring?: string }) {
-  const [failed, setFailed] = useState(false);
-  const box = { width: size, height: size, borderColor: ring };
-  if (!src || failed)
-    return <span className="flex shrink-0 items-center justify-center rounded-full border-[3px] font-ov-display font-extrabold"
-                 style={{ ...box, background: OV.sand, color: OV.ink }} aria-hidden>{(name ?? "?").charAt(0).toUpperCase()}</span>;
-  return <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
-              className="shrink-0 rounded-full border-[3px] object-cover" style={box} />;
-}
-
-const MOVE_COLORS: Record<Move["tone"], [string, string]> = {
-  up: [OV.teal, OV.paper], new: [OV.mustard, OV.ink], down: [OV.sand, OV.ink], same: [OV.sand, OV.ink],
-};
-
-function MoveBadge({ m }: { m: Move | null }) {
-  if (!m) return null;
-  const [bg, fg] = MOVE_COLORS[m.tone];
-  return <span className="w-fit whitespace-nowrap rounded-full px-2 py-px font-shelf-mono text-[11px]" style={{ background: bg, color: fg }}>{m.text}</span>;
-}
-
-const kicker = "font-shelf-mono text-[12px] uppercase tracking-[0.12em]";
-
-function Skeleton({ h = 120, dark = false }: { h?: number; dark?: boolean }) {
-  return <div className="w-full animate-pulse rounded-xl" style={{ height: h, background: dark ? "rgba(251,246,236,0.08)" : "rgba(26,23,20,0.07)" }} />;
-}
-
-/** A section band: kicker, a headline that states the finding, an optional link, then its content. */
-function Band({ label, title, link, children }: { label: string; title: ReactNode; link?: [string, string]; children: ReactNode }) {
-  const q = useLinkQuery();
-  return (
-    <section className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b-2 pb-3" style={{ borderColor: OV.ink }}>
-        <div className="flex flex-col gap-1">
-          <span className={kicker} style={{ color: OV.soft }}>{label}</span>
-          <h2 className="font-ov-display text-[clamp(26px,3vw,38px)] font-extrabold leading-tight tracking-[-0.02em]">{title}</h2>
-        </div>
-        {link && <Link to={link[0] + q} className="inline-flex min-h-10 items-center font-shelf-mono text-[13px] underline underline-offset-4">{link[1]} ›</Link>}
-      </div>
-      {children}
-    </section>
+    <StatsFrame>
+      <Hero o={ov.data} top={top} topLoading={!channels.data} prev={prevHours} cmp={cmp}
+            title={periodTitle(filters, today)} topMove={top ? rankMove(1, prevRank(top)) : null} />
+      <main className="mx-auto flex max-w-[1400px] flex-col gap-12 px-4 pb-16 pt-10 sm:px-8">
+        <TopRow items={channels.data?.items} prevRank={prevRank} cmp={cmp} />
+        <Patterns />
+        <Evolution />
+        <More />
+      </main>
+    </StatsFrame>
   );
 }
 
