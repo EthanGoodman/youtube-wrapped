@@ -270,6 +270,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             "has_search": p.has("search") and bool(has_table("searches"))
                           and q("SELECT COUNT(*) FROM searches WHERE kind='search'") > 0,
             "built_at": db.get_meta(c, "built_at"),
+            "tracked_since": db.get_meta(c, "tracked_since"),   # games: hours before this day are estimates
             "watchtime": {
                 "session_gap_minutes": w.get("session_gap_minutes", 30),
                 "max_seconds_per_video": w.get("max_seconds_per_video", 10800),
