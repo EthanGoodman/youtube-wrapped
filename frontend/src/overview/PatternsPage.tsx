@@ -4,7 +4,8 @@ import { useState } from "react";
 import { DayPoint, HourPoint, MonthPoint, useMeta, useStats } from "../api";
 import { useFilters } from "../filters";
 import { duration, num } from "../format";
-import { OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker } from "./kit";
+import { useCapability } from "../platform";
+import { OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useNoun } from "./kit";
 import { HeatLegend, HoverBars, Readout, Ticks } from "./charts";
 import {
   DAYS, calendarWeeks, clockFacts, heatColor, heatLevel, heatRange, hourLabel, oneIn, periodTitle, weekdayFacts, weekendLine,
@@ -13,34 +14,48 @@ import {
 type Measure = "count" | "time";
 interface WW { count: number; time_s: number; days: number; avg_count_per_day: number; avg_time_s_per_day: number }
 
-const amount = (m: Measure, v: number) => (m === "time" ? duration(v) : `${num(v)} videos`);
+const amount = (m: Measure, v: number, n = "videos") => (m === "time" ? duration(v) : `${num(v)} ${n}`);
 
 export function PatternsPage() {
   const { filters } = useFilters();
   const meta = useMeta().data;
   const [m, setM] = useState<Measure>("count");
-  const clock = useStats<{ data: HourPoint[] }>("patterns/clock");
+  const n = useNoun();
+  // some histories have dates but no times (Netflix's quick download): then the day of the week leads
+  const hasTimes = useCapability("time_of_day");
+  const clock = useStats<{ data: HourPoint[] }>("patterns/clock", {}, { enabled: hasTimes });
   const heat = useStats<{ data: { count: number[][]; time_s: number[][] } }>("patterns/heatmap");
   const ww = useStats<{ data: { weekday: WW; weekend: WW } }>("patterns/weekday_weekend");
   const cal = useStats<{ data: DayPoint[] }>("patterns/calendar");
   const monthly = useStats<{ data: MonthPoint[] }>("patterns/monthly");
   const f = clock.data ? clockFacts(clock.data.data) : null;
-  const title = !clock.data ? "When you watch" : !f ? "Nothing in this period" : f.night >= 0.2 ? "Up past midnight." : `Most of it around ${hourLabel(f.peak)}.`;
+  const w = heat.data ? weekdayFacts(heat.data.data.count) : null;
+  const title = !hasTimes ? (!heat.data ? "When you watch" : w ? `Mostly on ${w.busiest}s.` : "Nothing in this period")
+    : !clock.data ? "When you watch" : !f ? "Nothing in this period" : f.night >= 0.2 ? "Up past midnight." : `Most of it around ${hourLabel(f.peak)}.`;
 
   return (
     <StatsFrame>
       <PageHeader label={`Patterns · ${periodTitle(filters, meta?.today)}`} title={title}>
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-shelf-mono text-[12px] uppercase tracking-[0.1em]" style={{ color: OV.mute }} aria-hidden>Count</span>
-          <Seg label="Count" dark value={m} options={[["count", "Videos"], ["time", "Hours"]]} onChange={setM} />
+          <Seg label="Count" dark value={m} options={[["count", n.Many], ["time", "Hours"]]} onChange={setM} />
         </div>
       </PageHeader>
       <PageBody>
-        <HourChart data={clock.data?.data} m={m} />
-        <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
-          <DayHour grid={heat.data ? (m === "time" ? heat.data.data.time_s : heat.data.data.count) : undefined} m={m} />
-          <Weekends ww={ww.data?.data} m={m} counts={heat.data?.data.count} />
-        </div>
+        {hasTimes ? (
+          <>
+            <HourChart data={clock.data?.data} m={m} />
+            <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+              <DayHour grid={heat.data ? (m === "time" ? heat.data.data.time_s : heat.data.data.count) : undefined} m={m} />
+              <Weekends ww={ww.data?.data} m={m} counts={heat.data?.data.count} />
+            </div>
+          </>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+            <Weekdays grid={heat.data ? (m === "time" ? heat.data.data.time_s : heat.data.data.count) : undefined} m={m} />
+            <Weekends ww={ww.data?.data} m={m} counts={heat.data?.data.count} busiest={false} />
+          </div>
+        )}
         <EveryDay days={cal.data?.data} m={m} />
         <Monthly months={monthly.data?.data} m={m} />
       </PageBody>
@@ -56,6 +71,27 @@ function Card({ label, title, children, className = "" }: { label: string; title
         {title && <h2 className="font-ov-display text-[26px] font-extrabold leading-tight">{title}</h2>}
       </div>
       {children}
+    </section>
+  );
+}
+
+/** Dates without times: the seven days of the week, big, in the dark main card. */
+function Weekdays({ grid, m }: { grid?: number[][]; m: Measure }) {
+  const n = useNoun().many;
+  if (!grid) return <Skeleton h={320} />;
+  const totals = grid.map((row) => row.reduce((a, b) => a + b, 0));
+  const top = totals.indexOf(Math.max(...totals));
+  const names = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl p-5 sm:p-7" style={{ background: OV.ink, color: OV.paper }}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span><span className="font-ov-display text-[34px] font-extrabold" style={{ color: OV.mustard }}>{names[top].slice(0, -1)}</span>
+          <span className="ml-2 text-[17px]">is your busiest day</span></span>
+        <span className="font-shelf-mono text-[12px]" style={{ color: OV.mute }}>Your history has dates but no times, so it's by day, not hour</span>
+      </div>
+      <HoverBars dark height={220} gap={10} radius={6} hint="Hover a day to see it." ariaLabel={`${m === "time" ? "Hours" : n} by day of the week. Busiest: ${names[top]}.`}
+                 bars={totals.map((t, i) => ({ key: DAYS[i], label: names[i], value: t, display: amount(m, t, n), color: i === top ? OV.mustard : "#5E554A" }))}
+                 ticks={<Ticks dark labels={DAYS} />} />
     </section>
   );
 }
@@ -119,26 +155,27 @@ function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
   );
 }
 
-function Weekends({ ww, m, counts }: { ww?: { weekday: WW; weekend: WW }; m: Measure; counts?: number[][] }) {
+function Weekends({ ww, m, counts, busiest = true }: { ww?: { weekday: WW; weekend: WW }; m: Measure; counts?: number[][]; busiest?: boolean }) {
+  const n = useNoun().many;
   if (!ww) return <Skeleton h={300} />;
   const per = (x: WW) => (m === "time" ? x.avg_time_s_per_day : x.avg_count_per_day);
   const w = counts ? weekdayFacts(counts) : null;
   const max = Math.max(per(ww.weekday), per(ww.weekend), 1e-9);
-  const fmt = (x: WW) => (m === "time" ? duration(per(x)) : `${num(Math.round(per(x) * 10) / 10)}`);
+  const fmt = (x: WW) => (m === "time" ? duration(per(x)) : per(x).toFixed(1));
   return (
     <Card label="Weekdays vs weekends" title={weekendLine(per(ww.weekday), per(ww.weekend))}>
       <div className="flex flex-col gap-3">
         {([["Weekday", ww.weekday, OV.sand], ["Weekend", ww.weekend, OV.teal]] as const).map(([l, x, c]) => (
           <div key={l} className="flex flex-col gap-1">
             <span className="flex justify-between text-[14px]"><span>{l}</span>
-              <span><strong className="font-ov-display text-[18px]">{fmt(x)}</strong> {m === "time" ? "a day" : "videos a day"}</span></span>
+              <span><strong className="font-ov-display text-[18px]">{fmt(x)}</strong> {m === "time" ? "a day" : `${n} a day`}</span></span>
             <span className="h-4 overflow-hidden rounded-md border-2" style={{ borderColor: OV.ink }}>
               <span className="block h-full" style={{ width: `${(per(x) / max) * 100}%`, background: c }} />
             </span>
           </div>
         ))}
       </div>
-      {w && <p className="text-[14px]" style={{ color: OV.soft }}><strong style={{ color: OV.ink }}>{w.busiest}</strong> is your busiest day overall.</p>}
+      {busiest && w && <p className="text-[14px]" style={{ color: OV.soft }}><strong style={{ color: OV.ink }}>{w.busiest}</strong> is your busiest day overall.</p>}
     </Card>
   );
 }
@@ -147,6 +184,7 @@ function Weekends({ ww, m, counts }: { ww?: { weekday: WW; weekend: WW }; m: Mea
  *  periods and keep a readable size (scrolling) for long ones. Hover a day for its numbers; hover a legend shade
  *  to light only the days at that level. */
 function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
+  const n = useNoun().many;
   const [day, setDay] = useState<DayPoint | null>(null);
   const [level, setLevel] = useState<number | null>(null);
   if (!days) return <Skeleton h={180} />;
@@ -155,10 +193,10 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
   const weeks = calendarWeeks(days);
   const active = days.filter((d) => d.count > 0).length;
   const W = weeks.length;
-  const unit = m === "time" ? "" : " videos";
+  const unit = m === "time" ? "" : ` ${n}`;
   const fmt = (x: number) => (m === "time" ? duration(x) : num(x));
   const nice = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-  const info = day ? `${nice(day.date)} · ${day.count ? `${num(day.count)} videos · ${duration(day.time_s)}` : "nothing watched"}`
+  const info = day ? `${nice(day.date)} · ${day.count ? `${num(day.count)} ${n} · ${duration(day.time_s)}` : "nothing watched"}`
     : level != null ? (level === 0 ? "Days you didn't watch" : `Days with ${fmt(heatRange(level, max)[0])}–${fmt(heatRange(level, max)[1])}${unit}`)
     : "Hover a day to see it, or a shade to light up those days.";
   // a month name over the first week that holds its 1st (and over the first column)
@@ -197,6 +235,7 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
 }
 
 function Monthly({ months, m }: { months?: MonthPoint[]; m: Measure }) {
+  const n = useNoun().many;
   if (!months) return <Skeleton h={240} />;
   if (!months.length) return null;
   const v = (x: MonthPoint) => (m === "time" ? x.time_s : x.count);
@@ -205,8 +244,8 @@ function Monthly({ months, m }: { months?: MonthPoint[]; m: Measure }) {
   const many = months.length > 24;
   return (
     <Card label="Month by month" title={`${label(best.month)} was your biggest month`}>
-      <HoverBars height={180} hint="Hover a month to see it." ariaLabel={`${m === "time" ? "Hours" : "Videos"} per month. Biggest: ${label(best.month)}.`}
-                 bars={months.map((x) => ({ key: x.month, label: label(x.month), value: v(x), display: amount(m, v(x)), color: x.month === best.month ? OV.accent : OV.ink }))}
+      <HoverBars height={180} hint="Hover a month to see it." ariaLabel={`${m === "time" ? "Hours" : n} per month. Biggest: ${label(best.month)}.`}
+                 bars={months.map((x) => ({ key: x.month, label: label(x.month), value: v(x), display: amount(m, v(x), n), color: x.month === best.month ? OV.accent : OV.ink }))}
                  ticks={<Ticks labels={months.map((x) => (many ? (x.month.endsWith("-01") ? x.month.slice(0, 4) : "")
                                                               : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })))} />} />
     </Card>

@@ -33,6 +33,11 @@ export function useFamily(): "videos" | "shows" {
   return useCapability("series") ? "shows" : "videos";
 }
 
+/** What one watched thing is called: a video (YouTube) or a title (an episode or a movie). */
+export function useNoun(): { one: string; many: string; Many: string } {
+  return useFamily() === "shows" ? { one: "title", many: "titles", Many: "Titles" } : { one: "video", many: "videos", Many: "Videos" };
+}
+
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
 const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A" };
 export function useAccent(): string {
