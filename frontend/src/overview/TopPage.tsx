@@ -106,31 +106,40 @@ function Picture({ c, k, size }: { c: RankedItem; k: Kind; size: number }) {
   return null;
 }
 
+/* The top 3 in podium order (2 · 1 · 3). #1 is a bit bigger and filled; medal colors live only in the small
+   medal sticker at the top of each card (gold, silver, bronze), so the section stays calm. */
+const PODIUM = [
+  { medal: "#E2A93B", ring: "#B98320", pic: 136, thumb: 132, name: 19, value: 38, pad: "px-6 pb-7 pt-10", order: "md:order-2", fill: "#E2A93B" },
+  { medal: "#D3D6D9", ring: "#9EA3A8", pic: 112, thumb: 116, name: 17, value: 32, pad: "px-5 pb-6 pt-9", order: "md:order-1", fill: "#FBF6EC" },
+  { medal: "#CD8F5E", ring: "#9C6437", pic: 104, thumb: 108, name: 16, value: 30, pad: "px-5 pb-6 pt-9", order: "md:order-3", fill: "#FBF6EC" },
+];
+
 function Podium({ items, k, value, move }: {
   items: RankedItem[]; k: Kind; value: (c: RankedItem) => string; move: (c: RankedItem) => ReturnType<typeof rankMove>;
 }) {
   const q = useLinkQuery();
   return (
-    <section aria-label={`Your top 3 ${k.noun}`} className="grid gap-4 md:grid-cols-3">
+    // #1 in the middle and biggest, #2 left, #3 right (phones: 1, 2, 3 stacked)
+    <section aria-label={`Your top 3 ${k.noun}`} className="mx-auto grid w-full max-w-[1040px] items-end gap-x-4 gap-y-8 pt-4 md:grid-cols-[1fr_1.18fr_1fr]">
       {items.map((c) => {
         const to = href(k, c, q);
+        const p = PODIUM[c.rank - 1] ?? PODIUM[2];
         const body = (
           <>
-            {/* with a picture the rank sticks to its corner; without one (genres) it stands above the name */}
-            <span className={k.shape === "none" ? "" : "relative"}>
-              <Picture c={c} k={k} size={k.shape === "thumb" ? 120 : 140} />
-              <span className={`flex h-12 w-12 items-center justify-center rounded-full border-[3px] font-ov-display text-[20px] font-extrabold ${k.shape === "none" ? "" : "absolute -left-2 -top-2"}`}
-                    style={{ background: c.rank === 1 ? OV.paper : OV.mustard, borderColor: OV.ink }} aria-hidden>{c.rank}</span>
+            <span aria-label={`Number ${c.rank}`} className="absolute -top-6 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-[3px] font-ov-display text-[20px] font-extrabold"
+                  style={{ background: p.medal, borderColor: OV.ink, boxShadow: `inset 0 0 0 3px ${p.ring}`, color: OV.ink }}>
+              {c.rank}
             </span>
-            <span className="line-clamp-2 text-[18px] font-bold leading-snug">{c.title ?? "Unknown"}</span>
-            {k.kind === "videos" && c.channel && <span className="text-[13px]" style={{ color: OV.soft }}>{c.channel}</span>}
-            <span className="font-ov-display text-[34px] font-extrabold leading-none">{value(c)}</span>
-            {k.shape === "none" && <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>in {pct(c.share)} of what you watched</span>}
+            <Picture c={c} k={k} size={k.shape === "thumb" ? p.thumb : p.pic} />
+            <span className="line-clamp-2 font-bold leading-snug" style={{ fontSize: p.name }}>{c.title ?? "Unknown"}</span>
+            {k.kind === "videos" && c.channel && <span className="text-[13px]" style={{ color: c.rank === 1 ? OV.ink : OV.soft }}>{c.channel}</span>}
+            <span className="font-ov-display font-extrabold leading-none" style={{ fontSize: p.value }}>{value(c)}</span>
+            {k.shape === "none" && <span className="font-shelf-mono text-[12px]">in {pct(c.share)} of what you watched</span>}
             <MoveBadge m={move(c)} />
           </>
         );
-        const cls = "flex h-full flex-col items-center gap-2 rounded-2xl border-2 p-6 text-center";
-        const style = { background: c.rank === 1 ? OV.mustard : OV.paper, borderColor: OV.ink };
+        const cls = `relative flex flex-col items-center gap-2 rounded-2xl border-2 text-center ${p.order} ${p.pad}`;
+        const style = { background: p.fill, borderColor: OV.ink };
         return to
           ? <Link key={c.key} to={to} className={`${cls} transition-transform hover:-translate-y-0.5`} style={style}>{body}</Link>
           : <div key={c.key} className={cls} style={style}>{body}</div>;
