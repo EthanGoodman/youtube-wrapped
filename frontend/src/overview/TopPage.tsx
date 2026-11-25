@@ -28,6 +28,11 @@ const SHOW_KINDS: Kind[] = [
   { kind: "videos", label: "Titles", noun: "titles", shape: "thumb", unit: ["time", "times"], once: true, link: (k) => `/video/${encodeURIComponent(k)}` },
   { kind: "genres", label: "Genres", noun: "genres", shape: "none", unit: ["title", "titles"], link: (k) => `/genre/${encodeURIComponent(k)}` },
 ];
+/* games: one row per game per day played, so the count is days played */
+const GAME_KINDS: Kind[] = [
+  { kind: "channels", label: "Games", noun: "games", shape: "poster", unit: ["day played", "days played"], link: (k) => `/channel/${encodeURIComponent(k)}` },
+  { kind: "genres", label: "Genres", noun: "genres", shape: "none", unit: ["day played", "days played"], cap: "genres", link: (k) => `/genre/${encodeURIComponent(k)}` },
+];
 /* music ranks tracks by streams by default (as stats.fm does); artists and albums by hours */
 const MUSIC_KINDS: Kind[] = [
   { kind: "videos", label: "Tracks", noun: "tracks", shape: "cover", unit: ["stream", "streams"], byCount: true, link: (k) => `/video/${encodeURIComponent(k)}` },
@@ -53,7 +58,7 @@ export function TopPage() {
   const anime = useCapability("anime");
   // shows family: the platform's own words (shows / series, titles / episodes); no movie list without movies
   const family = useFamily();
-  const KINDS = family === "music" ? MUSIC_KINDS : family === "shows"
+  const KINDS = family === "games" ? GAME_KINDS : family === "music" ? MUSIC_KINDS : family === "shows"
     ? SHOW_KINDS.filter((x) => !(anime && x.kind === "movies")).map((x) =>
         x.kind === "channels" ? { ...x, label: cr.Many, noun: cr.many }
         : x.kind === "videos" ? { ...x, label: n.Many, noun: n.many }

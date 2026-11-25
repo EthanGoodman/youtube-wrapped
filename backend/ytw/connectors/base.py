@@ -42,6 +42,7 @@ CAPABILITIES = {
     "tags",
     "series",          # episodic shows with seasons (show progress, binges, episodes vs movies)
     "anime",           # sub vs dub and simulcast stats (Crunchyroll)
+    "achievements",    # achievements / trophies with unlock times (games)
 }
 FAMILIES = ("video", "music", "games", "social", "reading", "fitness")
 # how the data gets in: an export file, an API key, a browser cookie, OAuth, the browser extension,

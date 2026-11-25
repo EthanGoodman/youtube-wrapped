@@ -134,11 +134,18 @@ function fillMonths(data: MonthPoint[]): MonthPoint[] {
   return out;
 }
 
-function MonthBars({ data }: { data: MonthPoint[] }) {
+/** What the counts count: streams (music), play days (games, one per game per day), else the platform's items. */
+function useCountWord(): string {
+  const fam = useFamily();
   const n = useNoun().many;
+  return fam === "music" ? "streams" : fam === "games" ? "play days" : n;
+}
+
+function MonthBars({ data }: { data: MonthPoint[] }) {
+  const n = useCountWord();
   const tm = useTime();
   const months = fillMonths(data);
-  if (!months.length) return <p style={{ color: OV.soft }}>No watches.</p>;
+  if (!months.length) return <p style={{ color: OV.soft }}>Nothing yet.</p>;
   const many = months.length > 24;
   const label = (k: string) => new Date(k + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
   return (
@@ -150,13 +157,14 @@ function MonthBars({ data }: { data: MonthPoint[] }) {
 }
 
 function ClockBars({ data }: { data: HourPoint[] }) {
+  const n = useCountWord();
   const total = data.reduce((s, h) => s + h.count, 0);
   if (!total) return <p style={{ color: OV.soft }}>Nothing in this period.</p>;
   const peak = data.reduce((a, b) => (b.count > a.count ? b : a)).hour;
   return (
     <HoverBars height={120} hint={`${hourLabel(peak)} is the busiest hour. Hover one to see it.`} ariaLabel={`By hour of day. Busiest: ${hourLabel(peak)}.`}
                bars={data.map((h) => ({ key: String(h.hour), label: `${hourLabel(h.hour)} to ${hourLabel((h.hour + 1) % 24)}`, value: h.count,
-                                        display: `${num(h.count)} videos`, color: h.hour === peak ? OV.teal : "#CDBFA6" }))}
+                                        display: `${num(h.count)} ${n}`, color: h.hour === peak ? OV.teal : "#CDBFA6" }))}
                ticks={<Ticks labels={["12 AM", "6 AM", "12 PM", "6 PM"]} />} />
   );
 }
@@ -189,13 +197,15 @@ function Chips({ items, to }: { items: string[]; to?: (s: string) => string }) {
 function useSubsetNumbers(d: SubsetBase | undefined, range: string): [string, ReactNode, ReactNode?][] {
   const tm = useTime();
   const n = useNoun();
-  const music = useFamily() === "music";
-  const verbed = music ? "listened" : "watched";
+  const fam = useFamily();
+  const music = fam === "music";
+  const { verbed } = useVerb();
   if (!d) return [];
   const all = range === "all";
   return [
     [tm.Unit, tm.fmt(d.in_range.est_s), all ? undefined : `${tm.fmt(d.all_time.est_s)} all time`],
-    [music ? "Streams" : n.Many, num(d.in_range.videos), all ? undefined : `${num(d.all_time.videos)} all time`],
+    fam === "games" ? [n.Many, num(d.in_range.unique_videos), all ? undefined : `${num(d.all_time.unique_videos)} all time`]
+                    : [music ? "Streams" : n.Many, num(d.in_range.videos), all ? undefined : `${num(d.all_time.videos)} all time`],
     [`First ${verbed}`, date(d.all_time.first_watched)],
     [`Last ${verbed}`, date(d.all_time.last_watched)],
   ];
@@ -332,16 +342,18 @@ function GroupView({ title, label, d, external }: { title: string; label: string
   const cr = useCreator();
   const n = useNoun();
   const numbers = useSubsetNumbers(d, filters.range);
+  const games = useFamily() === "games";
   return (
     <StatsFrame>
       <Header label={label} title={title}
               image={<span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-2 font-ov-display text-[44px] font-extrabold" style={{ background: OV.mustard, color: OV.ink, borderColor: OV.paper }}>{title.charAt(0)}</span>}
-              lines={[`${num(d.all_time.videos)} ${n.many} all time · ${num(d.all_time.unique_videos)} different`]}
+              lines={[games ? `${num(d.all_time.unique_videos)} ${n.many} · ${num(d.all_time.active_days)} days played, all time`
+                            : `${num(d.all_time.videos)} ${n.many} all time · ${num(d.all_time.unique_videos)} different`]}
               action={external && <ExternalButton href={external} label="About on Wikipedia" />} />
       <Body>
         <Numbers items={numbers} />
         <Card label={`Top ${cr.many} · ${periodTitle(filters, undefined)}`}><FaceRow items={d.top_channels} /></Card>
-        <Card label={`Top ${n.many} · ${periodTitle(filters, undefined)}`}><VideoList items={d.top_videos.slice(0, 10)} /></Card>
+        {!games && <Card label={`Top ${n.many} · ${periodTitle(filters, undefined)}`}><VideoList items={d.top_videos.slice(0, 10)} /></Card>}
         <OverTime d={d} />
       </Body>
     </StatsFrame>
@@ -378,6 +390,7 @@ export function YearDetailPage() {
   const q = useLinkQuery();
   const name = usePlatform()?.name ?? "YouTube";
   const d = useStats<YearDetail>(`year/${year}`);
+  const games = useFamily() === "games";
   const y = d.data;
   if (!y) return d.error ? <StatsFrame><p className="p-8">No data for that year.</p></StatsFrame> : <Loading />;
   const o = y.overview;
@@ -386,13 +399,13 @@ export function YearDetailPage() {
     <StatsFrame>
       <Header label={`Your year on ${name}`} title={`${y.year}: ${num(Math.round(o.est_s / 3600))} hours`}
               image={<span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-2 font-ov-display text-[30px] font-extrabold" style={{ background: OV.accent, color: OV.paper, borderColor: OV.paper }}>{String(y.year).slice(2)}</span>}
-              lines={[`${num(o.videos)} ${n} · ${num(o.unique_channels)} ${cr.many} · ${num(o.active_days)} days${change ? ` · ${change}` : ""}`]}
+              lines={[`${games ? "" : `${num(o.videos)} ${n} · `}${num(o.unique_channels)} ${cr.many} · ${num(o.active_days)} days${change ? ` · ${change}` : ""}`]}
               action={<Link to={`/wrapped?year=${y.year}${q ? `&${q.slice(1)}` : ""}`} className="inline-flex min-h-10 shrink-0 items-center rounded-[10px] px-4 text-[15px] font-bold" style={{ background: OV.mustard, color: OV.ink }}>Open {y.year} Wrapped</Link>} />
       <Body>
-        <Numbers items={[["Hours", hoursShort(o.est_s)], [n.charAt(0).toUpperCase() + n.slice(1), num(o.videos)], [cr.Many, num(o.unique_channels)], [`Days you ${verbed}`, pct(o.pct_days_active), `${num(o.active_days)} days`]]} />
+        <Numbers items={[["Hours", hoursShort(o.est_s)], ...(games ? [] : [[n.charAt(0).toUpperCase() + n.slice(1), num(o.videos)] as [string, string]]), [cr.Many, num(o.unique_channels)], [`Days you ${verbed}`, pct(o.pct_days_active), `${num(o.active_days)} days`]]} />
         <Card label={`Top ${cr.many}`}><FaceRow items={y.top_channels} /></Card>
-        <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
-          <Card label={`Top ${n}`}><VideoList items={y.top_videos.slice(0, 10)} /></Card>
+        <div className={`grid gap-4 ${games ? "" : "lg:grid-cols-[3fr_2fr]"}`}>
+          {!games && <Card label={`Top ${n}`}><VideoList items={y.top_videos.slice(0, 10)} /></Card>}
           <Card label="Top genres">
             <ol className="flex flex-col">
               {y.top_genres.slice(0, 8).map((g) => (
@@ -415,7 +428,7 @@ export function YearDetailPage() {
                   <Link to={`/channel/${encodeURIComponent(c.channel_id)}${q}`} className="group flex flex-col items-center gap-1 text-center">
                     <Pic src={c.avatar_url} name={c.title} size="64px" />
                     <span className="w-full truncate text-[13px] font-bold group-hover:underline">{c.title}</span>
-                    <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>{num(c.count)} {n}</span>
+                    <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>{games ? `${num(c.count)} ${c.count === 1 ? "day" : "days"}` : `${num(c.count)} ${n}`}</span>
                   </Link>
                 </li>
               ))}

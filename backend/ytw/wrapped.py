@@ -7,6 +7,7 @@ import tomllib
 from datetime import date
 from pathlib import Path
 
+from . import db
 from .stats import evolution, overview, patterns, records, shows, tops
 from .stats.common import Filters, Range, time_expr, where
 
@@ -343,3 +344,61 @@ def music_wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities
 def _first_year(conn: sqlite3.Connection) -> int:
     first = conn.execute("SELECT MIN(year) FROM watches").fetchone()[0]
     return int(first) if first else 0
+
+
+# ------------------------------------------------------------------ games (Steam, …)
+
+GAMES_METRICS = ("top_game_share", "games_count", "new_game_share", "achievements", "rare_achievements",
+                 "weekend_share", "night_share", "hours_per_day")
+
+
+def games_metrics(conn: sqlite3.Connection, r: Range, f: Filters, ach: dict) -> dict[str, float]:
+    """Playing habits for the games personalities (for the year; shares are 0..1)."""
+    w_sql, p = where(r, f)
+    total, weekend, night, games, days = (x or 0 for x in conn.execute(f"""
+        SELECT SUM(w.est_s), SUM(CASE WHEN w.local_dow >= 5 THEN w.est_s ELSE 0 END),
+               SUM(CASE WHEN w.local_hour < 5 THEN w.est_s ELSE 0 END), COUNT(DISTINCT w.video_id), COUNT(DISTINCT w.local_date)
+        FROM watches w WHERE {w_sql}""", p).fetchone())
+    if not total:
+        return {m: 0.0 for m in GAMES_METRICS}
+    top = conn.execute(f"SELECT SUM(w.est_s) t FROM watches w WHERE {w_sql} GROUP BY w.video_id ORDER BY t DESC LIMIT 1", p).fetchone()[0]
+    new = conn.execute(f"""SELECT COALESCE(SUM(w.est_s), 0) FROM watches w WHERE {w_sql} AND w.video_id IN (
+        SELECT video_id FROM watches GROUP BY video_id HAVING MIN(local_date) >= ?)""", [*p, r.start.isoformat()]).fetchone()[0]
+    return {
+        "top_game_share": top / total, "games_count": float(games), "new_game_share": new / total,
+        "achievements": float(ach["unlocked"]), "rare_achievements": float(sum(1 for a in ach["rarest"] if (a["rarity"] or 100) < 10)),
+        "weekend_share": weekend / total, "night_share": night / total, "hours_per_day": total / 3600 / days if days else 0.0,
+    }
+
+
+def games_wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities: dict, tz, today: date | None = None) -> dict:
+    """The games Wrapped story: hours played, your #1 game, top 5, achievements (rarest, 100% games), genres, streak."""
+    from .stats import games
+    r = Range(date(year, 1, 1), date(year, 12, 31), str(year))
+    base = Filters(exclude_bg_time=f.exclude_bg_time, metric="time")
+    ov = overview.overview(conn, r, base)
+    if not ov["videos"]:
+        return {"kind": "games", "year": year, "mode": "all", "empty": True}
+    ach = games.achievements_summary(conn, r, tz)
+    rec = records.records(conn, r, base, today)
+    discoveries = evolution.new_discoveries(conn, r, base, 1)
+    metrics = games_metrics(conn, r, base, ach)
+    return {
+        "kind": "games",
+        "year": year,
+        "mode": "all",
+        "empty": False,
+        "estimated": True,
+        "tracked_since": db.get_meta(conn, "tracked_since"),
+        "overview": {k: ov[k] for k in ("videos", "unique_channels", "est_s", "active_days", "days", "change")},
+        "top_games": tops.top_channels(conn, r, base, 5),
+        "top_genres": tops.top_genres(conn, r, base, 5),
+        "achievements": {k: ach[k] for k in ("unlocked", "best_day", "rarest", "perfect")},
+        "streak": rec["streaks"]["longest"],
+        "biggest_day": rec["biggest_day"]["by_time"],
+        "discovery": discoveries[0] if discoveries else None,
+        "metrics": metrics,
+        "personality": pick_personality(metrics, personalities,
+                                        frozenset({"new_game_share"}) if year <= _first_year(conn) else frozenset()),
+    }
+

@@ -19,6 +19,8 @@ import { WrappedPage } from "./wrapped/Wrapped";
 import { OverviewPage } from "./overview/OverviewPage";
 import { ShowsOverviewPage } from "./overview/ShowsOverviewPage";
 import { MusicOverviewPage } from "./overview/MusicOverviewPage";
+import { GamesOverviewPage } from "./overview/GamesOverviewPage";
+import { AchievementsPage, GameDetailPage } from "./overview/GamePages";
 import { HowFarPage } from "./overview/HowFarPage";
 import { AnimePage } from "./overview/AnimePage";
 import { ShowDetailPage } from "./overview/ShowDetailPage";
@@ -36,7 +38,8 @@ import { applyThemeColors, themeOf } from "./themes";
 /** Platforms on the new stats pages (the rest keep the old layout until they move over). */
 const SHOWS_NEW = ["netflix", "crunchyroll"];
 const MUSIC_NEW = ["spotify"];
-const NEW_LOOK = ["youtube", ...SHOWS_NEW, ...MUSIC_NEW];
+const GAMES_NEW = ["steam"];
+const NEW_LOOK = ["youtube", ...SHOWS_NEW, ...MUSIC_NEW, ...GAMES_NEW];
 
 /** Sections of a platform. Old single-platform links (/top/channels, …) redirect to /youtube/… */
 const SECTIONS = ["top", "patterns", "records", "evolution", "ads", "search", "channel", "video", "category",
@@ -106,7 +109,7 @@ function PlatformApp() {
   return (
     <Routes>
       {/* YouTube is first on the new Overview (its own frame); the others keep their home until we generalize it */}
-      <Route index element={platform === "youtube" ? <OverviewPage /> : SHOWS_NEW.includes(platform) ? <ShowsOverviewPage /> : MUSIC_NEW.includes(platform) ? <MusicOverviewPage /> : <Layout><Home /></Layout>} />
+      <Route index element={platform === "youtube" ? <OverviewPage /> : SHOWS_NEW.includes(platform) ? <ShowsOverviewPage /> : MUSIC_NEW.includes(platform) ? <MusicOverviewPage /> : GAMES_NEW.includes(platform) ? <GamesOverviewPage /> : <Layout><Home /></Layout>} />
       <Route path="top/:kind" element={NEW_LOOK.includes(platform) ? <TopPage /> : <Layout><Top /></Layout>} />
       <Route path="shows" element={<Gate capability="series">{SHOWS_NEW.includes(platform) ? <HowFarPage /> : <Layout><Shows /></Layout>}</Gate>} />
       <Route path="anime" element={<Gate capability="anime">{SHOWS_NEW.includes(platform) ? <AnimePage /> : <Layout><Anime /></Layout>}</Gate>} />
@@ -115,11 +118,12 @@ function PlatformApp() {
       <Route path="evolution" element={NEW_LOOK.includes(platform) ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
       <Route path="ads" element={<Gate capability="ads">{platform === "youtube" ? <AdsPage /> : <Layout><Ads /></Layout>}</Gate>} />
       <Route path="search" element={<Gate capability="search">{platform === "youtube" ? <SearchPage /> : <Layout><Search /></Layout>}</Gate>} />
-      <Route path="channel/:id" element={SHOWS_NEW.includes(platform) ? <ShowDetailPage /> : platform === "youtube" || MUSIC_NEW.includes(platform) ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
-      <Route path="video/:id" element={platform === "youtube" || MUSIC_NEW.includes(platform) ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
+      <Route path="channel/:id" element={SHOWS_NEW.includes(platform) ? <ShowDetailPage /> : GAMES_NEW.includes(platform) ? <GameDetailPage /> : platform === "youtube" || MUSIC_NEW.includes(platform) ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
+      <Route path="video/:id" element={GAMES_NEW.includes(platform) ? <GameRedirect /> : platform === "youtube" || MUSIC_NEW.includes(platform) ? <VideoDetailPage /> : <Layout showRange={false}><VideoPage /></Layout>} />
       <Route path="category/:id" element={platform === "youtube" ? <CategoryDetailPage /> : <Layout><CategoryPage /></Layout>} />
-      <Route path="genre/:topic" element={platform === "youtube" || MUSIC_NEW.includes(platform) ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
-      <Route path="year/:year" element={platform === "youtube" || MUSIC_NEW.includes(platform) ? <YearDetailPage /> : <Layout showRange={false}><YearPage /></Layout>} />
+      <Route path="genre/:topic" element={platform === "youtube" || MUSIC_NEW.includes(platform) || GAMES_NEW.includes(platform) ? <GenreDetailPage /> : <Layout><GenrePage /></Layout>} />
+      <Route path="year/:year" element={platform === "youtube" || MUSIC_NEW.includes(platform) || GAMES_NEW.includes(platform) ? <YearDetailPage /> : <Layout showRange={false}><YearPage /></Layout>} />
+      <Route path="achievements" element={GAMES_NEW.includes(platform) ? <AchievementsPage /> : <Navigate to=".." replace />} />
       <Route path="album/:id" element={MUSIC_NEW.includes(platform) ? <AlbumDetailPage /> : <Navigate to=".." replace />} />
       <Route path="wrapped" element={<WrappedPage />} />
       <Route path="*" element={<Layout><PageTitle title="Not found" /></Layout>} />
@@ -157,4 +161,11 @@ function NotFound() {
 function BuildCheck() {
   useBuildCheck();
   return null;
+}
+
+/** A game is both the thing played and the thing returned to: its one page is the game page. */
+function GameRedirect() {
+  const { id = "" } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={`../channel/${encodeURIComponent(id)}${search}`} replace />;
 }

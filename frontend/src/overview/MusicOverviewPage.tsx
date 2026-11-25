@@ -250,7 +250,7 @@ function Records() {
               big={r ? `${num(r.count)}× in a day` : "–"} line={r ? <><strong>{r.title}</strong> by {r.artist}, {date(r.date)}</> : "No song twice in one day here."}
               pic={r ? <Cover src={r.cover} name={r.title} size="64px" /> : undefined} />
         <Card to={`/records${q}`} label="Longest streak" bg={OV.teal} fg={OV.paper} loading={!rec.data}
-              big={s ? `${num(s.days)} days in a row` : "–"} line={s ? `${spanLabel(s.start, s.end)}, music every day` : "Not enough data yet."} />
+              big={s ? `${num(s.days)} day${s.days === 1 ? "" : "s"} in a row` : "–"} line={s ? `${spanLabel(s.start, s.end)}, music every day` : "Not enough data yet."} />
         <Card to={`/records${q}`} label="Biggest day" bg={OV.paper} loading={!rec.data}
               big={d ? streams(d.count) : "–"} line={d ? `on ${date(d.date)}` : "Nothing in this period."} />
       </div>

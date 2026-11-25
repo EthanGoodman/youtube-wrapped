@@ -84,6 +84,7 @@ export interface Meta {
   has_search: boolean;
   by_bucket: Partial<Record<"long" | "short" | "music" | "unknown", number>>;
   built_at: string | null;
+  tracked_since?: string | null;   // games: hours before this day are estimates
   watchtime: {
     session_gap_minutes: number;
     max_seconds_per_video: number;

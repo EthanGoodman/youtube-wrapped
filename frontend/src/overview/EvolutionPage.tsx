@@ -131,11 +131,12 @@ function LoyalCard() {
 
 function FellOffCard() {
   const q = useLinkQuery();
+  const { verb, verbed } = useVerb();
   const fell = useStats<FellOff[]>("evolution/fell_off", { limit: 10 });
   const top = fell.data?.[0];
   return (
     <Card label="Fell off · big before, barely lately" title={top ? `Whatever happened to ${top.title}?` : "Fell off"}>
-      {!fell.data ? <Skeleton h={300} /> : !fell.data.length ? <p style={{ color: OV.soft }}>Nobody fell off. Loyal viewer.</p> : (
+      {!fell.data ? <Skeleton h={300} /> : !fell.data.length ? <p style={{ color: OV.soft }}>Nobody fell off. Loyal {({ listen: "listener", play: "player" } as Record<string, string>)[verb] ?? "viewer"}.</p> : (
         <ol className="flex flex-col">
           {fell.data.map((c) => (
             <li key={c.channel_id}>
@@ -143,7 +144,7 @@ function FellOffCard() {
                 <span className="opacity-75 grayscale"><Avatar src={c.avatar_url} name={c.title} size={36} /></span>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[14px] font-bold">{c.title}</span>
-                  <span className="text-[12px]" style={{ color: OV.soft }}>peak {c.peak_year} · last watched {date(c.last_watched)}</span>
+                  <span className="text-[12px]" style={{ color: OV.soft }}>peak {c.peak_year} · last {verbed} {date(c.last_watched)}</span>
                 </span>
                 <span className="flex flex-col items-end">
                   <span className="font-ov-display text-[15px] font-extrabold">{num(c.count_before)}</span>

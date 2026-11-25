@@ -22,6 +22,8 @@ KNOWN = {
     "TMDB_TOKEN": "TMDB API Read Access Token (Netflix posters and episodes)",
     "CRUNCHYROLL_ETP_RT": "Crunchyroll etp_rt cookie (treat it like a password)",
     "LASTFM_API_KEY": "Last.fm API key (music genres from listeners' tags)",
+    "STEAM_API_KEY": "Steam Web API key (your library, playtime and achievements)",
+    "STEAM_PROFILE": "Your Steam profile link or SteamID64 (which library to read)",
 }
 _NAME = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 log = logging.getLogger("ytw.secrets")

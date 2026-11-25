@@ -353,7 +353,7 @@ function Records() {
                     big={e ? eps(e.episodes) : "–"}
                     line={e ? <><strong>{e.title}</strong> on {date(e.date)}</> : "Nothing in this period."} />
         <RecordCard label="Longest streak" bg={OV.teal} fg={OV.paper} loading={!rec.data} to={`/records${q}`}
-                    big={s ? `${num(s.days)} days in a row` : "–"}
+                    big={s ? `${num(s.days)} day${s.days === 1 ? "" : "s"} in a row` : "–"}
                     line={s ? `${spanLabel(s.start, s.end)}, something every day` : "Not enough data yet."} />
       </div>
     </Band>
