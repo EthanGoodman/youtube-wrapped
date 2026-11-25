@@ -19,6 +19,7 @@ import { WrappedPage } from "./wrapped/Wrapped";
 import { OverviewPage } from "./overview/OverviewPage";
 import { ShowsOverviewPage } from "./overview/ShowsOverviewPage";
 import { HowFarPage } from "./overview/HowFarPage";
+import { AnimePage } from "./overview/AnimePage";
 import { ShowDetailPage } from "./overview/ShowDetailPage";
 import { TopPage } from "./overview/TopPage";
 import { PatternsPage } from "./overview/PatternsPage";
@@ -101,7 +102,7 @@ function PlatformApp() {
       <Route index element={platform === "youtube" ? <OverviewPage /> : SHOWS_NEW.includes(platform) ? <ShowsOverviewPage /> : <Layout><Home /></Layout>} />
       <Route path="top/:kind" element={NEW_LOOK.includes(platform) ? <TopPage /> : <Layout><Top /></Layout>} />
       <Route path="shows" element={<Gate capability="series">{SHOWS_NEW.includes(platform) ? <HowFarPage /> : <Layout><Shows /></Layout>}</Gate>} />
-      <Route path="anime" element={<Gate capability="anime"><Layout><Anime /></Layout></Gate>} />
+      <Route path="anime" element={<Gate capability="anime">{SHOWS_NEW.includes(platform) ? <AnimePage /> : <Layout><Anime /></Layout>}</Gate>} />
       <Route path="patterns" element={NEW_LOOK.includes(platform) ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
       <Route path="records" element={NEW_LOOK.includes(platform) ? <RecordsPage /> : <Layout><Records /></Layout>} />
       <Route path="evolution" element={NEW_LOOK.includes(platform) ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
