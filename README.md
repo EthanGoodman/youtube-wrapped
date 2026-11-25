@@ -13,6 +13,7 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 | TikTok | Planned ([#5](https://github.com/EthanGoodman/youtube-wrapped/issues/5)) |
 | Instagram | Planned ([#6](https://github.com/EthanGoodman/youtube-wrapped/issues/6)) |
 | Crunchyroll | ✅ Supported, unofficial (see [Crunchyroll](#crunchyroll)) |
+| Steam | ✅ Supported (see [Steam](#steam)) |
 
 Every platform uses the same layout and look (top lists, patterns, records, evolution and a Wrapped story), worded for what it is: channels and videos, shows and episodes, artists and songs. The steps below cover YouTube.
 
@@ -166,6 +167,20 @@ Notes on the data:
 - Only what the stats use is kept: never your IP address, country or username. Podcasts, audiobooks and video plays are skipped.
 - Spotify's developer API isn't used: new apps may only make a few hundred requests a day and get no genres.
 - Wrapped has its own music story and listener personalities in `personalities-spotify.toml`.
+
+## Steam
+
+1. Get a free **Steam Web API key** at [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) (any domain name, e.g. `localhost`; Steam asks you to approve it in the Steam app under Steam Guard → Confirmations), then save it and your profile link:
+   ```bash
+   python backend/cli.py secrets set STEAM_API_KEY
+   python backend/cli.py secrets set STEAM_PROFILE     # steamcommunity.com/id/... or /profiles/...
+   ```
+2. In Steam: *Profile → Edit Profile → Privacy settings → Game details: Public* (Steam only shares playtime from public game details).
+3. Run `python backend/cli.py fetch --platform steam`, or **Fetch** on the Data sources page. After that it syncs once a day on its own.
+
+How the hours are dated: Steam only gives lifetime hours per game, not a play log. So the app saves a snapshot of your library every day, and the growth between snapshots is real play on that day. Hours from before the first snapshot are **estimated**: each game's hours are spread over the days you unlocked its achievements (or its last-played day when it has none). The pages and Wrapped say which hours are estimates. Achievements are dated exactly, including how rare each one is.
+
+What's stored: per game its name, minutes and last-played time; per achievement its name, description, unlock time and rarity; genres from the Steam store. Nothing about friends or your profile. Wrapped has its own games story and player personalities in `personalities-steam.toml`.
 
 ## Crunchyroll
 
