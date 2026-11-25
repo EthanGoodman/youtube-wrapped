@@ -82,13 +82,13 @@ def longest_session(conn, r: Range, f: Filters) -> dict | None:
     row = conn.execute(f"""
         SELECT w.session_id, COUNT(*), SUM({time_expr(f)}) t, MIN(w.start_epoch), MAX(w.start_epoch + w.est_s),
                MIN(w.local_iso), MIN(w.entry_id)
-        FROM watches w WHERE {w_sql} GROUP BY w.session_id ORDER BY t DESC LIMIT 1""", p).fetchone()
+        FROM watches w WHERE {w_sql} GROUP BY w.session_id ORDER BY t DESC, MIN(w.start_epoch) LIMIT 1""", p).fetchone()
     if not row:
         return None
     sid, n, t, start, end, start_iso, _ = row
     ch = conn.execute(f"""SELECT cr.title, COUNT(*) FROM watches w
         LEFT JOIN creators cr ON cr.creator_id = w.channel_id
-        WHERE w.session_id = ? AND {w_sql} GROUP BY w.channel_id ORDER BY 2 DESC LIMIT 1""",
+        WHERE w.session_id = ? AND {w_sql} GROUP BY w.channel_id ORDER BY 2 DESC, cr.title LIMIT 1""",
                       [sid, *p]).fetchone()
     return {"session_id": sid, "videos": n, "time_s": t or 0, "span_s": end - start, "start": start_iso,
             "top_channel": ch[0] if ch else None}

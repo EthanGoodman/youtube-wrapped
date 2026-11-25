@@ -163,7 +163,7 @@ def binges(conn: sqlite3.Connection, r: Range, f: Filters, limit: int = 10) -> l
             out.append({"key": k, "title": meta["title"], "avatar_url": meta["avatar_url"], "season": s,
                         "episodes": len(season_eps), "days": days, "start": start.isoformat(),
                         "end": end.isoformat(), "per_day": len(season_eps) / days})
-    out.sort(key=lambda b: (b["days"], -b["episodes"], b["end"]))
+    out.sort(key=lambda b: (b["days"], -b["episodes"], b["end"], b["key"], b["season"]))
     return out[:limit]
 
 
@@ -250,7 +250,7 @@ def _movie_cards(conn: sqlite3.Connection, keys: list[str]) -> dict[str, dict]:
         return {}
     ph = ",".join("?" * len(keys))
     genres: dict[str, list[str]] = defaultdict(list)
-    for item, g in conn.execute(f"SELECT item_id, genre FROM item_genres WHERE item_id IN ({ph})", keys):
+    for item, g in conn.execute(f"SELECT item_id, genre FROM item_genres WHERE item_id IN ({ph}) ORDER BY item_id, genre", keys):
         genres[item].append(g)
     out = {}
     for row in conn.execute(f"SELECT item_id, title, thumb_small, thumb_large, duration_s, extra FROM items WHERE item_id IN ({ph})", keys):
@@ -294,7 +294,7 @@ def home(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
     for c in cards.values():
         c["dub_share"] = dubbed.get(c["key"])
     top10 = [x for t in top if (x := show(t["key"], count=t["count"], time_s=t["time_s"], rank=t["rank"]))]
-    finished = sorted((s for s in prog.values() if s["status"] == "finished"), key=lambda s: s["last_watched"], reverse=True)
+    finished = sorted((s for s in prog.values() if s["status"] == "finished"), key=lambda s: (s["last_watched"], s["key"]), reverse=True)
     return {
         "billboard": top10[0] if top10 else None,
         "top10": top10,
@@ -360,7 +360,7 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
                      "pct": v["pct"], "dubbed": v["dubbed"], "still": v["thumb"]}
                     for v in watched.values()
                     if (_as_int(v["season"]), _as_int(v["number"])) not in matched),
-                   key=lambda e: e["first"])
+                   key=lambda e: (e["first"], e["title"] or "", e["season"] or ""))
 
     # pace
     days = [r_[0] for r_ in conn.execute(
@@ -387,7 +387,7 @@ def show_detail(conn: sqlite3.Connection, key: str, f: Filters, today: date | No
             (key, UNKNOWN))]).items()}
         counts = dict(conn.execute("SELECT channel_id, COUNT(*) FROM watches WHERE channel_id IS NOT NULL GROUP BY 1").fetchall())
         scored = [(len(mine & set(c["genres"])), counts.get(k, 0), c) for k, c in others.items() if mine & set(c["genres"])]
-        scored.sort(key=lambda x: (-x[0], -x[1]))
+        scored.sort(key=lambda x: (-x[0], -x[1], x[2]["title"], x[2]["key"]))
         similar = [{**c, "count": n, "shared": shared} for shared, n, c in scored[:10]]
 
     return {
@@ -431,7 +431,7 @@ def anime(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
                 simul_shows[show] += 1
     lags.sort()
     names = _show_info(conn, list(simul_shows))
-    top = sorted(simul_shows.items(), key=lambda kv: -kv[1])[:5]
+    top = sorted(simul_shows.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
     return {
         "sub": sub, "dub": dub,
         "simulcast": sum(1 for d in lags if d <= SIMULCAST_DAYS),
@@ -473,7 +473,7 @@ def anime_page(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
                 "dub_share": s["dub"] / s["count"] if s["count"] else None, "simulcast": s["simulcast"],
                 "studios": c.get("studios") or [], "anime_season": c.get("anime_season"), "score": c.get("score"),
                 "format": c.get("format"), "year": c.get("year")}
-    series = sorted((card(k) for k in per), key=lambda c: -(c["time_s"] if f.metric == "time" else c["count"]))
+    series = sorted((card(k) for k in per), key=lambda c: (-(c["time_s"] if f.metric == "time" else c["count"]), c["title"], c["key"]))
     brief = ("key", "title", "poster", "count")
 
     studios: dict[str, dict] = {}
@@ -522,12 +522,13 @@ def anime_page(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
         "series": series,
         "simulcast": {"episodes": sum(s["simulcast"] for s in per.values()), "dated": len(all_lags),
                       "median_days": all_lags[len(all_lags) // 2] if all_lags else None, "buckets": lag_buckets,
-                      "series": [s for s in sorted(series, key=lambda s: -s["simulcast"]) if s["simulcast"]][:8]},
-        "studios": sorted(studios.values(), key=lambda s: -(s["time_s"] if f.metric == "time" else s["count"]))[:12],
+                      "series": [s for s in sorted(series, key=lambda s: (-s["simulcast"], s["title"], s["key"])) if s["simulcast"]][:8]},
+        "studios": sorted(studios.values(), key=lambda s: (-(s["time_s"] if f.metric == "time" else s["count"]), s["name"]))[:12],
         "seasons": sorted(seasons.values(), key=lambda z: season_key(z["season"]), reverse=True),
         "decades": sorted(({"decade": d, "count": n} for d, n in decades.items()), key=lambda d: d["decade"]),
-        "formats": sorted(({"format": k, "count": n} for k, n in formats.items()), key=lambda x: -x["count"]),
+        "formats": sorted(({"format": k, "count": n} for k, n in formats.items()), key=lambda x: (-x["count"], x["format"])),
         "scores": {"average": round(sum(s["score"] * s["count"] for s in scored) / eps_scored) if eps_scored else None,
-                   "best": sorted(scored, key=lambda s: -s["score"])[:5], "worst": sorted(scored, key=lambda s: s["score"])[:3]},
-        "tags": sorted(({"tag": t, "count": n} for t, n in tags.items()), key=lambda x: -x["count"])[:15],
+                   "best": sorted(scored, key=lambda s: (-s["score"], s["title"], s["key"]))[:5],
+                   "worst": sorted(scored, key=lambda s: (s["score"], s["title"], s["key"]))[:3]},
+        "tags": sorted(({"tag": t, "count": n} for t, n in tags.items()), key=lambda x: (-x["count"], x["tag"]))[:15],
     }

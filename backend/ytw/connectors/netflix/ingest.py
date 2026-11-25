@@ -187,5 +187,5 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
         WHERE e.season > 0""")
     # what this data can show: real times of day only come with the full export
     db.set_meta(conn, "extra_capabilities", "time_of_day" if has_times else "estimated_time")
-    finish_build(conn, analyze=False)  # small; ANALYZE would reorder tied rankings (#85)
+    finish_build(conn)
     return len(watches)
