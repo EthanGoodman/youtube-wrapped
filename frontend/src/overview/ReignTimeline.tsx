@@ -2,7 +2,7 @@
    run, and the longest run is highlighted. Shared by the home page and the Evolution page. */
 import { Link } from "../platform";
 import { useMeta } from "../api";
-import { Avatar, OV, useCreator } from "./kit";
+import { Avatar, OV, ScrollRow, useCreator } from "./kit";
 import { groupReigns, hoursShort, longestReign, monthDay } from "./takeaways";
 
 export interface YearTop { year: number; channel_id: string; title?: string | null; avatar_url?: string | null; time_s: number; count: number }
@@ -23,7 +23,7 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
   const firstMd = meta?.first_date?.slice(5) ?? "01-01";
   return (
     <>
-      <div className="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <ScrollRow outer="-mx-4 sm:mx-0" className="px-4 sm:px-0">
         <ol className="grid min-w-[560px] gap-3" style={{ gridTemplateColumns: `repeat(${rows.length},minmax(0,1fr))` }}>
           {groupReigns(rows).map((g) => {
             const star = reign != null && reign.years >= 2 && g.years.length === reign.years && g.first.title === reign.title;
@@ -65,7 +65,7 @@ export function ReignTimeline({ rows, calendarYears = false }: { rows: YearTop[]
             );
           })}
         </ol>
-      </div>
+      </ScrollRow>
       <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>
         Hours are what you watched of that {cr.one}{calendarYears ? " in those calendar years" : ""}. Pick a year to open its Wrapped.
       </p>

@@ -1,6 +1,6 @@
 /* The shared kit for the new stats pages (YouTube first; meant for every platform in the family): the palette,
    the frame (top bar, period and content pickers), and small parts. Only `OV.accent` is the app's own color. */
-import { ReactNode, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { HubLink, Link, useCapability } from "../platform";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
@@ -64,7 +64,8 @@ export function TopBar() {
       <div className="mx-auto flex min-h-16 max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-8 lg:h-16 lg:flex-nowrap lg:py-0">
         <HubLink to="/" className="inline-flex min-h-11 items-center font-shelf-mono text-[13px] hover:underline">‹ Shelf</HubLink>
         <span className="font-ov-display text-[26px] font-extrabold tracking-[-0.02em]">{meta?.platform.name ?? "YouTube"}</span>
-        <nav aria-label="Sections" className="no-scrollbar order-last -mx-1 flex w-full items-center gap-1 overflow-x-auto px-1 lg:order-none lg:mx-0 lg:w-auto lg:flex-1 lg:overflow-visible lg:px-0">
+        <ScrollRow bg={OV.ink} outer="order-last -mx-1 w-full lg:order-none lg:mx-0 lg:w-auto lg:flex-1" className="px-1 lg:overflow-visible lg:px-0">
+        <nav aria-label="Sections" className="flex w-max items-center gap-1 lg:w-auto">
           {nav.tabs.map(([to, label, end]) => {
             const on = end ? pathname.replace(/\/$/, "").split("/").length <= 2 : pathname.includes(to);
             return (
@@ -89,6 +90,7 @@ export function TopBar() {
             </div>
           </details>
         </nav>
+        </ScrollRow>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <PeriodPicker />
           <ContentPicker />
@@ -308,4 +310,46 @@ export function usePrevRanks(kind: string, ranked: Filters): { cmp: Comparison |
     return last.data.items.find((x) => x.key === c.key)?.rank ?? null;
   };
   return { cmp, prevRank };
+}
+
+/** A row that scrolls sideways. When there's more off either edge it fades that edge and shows an arrow to page
+ *  through (no arrows when it all fits). `className` goes on the scrolling box, `outer` on the wrapper. */
+export function ScrollRow({ children, className = "", outer = "", bg = OV.bg }: { children: ReactNode; className?: string; outer?: string; bg?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setEdges({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, [measure]);
+  const page = (dir: number) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: "smooth" });
+  const arrow = (side: "left" | "right") => (
+    <>
+      <span aria-hidden className={`pointer-events-none absolute inset-y-0 ${side}-0 w-14`}
+            style={{ background: `linear-gradient(to ${side === "left" ? "right" : "left"}, ${bg}, ${bg}00)` }} />
+      <button type="button" aria-label={side === "left" ? "Scroll left" : "Scroll right"} onClick={() => page(side === "left" ? -1 : 1)}
+              className={`absolute top-1/2 ${side}-1 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 shadow-md transition-transform hover:scale-105`}
+              style={{ background: OV.paper, borderColor: OV.ink, color: OV.ink }}>
+        <svg aria-hidden viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d={side === "left" ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7"} />
+        </svg>
+      </button>
+    </>
+  );
+  return (
+    <div className={`relative ${outer}`}>
+      <div ref={ref} onScroll={measure} className={`no-scrollbar overflow-x-auto ${className}`}>{children}</div>
+      {edges.left && arrow("left")}
+      {edges.right && arrow("right")}
+    </div>
+  );
 }

@@ -5,7 +5,7 @@ import { ReactNode, useState } from "react";
 import { Link } from "../platform";
 import { HourPoint, Overview, RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
-import { Band, MoveBadge, OV, Pic, Skeleton, StatsFrame, kicker, usePrevRanks } from "./kit";
+import { Band, MoveBadge, OV, Pic, ScrollRow, Skeleton, StatsFrame, kicker, usePrevRanks } from "./kit";
 import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
 import { HoverBars, Ticks } from "./charts";
 
@@ -157,7 +157,8 @@ function TopRow({ items, prevRank, cmp }: {
     <Band label={`By hours watched${cmp ? ` · arrows since ${cmp.label}` : ""}`} title="Your top 10 channels" link={["/top/channels", "All your channels"]}>
       {!items ? <Skeleton h={220} /> : !items.length ? <p style={{ color: OV.soft }}>No channels in this period.</p> : (
         // keyed by the period: a remount starts the row at #1 (scroll snapping would otherwise keep the old position)
-        <ol key={q} className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 lg:grid lg:grid-cols-10 lg:overflow-visible">
+        <ScrollRow key={q} outer="-mx-4 sm:mx-0" className="snap-x px-4 sm:px-0 lg:overflow-visible">
+        <ol className="flex gap-4 pb-2 lg:grid lg:grid-cols-10">
           {items.map((c) => (
             <li key={c.key} className="w-[150px] shrink-0 snap-start lg:w-auto lg:min-w-0">
               <Link to={`/channel/${encodeURIComponent(c.key)}${q}`} className="group flex flex-col items-start gap-2">
@@ -174,6 +175,7 @@ function TopRow({ items, prevRank, cmp }: {
             </li>
           ))}
         </ol>
+        </ScrollRow>
       )}
     </Band>
   );

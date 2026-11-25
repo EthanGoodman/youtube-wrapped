@@ -8,7 +8,7 @@ import { useFilters, useLinkQuery } from "../filters";
 import { compact, date, num } from "../format";
 import { Binge, EpisodeDay, KindSplit, ShowProgress, ShowStatus } from "../families/shows/data";
 import type { HomeItem } from "../families/shows/Home";
-import { Band, MoveBadge, OV, Poster, Skeleton, StatsFrame, kicker, useAccent, usePrevRanks } from "./kit";
+import { Band, MoveBadge, OV, Poster, ScrollRow, Skeleton, StatsFrame, kicker, useAccent, usePrevRanks } from "./kit";
 import { HoverBars, Ticks } from "./charts";
 import { YearTop } from "./ReignTimeline";
 import {
@@ -157,7 +157,8 @@ function TopRow({ items, prevRank, cmp }: {
   return (
     <Band label={`By hours watched${cmp ? ` · arrows since ${cmp.label}` : ""}`} title="Your top 10 shows" link={["/top/channels", "All your shows"]}>
       {!items ? <Skeleton h={300} /> : !items.length ? <p style={{ color: OV.soft }}>No shows in this period.</p> : (
-        <ol key={q} className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 pt-2 sm:mx-0 sm:px-0 lg:grid lg:grid-cols-10 lg:overflow-visible">
+        <ScrollRow key={q} outer="-mx-4 sm:mx-0" className="snap-x px-4 sm:px-0 lg:overflow-visible">
+        <ol className="flex gap-4 pb-2 pt-2 lg:grid lg:grid-cols-10">
           {items.map((c) => (
             <li key={c.key} className="w-[130px] shrink-0 snap-start lg:w-auto lg:min-w-0">
               <Link to={`/channel/${encodeURIComponent(c.key)}${q}`} className="group flex flex-col items-start gap-2">
@@ -174,6 +175,7 @@ function TopRow({ items, prevRank, cmp }: {
             </li>
           ))}
         </ol>
+        </ScrollRow>
       )}
     </Band>
   );

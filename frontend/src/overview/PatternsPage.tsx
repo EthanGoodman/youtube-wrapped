@@ -5,7 +5,7 @@ import { DayPoint, HourPoint, MonthPoint, useMeta, useStats } from "../api";
 import { useFilters } from "../filters";
 import { duration, num } from "../format";
 import { useCapability } from "../platform";
-import { OV, PageBody, PageHeader, Seg, Skeleton, StatsFrame, kicker, useNoun } from "./kit";
+import { OV, PageBody, PageHeader, ScrollRow, Seg, Skeleton, StatsFrame, kicker, useNoun } from "./kit";
 import { HeatLegend, HoverBars, Readout, Ticks } from "./charts";
 import {
   DAYS, calendarWeeks, clockFacts, heatColor, heatLevel, heatRange, hourLabel, oneIn, periodTitle, weekdayFacts, weekendLine,
@@ -132,8 +132,8 @@ function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
   return (
     <Card label="Day × hour" title={`${days[best[0]]} around ${hourLabel(best[1])}`}>
       <Readout text={info} active={!!cell || level != null} />
-      <div className="no-scrollbar overflow-x-auto" onMouseLeave={() => setCell(null)}>
-        <div className="grid min-w-[520px] gap-[3px]" style={{ gridTemplateColumns: "38px repeat(24,minmax(0,1fr))" }}
+      <ScrollRow bg={OV.paper}>
+        <div onMouseLeave={() => setCell(null)} className="grid min-w-[520px] gap-[3px]" style={{ gridTemplateColumns: "38px repeat(24,minmax(0,1fr))" }}
              role="img" aria-label={`Busiest: ${days[best[0]]} around ${hourLabel(best[1])}. Darker means more.`}>
           {grid.map((row, d) => [
             <span key={`l${d}`} className="self-center font-shelf-mono text-[11px]">{DAYS[d]}</span>,
@@ -149,7 +149,7 @@ function DayHour({ grid, m }: { grid?: number[][]; m: Measure }) {
             <span key={`h${h}`} className="overflow-visible whitespace-nowrap font-shelf-mono text-[10px]" style={{ color: OV.soft }}>{h % 6 === 0 ? hourLabel(h) : ""}</span>
           ))}
         </div>
-      </div>
+      </ScrollRow>
       <HeatLegend level={level} setLevel={setLevel} />
     </Card>
   );
@@ -207,8 +207,8 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
   return (
     <Card label="Every day" title={`You watched on ${num(active)} of ${num(days.length)} days`}>
       <Readout text={info} active={!!day || level != null} />
-      <div className="no-scrollbar overflow-x-auto pb-1" onMouseLeave={() => setDay(null)}>
-        <div className="grid gap-[3px]" role="img" aria-label={`One square per day. You watched on ${active} of ${days.length} days.`}
+      <ScrollRow bg={OV.paper} className="pb-1">
+        <div onMouseLeave={() => setDay(null)} className="grid gap-[3px]" role="img" aria-label={`One square per day. You watched on ${active} of ${days.length} days.`}
              style={{ gridTemplateColumns: `30px repeat(${W},minmax(0,1fr))`, width: `min(100%, ${W * 30 + 34}px)`, minWidth: `${W * 12 + 34}px` }}>
           <span />
           {weeks.map((w, i) => <span key={`m${i}`} className="overflow-visible whitespace-nowrap font-shelf-mono text-[10px]" style={{ color: OV.soft }}>{monthOf(w, i)}</span>)}
@@ -228,7 +228,7 @@ function EveryDay({ days, m }: { days?: DayPoint[]; m: Measure }) {
             }),
           ])}
         </div>
-      </div>
+      </ScrollRow>
       <HeatLegend level={level} setLevel={setLevel} />
     </Card>
   );
