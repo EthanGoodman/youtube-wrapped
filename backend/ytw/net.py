@@ -35,6 +35,7 @@ USER_AGENT = "wrapped-stats/1.0 (personal stats app)"
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_MAX_BYTES = 20 * 1024 * 1024          # big enough for any JSON page we fetch, small enough to be safe
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+MAX_RETRY_WAIT_S = 600  # a Retry-After longer than this is returned to the caller, not slept through
 BACKOFF_BASE = 1.0
 BACKOFF_CAP = 30.0
 RETRY_AFTER_CAP = 120.0
@@ -175,6 +176,14 @@ def urllib_transport(req: Request) -> Response:
                         {k.lower(): v for k, v in resp.headers.items()}, body)
 
 
+def _seconds(value: str | None) -> float:
+    """A Retry-After in seconds as sent (0 when missing or a date)."""
+    try:
+        return float(value) if value else 0.0
+    except ValueError:
+        return 0.0
+
+
 def _retry_after(value: str | None) -> float | None:
     if not value:
         return None
@@ -281,7 +290,11 @@ class Http:
             if len(resp.body) > max_bytes:
                 raise TooLarge(f"response from {host} is over {max_bytes:,} bytes")
             if resp.status in RETRY_STATUSES and not last:
-                self.sleep(_retry_after(resp.headers.get("retry-after")) or self._backoff(attempt))
+                asked = resp.headers.get("retry-after")
+                if _seconds(asked) > MAX_RETRY_WAIT_S:   # "come back tomorrow": tell the caller instead of hanging
+                    self._record(host, failed=False)
+                    return resp
+                self.sleep(_retry_after(asked) or self._backoff(attempt))
                 continue
             self._record(host, failed=resp.status >= 500)
             return resp

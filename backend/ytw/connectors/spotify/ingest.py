@@ -21,7 +21,7 @@ from .. import store
 from ..base import finish_build
 from ..music import Album, dedupe_listens, is_stream, write_albums
 from ..store import Creator, Item, View, slug
-from . import lastfm
+from . import art, lastfm
 
 PLAYS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS plays (
@@ -129,25 +129,20 @@ def album_key(artist: str, album: str) -> str:
 
 
 def _apply_lookups(conn: sqlite3.Connection, items: dict, creators: dict, albums: dict) -> None:
-    """Album art on albums and their tracks, photos on artists (from api.py's caches). Our artist ids come from names
-    (the export has no artist ids), so a Spotify artist is matched through an album: its main artist, same name."""
-    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'sp_albums'").fetchone():
-        return
-    found = {aid: json.loads(d) for aid, d in conn.execute("SELECT album_id, data FROM sp_albums WHERE data IS NOT NULL")}
-    photos = {a: json.loads(d) for a, d in conn.execute("SELECT artist_id, data FROM sp_artists WHERE data IS NOT NULL")}
-    for aid, t in found.items():
-        al, a = t["album"], albums.get(aid)
-        if a:
-            a.cover_small, a.cover_large, a.released = al.get("small"), al.get("large"), al.get("released")
-        main = (t.get("artists") or [None])[0]
-        cr = creators.get(a.creator_id or "") if a else None
-        if main and cr and not cr.url and (main.get("name") or "").casefold() == (cr.title or "").casefold():
-            cr.avatar_url = (photos.get(main["id"]) or {}).get("small")
-            cr.url = f"https://open.spotify.com/artist/{main['id']}"
+    """Album art on albums and their tracks, photos on artists (art.py's caches; nothing until it has run)."""
+    art_by_album, photos = art.cached(conn)
+    for aid, a in albums.items():
+        if aid in art_by_album:
+            a.cover_small, a.cover_large = art_by_album[aid].get("small"), art_by_album[aid].get("large")
+            a.released = a.released or art_by_album[aid].get("released")
     for it in items.values():
         a = albums.get(it.album_id or "")
         if a and a.cover_small:
             it.thumb_small, it.thumb_large = a.cover_small, a.cover_large
+    for cr in creators.values():
+        p = photos.get(cr.title or "")
+        if p:
+            cr.avatar_url = p.get("small")
 
 
 def _genres(conn: sqlite3.Connection, items: dict, creators: dict) -> dict[str, list[str]]:

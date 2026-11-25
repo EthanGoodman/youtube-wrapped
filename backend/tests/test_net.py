@@ -83,9 +83,16 @@ def test_jitter_spreads_waits():
 
 
 def test_retry_after_honored_and_capped():
-    h, _, clock = make(ok(status=429, retry_after="7"), ok(status=429, retry_after="99999"), ok())
+    h, _, clock = make(ok(status=429, retry_after="7"), ok(status=429, retry_after="500"), ok())
     h.request("GET", "https://api.example/x")
     assert clock.slept == [7.0, net.RETRY_AFTER_CAP]
+
+
+def test_come_back_tomorrow_is_returned_not_slept():
+    """A host that says to wait hours (Spotify's daily limit sent 85,917 s) gets the 429 back right away."""
+    h, fake, clock = make(ok(status=429, retry_after="85917"), ok())
+    r = h.request("GET", "https://api.example/x")
+    assert r.status == 429 and clock.slept == [] and len(fake.seen) == 1
 
 
 def test_gives_back_last_status_after_retries():

@@ -92,23 +92,26 @@ def test_music_stats_and_api(tmp_path):
     assert client.get("/api/music/records?platform=netflix").status_code == 404   # not a music platform
 
 
-class FakeSpotify:
-    """Answers one track or artist at a time (as new apps must ask): knows T1 and T3, not T2."""
+class FakeArt:
+    """Spotify oEmbed (by track id: knows T1 and T3, not T2) and Deezer search (by name)."""
     def __init__(self):
         self.calls = []
 
-    def __call__(self, path):
-        self.calls.append(path)
-        kind, sid = path.split("/")
-        if kind == "tracks":
-            known = {"T1": ("Night Ferry", "A1", "The Paper Lanterns"), "T3": ("Salt Year", "A3", "Low Tide Choir")}
-            if sid not in known:
-                return {}
-            return {"id": sid, "album": {"id": "AL" + sid, "name": known[sid][0], "release_date": "2019-05-01",
-                                         "images": [{"url": f"https://i.scdn.co/image/big{sid}", "width": 640},
-                                                    {"url": f"https://i.scdn.co/image/mid{sid}", "width": 300}]},
-                    "artists": [{"id": known[sid][1], "name": known[sid][2]}]}
-        return {"id": sid, "name": "x", "images": [{"url": f"https://i.scdn.co/image/face{sid}", "width": 320}]}
+    def oembed(self, track_id):
+        self.calls.append(("oembed", track_id))
+        if track_id not in ("T1", "T3"):
+            return {}
+        return {"title": "x", "thumbnail_url": f"https://image-cdn-ak.spotifycdn.com/image/ab67616d00001e02{track_id[1]}c1aaaa"}
+
+    def deezer(self, name):
+        self.calls.append(("deezer", name))
+        if name == "The Paper Lanterns":   # an exact match (other case) after a near miss
+            return {"data": [{"name": "Paper Lanterns", "picture_medium": "https://cdn-images.dzcdn.net/images/artist/zz/250.jpg"},
+                             {"name": "the paper lanterns", "picture_medium": "https://cdn-images.dzcdn.net/images/artist/ab/250.jpg",
+                              "picture_big": "https://cdn-images.dzcdn.net/images/artist/ab/500.jpg"}]}
+        if name == "Mira Vale":            # Deezer's blank silhouette: no photo
+            return {"data": [{"name": "Mira Vale", "picture_medium": "https://cdn-images.dzcdn.net/images/artist//250.jpg"}]}
+        return {"data": []}
 
 
 def fake_lastfm(artist):
@@ -119,24 +122,36 @@ def fake_lastfm(artist):
 
 
 def test_enrich_quick_then_rest(tmp_path):
-    from ytw.connectors.spotify import api, lastfm
+    from ytw.connectors.spotify import art, lastfm
     conn, _, _ = _built(tmp_path)
-    fake = FakeSpotify()
-    first = api.enrich(conn, fake, limit=1)                  # the quick pass: the most-played album only
-    assert fake.calls == ["tracks/T1", "artists/A1"] and first["left"] > 0
-    r = api.enrich(conn, fake)                               # everything else
-    assert r["albums_found"] == 2 and r["artists_found"] == 2 and r["left"] == 0
-    assert "tracks/T2" in fake.calls                         # asked, unknown to Spotify: cached as not found
+    fake = FakeArt()
+    first = art.enrich(conn, fake.oembed, fake.deezer, limit=1)     # the quick pass: the most-played album and artist
+    assert fake.calls == [("oembed", "T1"), ("deezer", "The Paper Lanterns")] and first["left"] > 0
+    r = art.enrich(conn, fake.oembed, fake.deezer)                   # everything else
+    assert r["albums_found"] == 2 and r["artists_found"] == 1 and r["left"] == 0
+    assert ("oembed", "T2") in fake.calls                            # asked, not found: cached as not found
     n = len(fake.calls)
-    api.enrich(conn, fake)
-    assert len(fake.calls) == n                              # all cached: no new requests
+    art.enrich(conn, fake.oembed, fake.deezer)
+    assert len(fake.calls) == n                                      # all cached: no new requests
     g = lastfm.enrich(conn, fake_lastfm)
     assert g["artists_with_genres"] == 1 and g["left"] == 0
     sp.build(conn, NY)
     t1 = conn.execute("SELECT thumb_small, thumb_large FROM items WHERE item_id = 'track:T1'").fetchone()
-    assert tuple(t1) == ("https://i.scdn.co/image/midT1", "https://i.scdn.co/image/bigT1")
-    lanterns = conn.execute("SELECT avatar_url, url FROM creators WHERE creator_id = 'artist:the-paper-lanterns'").fetchone()
-    assert lanterns[0] == "https://i.scdn.co/image/faceA1" and lanterns[1].endswith("/artist/A1")
+    # moved to Spotify's main image host; the 640 px version from the same image id
+    assert tuple(t1) == ("https://i.scdn.co/image/ab67616d00001e021c1aaaa", "https://i.scdn.co/image/ab67616d0000b2731c1aaaa")
+    photos = dict(conn.execute("SELECT creator_id, avatar_url FROM creators").fetchall())
+    assert photos["artist:the-paper-lanterns"] == "https://cdn-images.dzcdn.net/images/artist/ab/250.jpg"
+    assert photos["artist:mira-vale"] is None                         # placeholder skipped
     # tags that aren't genres (seen live, a decade, light ones) are dropped
     assert {g for (g,) in conn.execute("SELECT genre FROM item_genres WHERE item_id = 'track:T1'")} == {"Indie Folk", "Dream Pop"}
     assert db.get_meta(conn, "extra_capabilities") == "time_of_day,genres"
+
+
+def test_art_urls_are_relay_safe():
+    from ytw.connectors.spotify import art
+    from ytw.images import check_url
+    good = art.album_art({"thumbnail_url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e02deadbeef"})
+    check_url(good["small"])                                         # allowed by the image relay (raises if not)
+    check_url(good["large"])
+    assert art.album_art({"thumbnail_url": "https://evil.example/image/ab67616d00001e02deadbeef"}) is None
+    assert art.album_art({"thumbnail_url": "https://i.scdn.co/image/../../etc"}) is None
