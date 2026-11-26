@@ -11,8 +11,9 @@ Game platforms (Steam, Epic, PlayStation, Xbox) give running totals per game, no
 Every game platform saves the same small files (its fetch writes them in data/<platform>/):
 
   snapshots/<YYYY-MM-DD>.json   your library at that day's last check: {"day", "at": epoch, "games": [{id, name,
-                                minutes, last_played, acquired}]} (lifetime totals; last_played/acquired epoch or null)
-  games/<id>.json               {id, achievements: [{api, name, desc, unlocked}], rarity: {api: pct}, genres: [...],
+                                minutes, last_played, acquired, first_played, plays}]} (lifetime totals; the dates are
+                                epochs or null; first_played and plays (sessions) only where the platform says, e.g. PSN)
+  games/<id>.json               {id, achievements: [{api, name, desc, unlocked, type}], rarity: {api: pct}, genres: [...],
                                  and optionally poster / header / url when the platform's art isn't at a fixed address}
 
 load() reads them into the game_* tables and build() writes the shared tables like every platform: one View per
@@ -41,7 +42,8 @@ CREATE TABLE IF NOT EXISTS game_snapshots (day TEXT NOT NULL, game TEXT NOT NULL
                                            last_played INTEGER, PRIMARY KEY (day, game));
 CREATE TABLE IF NOT EXISTS game_titles (game TEXT PRIMARY KEY, name TEXT NOT NULL, genres TEXT,
                                         poster TEXT, header TEXT, url TEXT,
-                                        acquired INTEGER);   -- epoch: when you got it (Epic says; Steam doesn't)
+                                        acquired INTEGER,    -- epoch: when you got it (Epic says; Steam doesn't)
+                                        first_played INTEGER, plays INTEGER);   -- PlayStation says both
 CREATE TABLE IF NOT EXISTS game_achievements (
     game        TEXT NOT NULL,
     api         TEXT NOT NULL,
@@ -49,6 +51,7 @@ CREATE TABLE IF NOT EXISTS game_achievements (
     description TEXT,
     unlocked    INTEGER,          -- epoch seconds, NULL = not unlocked
     rarity      REAL,             -- % of players who have it
+    kind        TEXT,             -- trophies: platinum | gold | silver | bronze
     PRIMARY KEY (game, api)
 );
 """
@@ -58,13 +61,14 @@ _OLD = ("st_snapshots", "st_games", "st_achievements")   # Steam's tables before
 def init(conn: sqlite3.Connection) -> None:
     db.init_db(conn)
     conn.executescript(SCHEMA)
-    if "acquired" not in {r[1] for r in conn.execute("PRAGMA table_info(game_titles)")}:
-        conn.execute("ALTER TABLE game_titles ADD COLUMN acquired INTEGER")
+    for table, col in (("game_titles", "acquired"), ("game_titles", "first_played"), ("game_titles", "plays"), ("game_achievements", "kind")):
+        if col not in {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {'TEXT' if col == 'kind' else 'INTEGER'}")
     have = {n for (n,) in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     if set(_OLD) <= have:                      # a Steam database from before the rename: same rows, new names
         conn.execute("INSERT OR IGNORE INTO game_snapshots SELECT day, CAST(appid AS TEXT), minutes, last_played FROM st_snapshots")
         conn.execute("INSERT OR IGNORE INTO game_titles (game, name, genres) SELECT CAST(appid AS TEXT), name, genres FROM st_games")
-        conn.execute("INSERT OR IGNORE INTO game_achievements "
+        conn.execute("INSERT OR IGNORE INTO game_achievements (game, api, name, description, unlocked, rarity) "
                      "SELECT CAST(appid AS TEXT), api, name, description, unlocked, rarity FROM st_achievements")
         for t in _OLD:
             conn.execute(f"DROP TABLE {t}")
@@ -79,7 +83,7 @@ def _int(v, default: int | None = None) -> int | None:
 
 
 def _id(g: dict) -> str | None:
-    """A game's id from its file: Epic's app name or Steam's appid, as text (never a path)."""
+    """A game's id from its file: Epic's app name, Steam's appid or a PlayStation title id, as text (never a path)."""
     v = g.get("id", g.get("appid"))
     v = str(v).strip() if isinstance(v, (str, int)) and not isinstance(v, bool) else ""
     return v[:200] if v and "/" not in v and "\\" not in v else None
@@ -94,7 +98,7 @@ def load(conn: sqlite3.Connection, folder: Path, name: str, fetch_cmd: str) -> d
     snaps = sorted((folder / "snapshots").glob("*.json")) if (folder / "snapshots").is_dir() else []
     if not snaps:
         raise FileNotFoundError(f"No {name} library snapshots in {folder / 'snapshots'}. Run `{fetch_cmd}` first.")
-    rows, games, acquired = [], {}, {}
+    rows, games, acquired, first_played, plays = [], {}, {}, {}, {}
     for path in snaps:
         day = path.stem
         try:
@@ -113,6 +117,10 @@ def load(conn: sqlite3.Connection, folder: Path, name: str, fetch_cmd: str) -> d
             games[gid] = g["name"][:300]
             if _int(g.get("acquired")):
                 acquired[gid] = _int(g.get("acquired"))
+            if _int(g.get("first_played")):
+                first_played[gid] = min(_int(g.get("first_played")), first_played.get(gid) or 2**62)
+            if _int(g.get("plays")) is not None:
+                plays[gid] = _int(g.get("plays"))            # the latest snapshot's count
     ach, extra = [], {}
     for path in sorted((folder / "games").glob("*.json")) if (folder / "games").is_dir() else []:
         with Source(path) as src:
@@ -127,15 +135,19 @@ def load(conn: sqlite3.Connection, folder: Path, name: str, fetch_cmd: str) -> d
             if isinstance(a, dict) and isinstance(a.get("api"), str):
                 pct = rarity.get(a["api"])
                 ach.append((gid, a["api"], a.get("name"), a.get("desc"), _int(a.get("unlocked")) or None,
-                            float(pct) if isinstance(pct, (int, float, str)) and str(pct).replace(".", "", 1).isdigit() else None))
+                            float(pct) if isinstance(pct, (int, float, str)) and str(pct).replace(".", "", 1).isdigit() else None,
+                            a.get("type") if a.get("type") in ("platinum", "gold", "silver", "bronze") else None))
     init(conn)
     conn.execute("DELETE FROM game_snapshots")
     conn.execute("DELETE FROM game_titles")
     conn.execute("DELETE FROM game_achievements")
     conn.executemany("INSERT OR REPLACE INTO game_snapshots VALUES (?,?,?,?)", rows)
-    conn.executemany("INSERT INTO game_titles (game, name, genres, poster, header, url, acquired) VALUES (?,?,?,?,?,?,?)",
-                     [(g, n, *extra.get(g, ("[]", None, None, None)), acquired.get(g)) for g, n in games.items()])
-    conn.executemany("INSERT OR REPLACE INTO game_achievements VALUES (?,?,?,?,?,?)", ach)
+    conn.executemany("INSERT INTO game_titles (game, name, genres, poster, header, url, acquired, first_played, plays) "
+                     "VALUES (?,?,?,?,?,?,?,?,?)",
+                     [(g, n, *extra.get(g, ("[]", None, None, None)), acquired.get(g), first_played.get(g), plays.get(g))
+                      for g, n in games.items()])
+    conn.executemany("INSERT OR REPLACE INTO game_achievements (game, api, name, description, unlocked, rarity, kind) "
+                     "VALUES (?,?,?,?,?,?,?)", ach)
     conn.commit()
     return {"snapshots": len(snaps), "games": len(games), "achievements": sum(1 for a in ach if a[4])}
 
@@ -180,21 +192,25 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, links: Links) -> int:
         v.session_id = v.entry_id                          # no sittings: a day's total isn't a session
     active = {d for d, _, _, how in plays if how == "snapshot"}
     active |= {datetime.fromtimestamp(ts, tz).date() for (ts,) in conn.execute("SELECT unlocked FROM game_achievements WHERE unlocked IS NOT NULL")}
+    # first and last played are real days of play too (PlayStation and Steam say)
+    active |= {datetime.fromtimestamp(ts, tz).date() for (ts,) in conn.execute("SELECT first_played FROM game_titles WHERE first_played IS NOT NULL")}
+    active |= {datetime.fromtimestamp(ts, tz).date() for ts in last_played.values() if ts}
     years = {d.year for d in active}
 
     ach = {g: (n, u) for g, n, u in conn.execute("SELECT game, COUNT(*), COUNT(unlocked) FROM game_achievements GROUP BY game")}
     latest = max(snaps)
     items, creators, genre_of = [], [], {}
     day_of = lambda ts: datetime.fromtimestamp(ts, tz).date().isoformat() if ts else None  # noqa: E731
-    for gid, name, genres, poster, header, url, acq in conn.execute(
-            "SELECT game, name, genres, poster, header, url, acquired FROM game_titles"):
+    for gid, name, genres, poster, header, url, acq, fp, plays in conn.execute(
+            "SELECT game, name, genres, poster, header, url, acquired, first_played, plays FROM game_titles"):
         key = f"game:{gid}"
         genre_of[key] = json.loads(genres or "[]")
         dp, dh, du = links(gid)
         poster, header, url = poster or dp, header or dh, url or du
         total, got = ach.get(gid, (0, 0))
         extra = json.dumps({"minutes": snaps[latest].get(gid, 0), "achievements": total, "unlocked": got,
-                            "last_played": day_of(last_played.get(gid)), "acquired": day_of(acq)})
+                            "last_played": day_of(last_played.get(gid)), "acquired": day_of(acq),
+                            "first_played": day_of(fp), "plays": plays})
         items.append(Item(key, "ok", name, key, poster, header, url=url, extra=extra))
         creators.append(Creator(key, "ok", name, avatar_url=poster, url=url, extra=extra))
     conn.execute("PRAGMA foreign_keys=OFF")  # no YouTube-style raw `entries` table here

@@ -16,7 +16,7 @@ MANIFEST = Manifest(
      "https://www.epicgames.com/id/api/redirect?clientId=34a02cf8f4414e29b15921876da36f9a&responseType=code",
      "Copy the authorizationCode it shows and save it: python backend/cli.py secrets set EPIC_AUTH_CODE",
      "Fetch within a few minutes (the code works once): python backend/cli.py fetch --platform epic"),
-    "a minute (unofficial)", issue=108, family="games", auth="cookie", order=6, sync_every=3600,
+    "a minute (unofficial)", issue=108, family="games", auth="cookie", order=7, sync_every=3600,
     image_hosts=(("cdn1.epicgames.com", "/"), ("cdn2.unrealengine.com", "/"), ("cdn1.unrealengine.com", "/")),
     secrets=("EPIC_AUTH_CODE", "EPIC_REFRESH_TOKEN"), official=False)
 

@@ -1,0 +1,38 @@
+{
+ "id": "CUSA00001_00",
+ "name": "Kart Rally",
+ "achievements": [
+  {
+   "api": "0",
+   "name": "Kart King",
+   "desc": "Every trophy",
+   "type": "platinum",
+   "unlocked": 1580599800
+  },
+  {
+   "api": "1",
+   "name": "First Lap",
+   "desc": "Finish a race",
+   "type": "bronze",
+   "unlocked": 1555182000
+  },
+  {
+   "api": "2",
+   "name": "Perfect",
+   "desc": "Win without a hit",
+   "type": "gold",
+   "unlocked": null
+  }
+ ],
+ "rarity": {
+  "0": 1.2,
+  "1": 80.5,
+  "2": 30.0
+ },
+ "genres": [],
+ "poster": "https://image.api.playstation.com/kart.png",
+ "header": null,
+ "url": null,
+ "platform": "ps4_game",
+ "trophies_updated": "2024-11-06T02:00:00Z"
+}

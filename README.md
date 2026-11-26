@@ -15,6 +15,7 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 | Crunchyroll | ✅ Supported, unofficial (see [Crunchyroll](#crunchyroll)) |
 | Steam | ✅ Supported (see [Steam](#steam)) |
 | Epic Games | ✅ Supported, unofficial (see [Epic Games](#epic-games)) |
+| PlayStation | ✅ Supported, unofficial (see [PlayStation](#playstation)) |
 
 Every platform uses the same layout and look (top lists, patterns, records, evolution and a Wrapped story), worded for what it is: channels and videos, shows and episodes, artists and songs. The steps below cover YouTube.
 
@@ -201,6 +202,22 @@ Epic has no public API or export for playtime, so this reads your own data from 
 It works like Steam: lifetime hours are exact, your past is told by achievement unlocks, and hours by day start when tracking begins. Epic also says when you got each game. Games without achievements (Fortnite, GTA V) count in lifetime hours and top games, never on invented dates.
 
 What's stored: per game its name, minutes, cover art and store link; per achievement its name, description, unlock time and rarity. Nothing about friends, purchases or your account. Wrapped uses `personalities-epic.toml`.
+
+## PlayStation
+
+Sony has no public API or export for this, so it reads your own data from the PlayStation app's endpoints, the way the open-source libraries psn-api and PSNAWP do. It's **unofficial** (Sony could change it) and **read-only**.
+
+1. Sign in at [playstation.com](https://www.playstation.com) in your browser, then open [ca.account.sony.com/api/v1/ssocookie](https://ca.account.sony.com/api/v1/ssocookie). It shows `{"npsso":"..."}`; copy the value.
+2. Save it, then fetch:
+   ```bash
+   python backend/cli.py secrets set PSN_NPSSO      # on Windows paste with right-click or Ctrl+Shift+V
+   python backend/cli.py fetch --platform playstation
+   ```
+3. The fetch trades it for a sign-in kept in your OS keychain (`PSN_REFRESH_TOKEN`) and checks hourly while the app runs. If it ever expires, repeat steps 1–2.
+
+PlayStation says more than Steam or Epic: for PS4 and PS5 games, lifetime hours, **first and last played** and how many **sessions**; trophies with when you earned them, their type and how rare they are, including PS3 and Vita games. Hours by day start when tracking begins, like the other game platforms.
+
+What's stored: per game its name, minutes, first/last played, sessions and picture; per trophy its name, description, type, when you earned it and its rarity. Nothing about friends, messages or your account. Wrapped uses `personalities-playstation.toml`.
 
 ## Crunchyroll
 

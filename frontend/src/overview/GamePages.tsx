@@ -4,7 +4,7 @@
    game but not when they were played). */
 import { ReactNode, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Link } from "../platform";
+import { Link, awards } from "../platform";
 import { MonthPoint, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { date, num, pct, safeHref } from "../format";
@@ -28,7 +28,7 @@ function Card({ label, title, children }: { label: string; title?: string; child
 
 // ------------------------------------------------------------------ all games
 
-type Sort = "hours" | "achievements" | "recent" | "name";
+type Sort = "hours" | "achievements" | "sessions" | "recent" | "name";
 
 /** Every game you've played: lifetime hours (exact), achievements done of total, and the dates that are known. */
 export function AllGamesPage() {
@@ -41,9 +41,11 @@ export function AllGamesPage() {
   const genres = [...new Set(rows.flatMap((r) => r.genres))].sort((a, b) =>
     rows.filter((r) => r.genres.includes(b)).length - rows.filter((r) => r.genres.includes(a)).length || a.localeCompare(b));
   const latest = (r: TimelineRow) => [r.last_unlock, r.last_played].filter(Boolean).sort().pop() ?? "";
+  const hasPlays = rows.some((r) => r.plays);
   const shown = rows.filter((r) => !genre || r.genres.includes(genre)).sort((a, b) =>
     sort === "hours" ? b.minutes - a.minutes
     : sort === "achievements" ? done(b) - done(a) || b.unlocks - a.unlocks
+    : sort === "sessions" ? (b.plays ?? 0) - (a.plays ?? 0) || b.minutes - a.minutes
     : sort === "recent" ? latest(b).localeCompare(latest(a)) || b.minutes - a.minutes
     : (a.game.title ?? "").localeCompare(b.game.title ?? ""));
   const genreHours = genre ? shown.reduce((s, r) => s + r.minutes, 0) : 0;
@@ -56,7 +58,7 @@ export function AllGamesPage() {
           <section className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <Seg label="Sort by" value={sort} onChange={setSort}
-                   options={[["hours", "Hours"], ["achievements", "Achievements"], ["recent", "Most recent"], ["name", "Name"]]} />
+                   options={[["hours", "Hours"], ["achievements", awards().Many], ...(hasPlays ? [["sessions", "Sessions"] as [Sort, string]] : []), ["recent", "Most recent"], ["name", "Name"]]} />
             </div>
             {genres.length > 0 && (
               <div className="flex flex-wrap gap-2" role="group" aria-label="Genre">
@@ -81,17 +83,18 @@ export function AllGamesPage() {
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate text-[16px] font-bold">{r.game.title}</span>
                       <span className="truncate font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{knownDates(r)}</span>
+                      {r.plays ? <span className="truncate font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{plural(r.plays, "session")} · {hoursShort((r.minutes * 60) / r.plays)} each on average</span> : null}
                       <span className="font-ov-display text-[15px] font-extrabold sm:hidden">{hoursShort(r.minutes * 60)}{r.achievements ? ` · ${r.unlocks}/${r.achievements}` : ""}</span>
                     </span>
                     <span className="hidden flex-col gap-1 sm:flex">
                       {r.achievements ? (
                         <>
-                          <span className="font-shelf-mono text-[12px]">{num(r.unlocks)} of {num(r.achievements)} achievements</span>
+                          <span className="font-shelf-mono text-[12px]">{num(r.unlocks)} of {num(r.achievements)} {awards().many}</span>
                           <span className="block h-2 overflow-hidden rounded-full" style={{ background: OV.sand }}>
                             <span className="block h-full rounded-full" style={{ width: `${done(r) * 100}%`, background: done(r) === 1 ? OV.teal : OV.ink }} />
                           </span>
                         </>
-                      ) : <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>no achievements</span>}
+                      ) : <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>no {awards().many}</span>}
                     </span>
                     <span className="hidden text-right font-ov-display text-[18px] font-extrabold sm:block">{hoursShort(r.minutes * 60)}</span>
                   </Link>
@@ -108,8 +111,9 @@ export function AllGamesPage() {
 const done = (r: TimelineRow) => (r.achievements ? r.unlocks / r.achievements : 0);
 function knownDates(r: TimelineRow): string {
   const parts = [];
-  if (r.first_unlock && r.last_unlock) parts.push(r.first_unlock === r.last_unlock ? `achievement ${date(r.first_unlock)}` : `achievements ${date(r.first_unlock)} – ${date(r.last_unlock)}`);
-  if (r.last_played) parts.push(`last played ${date(r.last_played)}`);
+  if (r.first_played && r.last_played) parts.push(`played ${date(r.first_played)} – ${date(r.last_played)}`);
+  if (r.first_unlock && r.last_unlock && !r.first_played) parts.push(r.first_unlock === r.last_unlock ? `${awards().one} ${date(r.first_unlock)}` : `${awards().many} ${date(r.first_unlock)} – ${date(r.last_unlock)}`);
+  if (r.last_played && !r.first_played) parts.push(`last played ${date(r.last_played)}`);
   if (r.acquired) parts.push(`got it ${date(r.acquired)}`);
   return parts.join(" · ") || "no dates known";
 }
@@ -127,7 +131,7 @@ export function AchievementsPage() {
   const many = (a?.per_month.length ?? 0) > 24;
   return (
     <StatsFrame>
-      <PageHeader label={`Achievements · ${periodTitle(filters, meta?.today)}`} title={a ? `${num(a.unlocked)} achievements unlocked.` : "Achievements"}>
+      <PageHeader label={`${awards().Many} · ${periodTitle(filters, meta?.today)}`} title={a ? `${num(a.unlocked)} ${awards().many} unlocked.` : awards().Many}>
         {a && <p className="text-[17px]" style={{ color: OV.mute }}>{num(a.total)} in your games in all.</p>}
       </PageHeader>
       <PageBody>
@@ -140,13 +144,13 @@ export function AchievementsPage() {
               <Card label="Most recent"><ol className="flex flex-col">{a.recent.slice(0, 8).map((u) => <UnlockRow key={u.game.key + u.api} u={u} />)}</ol></Card>
             </div>
             <Card label="Per month" title={best ? `${monthLabel(best.month)} was your biggest month` : undefined}>
-              <HoverBars height={160} gap={2} radius={2} hint="Hover a month to see it." ariaLabel="Achievements per month"
-                         bars={a.per_month.map((m) => ({ key: m.month, label: monthLabel(m.month), value: m.count, display: `${num(m.count)} achievements`,
+              <HoverBars height={160} gap={2} radius={2} hint="Hover a month to see it." ariaLabel={`${awards().Many} per month`}
+                         bars={a.per_month.map((m) => ({ key: m.month, label: monthLabel(m.month), value: m.count, display: `${num(m.count)} ${awards().many}`,
                                                          color: m.month === best?.month ? OV.accent : OV.ink }))}
                          ticks={<Ticks labels={a.per_month.map((m) => (m.month.endsWith("-01") ? m.month.slice(0, 4) : many ? "" : monthLabel(m.month, false)))} />} />
             </Card>
             <div className="grid gap-4 lg:grid-cols-2">
-              <Card label="100% completed" title={a.perfect.length ? `${num(a.perfect.length)} game${a.perfect.length === 1 ? "" : "s"} with every achievement` : "None at 100% here"}>
+              <Card label="100% completed" title={a.perfect.length ? `${num(a.perfect.length)} game${a.perfect.length === 1 ? "" : "s"} with every ${awards().one}` : "None at 100% here"}>
                 <ol className="flex flex-col">
                   {a.perfect.map((p) => (
                     <li key={p.game.key}>
@@ -160,7 +164,7 @@ export function AchievementsPage() {
                 </ol>
               </Card>
               {a.best_day && (
-                <Card label="Most in one day" title={`${num(a.best_day.count)} achievements in ${a.best_day.game.title ?? "one game"}`}>
+                <Card label="Most in one day" title={`${num(a.best_day.count)} ${awards().many} in ${a.best_day.game.title ?? "one game"}`}>
                   <p className="text-[15px]">on {date(a.best_day.date)}.</p>
                 </Card>
               )}
@@ -195,8 +199,8 @@ export function GameDetailPage() {
   for (const x of c?.achievements ?? []) if (x.unlocked) per[x.unlocked.slice(0, 7)] = (per[x.unlocked.slice(0, 7)] ?? 0) + 1;
   const months = fill(Object.entries(per).sort().map(([month, count]) => ({ month, count, time_s: 0 })));
   const many = months.length > 24;
-  const known = ([["First achievement", t?.first_unlock], ["Latest achievement", t?.last_unlock], ["Got it", t?.acquired],
-                  ["Last played", t?.last_played]] as [string, string | null | undefined][]).filter(([, v]) => v);
+  const sessions = t?.plays ? [["Sessions", num(t.plays)], ["Average session", hoursShort((t.minutes * 60) / t.plays)]] as [string, string][] : [];
+  const known = ([["First played", t?.first_played], ["Last played", t?.last_played], [`First ${awards().one}`, t?.first_unlock], [`Latest ${awards().one}`, t?.last_unlock], ["Got it", t?.acquired]] as [string, string | null | undefined][]).filter(([, v]) => v);
   const href = safeHref(d.url);
   return (
     <StatsFrame>
@@ -206,10 +210,10 @@ export function GameDetailPage() {
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <span className={kicker} style={{ color: OV.mustard }}>Game</span>
             <h1 className="font-ov-display text-[clamp(34px,4.6vw,60px)] font-extrabold leading-[1.02] tracking-[-0.02em]">{d.channel.title}</h1>
-            <p className="text-[16px]" style={{ color: OV.mute }}>{hoursShort(d.all_time.est_s)} played in all{t?.unlocks ? `, ${plural(t.unlocks, "achievement")}` : ""}.</p>
+            <p className="text-[16px]" style={{ color: OV.mute }}>{hoursShort(d.all_time.est_s)} played in all{t?.unlocks ? `, ${plural(t.unlocks, awards().one, awards().many)}` : ""}.</p>
             {c && c.total > 0 && (
               <div className="flex max-w-[520px] flex-col gap-1.5">
-                <span className="flex justify-between font-shelf-mono text-[13px]"><span>{num(c.unlocked)} of {num(c.total)} achievements</span><span>{pct(c.pct ?? 0)}</span></span>
+                <span className="flex justify-between font-shelf-mono text-[13px]"><span>{num(c.unlocked)} of {num(c.total)} {awards().many}</span><span>{pct(c.pct ?? 0)}</span></span>
                 <span className="block h-2.5 overflow-hidden rounded-full" style={{ background: "#4A433B" }}>
                   <span className="block h-full rounded-full" style={{ width: `${(c.pct ?? 0) * 100}%`, background: c.pct === 1 ? OV.teal : OV.mustard }} />
                 </span>
@@ -222,7 +226,7 @@ export function GameDetailPage() {
       </section>
       <PageBody>
         <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {([["Hours, all time", hoursShort(d.all_time.est_s)], ...known.map(([l, v]) => [l, date(v)])] as [string, string][]).map(([l, v]) => (
+          {([["Hours, all time", hoursShort(d.all_time.est_s)], ...sessions, ...known.map(([l, v]) => [l, date(v)])] as [string, string][]).map(([l, v]) => (
             <div key={l} className="flex flex-col gap-1 rounded-xl border-2 px-4 py-3" style={{ background: OV.paper, borderColor: OV.ink }}>
               <dt className="font-shelf-mono text-[11px] uppercase tracking-[0.1em]" style={{ color: OV.soft }}>{l}</dt>
               <dd className="m-0 font-ov-display text-[24px] font-extrabold leading-tight">{v}</dd>
@@ -230,7 +234,7 @@ export function GameDetailPage() {
           ))}
         </dl>
         {c && c.total > 0 && (
-          <Card label="Achievements · yours first, then the rest (rarest first)">
+          <Card label={`${awards().Many} · yours first, then the rest (rarest first)`}>
             <Seg label="Show" value={show} onChange={setShow}
                  options={[["all", `All · ${num(c.total)}`], ["got", `Unlocked · ${num(c.unlocked)}`], ["left", `Still to get · ${num(c.total - c.unlocked)}`]]} />
             <ol className="flex flex-col">
@@ -250,11 +254,11 @@ export function GameDetailPage() {
             </ol>
           </Card>
         )}
-        <Card label="When you played it · achievements unlocked per month"
+        <Card label={`When you played it · ${awards().many} unlocked per month`}
               title={t?.first_unlock && t.last_unlock ? (t.first_unlock === t.last_unlock ? `All on ${date(t.first_unlock)}` : `${date(t.first_unlock)} to ${date(t.last_unlock)}`) : undefined}>
-          {!months.length ? <p style={{ color: OV.soft }}>No achievements in this game.</p> : (
-            <HoverBars height={150} gap={2} radius={2} hint="Hover a month to see it." ariaLabel="Achievements unlocked per month"
-                       bars={months.map((m) => ({ key: m.month, label: monthLabel(m.month), value: m.count, display: plural(m.count, "achievement"), color: OV.ink }))}
+          {!months.length ? <p style={{ color: OV.soft }}>No {awards().many} in this game.</p> : (
+            <HoverBars height={150} gap={2} radius={2} hint="Hover a month to see it." ariaLabel={`${awards().Many} unlocked per month`}
+                       bars={months.map((m) => ({ key: m.month, label: monthLabel(m.month), value: m.count, display: plural(m.count, awards().one, awards().many), color: OV.ink }))}
                        ticks={<Ticks labels={months.map((m) => (m.month.endsWith("-01") ? m.month.slice(0, 4) : many ? "" : monthLabel(m.month, false)))} />} />
           )}
         </Card>

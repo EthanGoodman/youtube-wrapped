@@ -38,8 +38,8 @@ def test_only_tracked_days_get_dated_hours(tmp_path):
 def test_activity_years_and_capabilities(tmp_path):
     conn, _, _ = _built(tmp_path)
     assert db.get_meta(conn, "tracked_since") == "2026-11-20"
-    # unlocks in 2023 (Harbor Kart), 2024 and 2025 (Starfall), plus the tracked day in 2026
-    assert db.get_meta(conn, "activity_years") == "2023,2024,2025,2026"
+    # unlocks in 2023 (Harbor Kart), 2024 and 2025 (Starfall), Quiet Orchard last played in 2021, the tracked day in 2026
+    assert db.get_meta(conn, "activity_years") == "2021,2023,2024,2025,2026"
     caps = set(db.get_meta(conn, "extra_capabilities").split(","))
     assert {"achievements", "genres"} <= caps and not caps & {"estimated_time", "time_of_day"}   # nothing estimated, no clock
 
@@ -141,8 +141,8 @@ def _client(tmp_path):
 def test_activity_from_real_unlocks(tmp_path):
     client = _client(tmp_path)
     a = client.get("/api/games/activity?platform=steam&range=all").json()
-    # 4 unlocks on 3 days in 2 games; all time reaches back to the first unlock (May 2023), not just tracked days
-    assert (a["unlocks"], a["active_days"], a["games"]) == (4, 3, 2) and a["range"]["start"] == "2023-05-01"
+    # 4 unlocks on 3 days in 2 games; all time reaches back to the first real day of play (a last-played day in 2021)
+    assert (a["unlocks"], a["active_days"], a["games"]) == (4, 3, 2) and a["range"]["start"] == "2021-08-10"
     assert a["days"] == [{"date": "2023-05-01", "count": 1}, {"date": "2024-03-02", "count": 2}, {"date": "2025-01-12", "count": 1}]
     assert a["hours"][13] == 1 and a["hours"][18] == 1 and sum(a["weekdays"]) == 4
     assert a["tracked"] == {"est_s": 90 * 60, "days": 1}

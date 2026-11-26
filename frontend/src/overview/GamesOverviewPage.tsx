@@ -4,7 +4,7 @@
    - The past is told by achievement unlocks, real timestamped moments of play: when you were into each game, when
      in the day you play, each year's most active game, and real records. No hours are spread onto invented days. */
 import { ReactNode } from "react";
-import { Link, useCapability } from "../platform";
+import { Link, awards, useCapability } from "../platform";
 import { Overview, RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { date, num } from "../format";
@@ -38,7 +38,7 @@ export function GamesOverviewPage() {
   const quiet = !lifetime && !!act.data && !act.data.unlocks && !act.data.tracked.est_s;
   return (
     <StatsFrame>
-      {lifetime ? <LifetimeHero o={ov.data} top={games.data?.items[0]} act={act.data} ach={ach.data} />
+      {lifetime ? <LifetimeHero o={ov.data} top={games.data?.items[0]} ach={ach.data} />
                 : <PeriodHero title={title} act={act.data} />}
       <main className="mx-auto flex max-w-[1400px] flex-col gap-12 px-4 pb-16 pt-10 sm:px-8">
         {!quiet && (lifetime ? <TopByHours items={games.data?.items} prevRank={prevRank} /> : <TopByUnlocks a={act.data} title={title} />)}
@@ -79,10 +79,10 @@ function BigNumber({ value, unit, sub }: { value: string; unit: string; sub: str
   );
 }
 
-function LifetimeHero({ o, top, act, ach }: { o?: Overview; top?: RankedItem; act?: Activity; ach?: Achievements }) {
+function LifetimeHero({ o, top, ach }: { o?: Overview; top?: RankedItem; ach?: Achievements }) {
   const q = useLinkQuery();
   const meta = useMeta().data;
-  const first = act?.days[0]?.date;
+  const first = meta?.first_date;              // the first real day of play (or of an unlock)
   return (
     <Shell side={top ? (
       <Link to={gameLink(top.key) + q} className="group flex items-center gap-5 lg:flex-col lg:items-start">
@@ -106,9 +106,9 @@ function LifetimeHero({ o, top, act, ach }: { o?: Overview; top?: RankedItem; ac
           <BigNumber value={num(Math.round(o.est_s / 3600))} unit="hours" sub="played, all time" />
           <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
             <Stat v={num(o.unique_channels)} l="games played" />
-            <Stat v={ach ? num(ach.unlocked) : "–"} l="achievements" />
+            <Stat v={ach ? num(ach.unlocked) : "–"} l={awards().many} />
             <Stat v={ach ? num(ach.perfect.length) : "–"} l="at 100%" />
-            <Stat v={first ? first.slice(0, 4) : "–"} l="first achievement" />
+            <Stat v={first ? first.slice(0, 4) : "–"} l="playing since" />
           </dl>
         </>
       ) : <Skeleton h={240} dark />}
@@ -128,7 +128,7 @@ function PeriodHero({ title, act }: { title: string; act?: Activity }) {
         <span className="flex flex-col gap-1.5">
           <span className={kicker} style={{ color: OV.mustard }}>Most active in</span>
           <span className="font-ov-display text-[clamp(24px,2.4vw,34px)] font-extrabold leading-tight group-hover:underline">{top.game.title}</span>
-          <span className="font-shelf-mono text-[13px]" style={{ color: OV.mute }}>{plural(top.unlocks, "achievement")}</span>
+          <span className="font-shelf-mono text-[13px]" style={{ color: OV.mute }}>{plural(top.unlocks, awards().one, awards().many)}</span>
         </span>
       </Link>
     ) : undefined}>
@@ -144,7 +144,7 @@ function PeriodHero({ title, act }: { title: string; act?: Activity }) {
         </>
       ) : act ? (
         <>
-          <BigNumber value={num(act.unlocks)} unit={act.unlocks === 1 ? "achievement" : "achievements"} sub="unlocked" />
+          <BigNumber value={num(act.unlocks)} unit={act.unlocks === 1 ? awards().one : awards().many} sub="unlocked" />
           <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
             <Stat v={num(act.active_days)} l={act.active_days === 1 ? "day with one" : "days with one"} />
             <Stat v={num(act.games)} l={act.games === 1 ? "game" : "games"} />
@@ -204,10 +204,10 @@ function TopByHours({ items, prevRank }: { items?: RankedItem[]; prevRank: (c: R
 
 function TopByUnlocks({ a, title }: { a?: Activity; title: string }) {
   return (
-    <Band label={`By achievements unlocked · ${title}`} title="Where your achievements came from" link={["/achievements", "All your achievements"]}>
+    <Band label={`By ${awards().many} unlocked · ${title}`} title={`Where your ${awards().many} came from`} link={["/achievements", `All your ${awards().many}`]}>
       {!a ? <Skeleton h={300} /> : !a.top_games.length
-        ? <p style={{ color: OV.soft }}>No achievements unlocked in this period. Lifetime shows all your games by hours.</p>
-        : <CoverRow items={a.top_games.map((t) => ({ key: t.game.key, rank: t.rank, game: t.game, big: plural(t.unlocks, "achievement") }))} />}
+        ? <p style={{ color: OV.soft }}>No {awards().many} unlocked in this period.</p>
+        : <CoverRow items={a.top_games.map((t) => ({ key: t.game.key, rank: t.rank, game: t.game, big: plural(t.unlocks, awards().one, awards().many) }))} />}
     </Band>
   );
 }
@@ -221,7 +221,7 @@ function Timeline() {
   const lead = dated?.length ? dated.reduce((a, b) => (b.minutes > a.minutes ? b : a)) : null;
   return (
     <Band label="Your games over the years"
-          title={lead && span(lead) > 60 ? `${lead.game.title}: ${yearsBetween(lead)} of achievements.` : "When you were into each game"}>
+          title={lead && span(lead) > 60 ? `${lead.game.title}: ${yearsBetween(lead)} of ${awards().many}.` : "When you were into each game"}>
       {!t.data ? <Skeleton h={320} /> : <GameTimeline rows={t.data} />}
     </Band>
   );
@@ -255,9 +255,9 @@ function AchievementsBand({ a }: { a?: Achievements }) {
   if (!useCapability("achievements")) return null;
   const rare = a?.rarest[0];
   return (
-    <Band label="Achievements" title={a ? (rare ? `${rare.name}: ${rarityLine(rare.rarity)}.` : `${num(a.unlocked)} achievements.`) : "Achievements"}
-          link={["/achievements", "All your achievements"]}>
-      {!a ? <Skeleton h={240} /> : !a.unlocked ? <p style={{ color: OV.soft }}>No achievements unlocked in this period.</p> : (
+    <Band label={awards().Many} title={a ? (rare ? `${rare.name}: ${rarityLine(rare.rarity)}.` : `${num(a.unlocked)} ${awards().many}.`) : awards().Many}
+          link={["/achievements", `All your ${awards().many}`]}>
+      {!a ? <Skeleton h={240} /> : !a.unlocked ? <p style={{ color: OV.soft }}>No {awards().many} unlocked in this period.</p> : (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card label="Rarest you unlocked"><ol className="flex flex-col">{a.rarest.slice(0, 4).map((u) => <UnlockRow key={u.game.key + u.api} u={u} />)}</ol></Card>
           <Card label="Most recent"><ol className="flex flex-col">{a.recent.slice(0, 4).map((u) => <UnlockRow key={u.game.key + u.api} u={u} />)}</ol></Card>
@@ -280,10 +280,10 @@ function WhenYouPlay({ a }: { a?: Activity }) {
   const day = a ? busiestWeekday(a.weekdays) : null;
   return (
     <Band label="When you play" title={a ? timeOfDayTitle(a.hours) : "When you play"}>
-      {!a ? <Skeleton h={240} /> : !a.unlocks ? <p style={{ color: OV.soft }}>No achievements in this period to tell when you play.</p> : (
+      {!a ? <Skeleton h={240} /> : !a.unlocks ? <p style={{ color: OV.soft }}>No {awards().many} in this period.</p> : (
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
           <figure className="flex flex-col gap-3 rounded-2xl p-5" style={{ background: OV.ink, color: OV.paper }}>
-            <figcaption className="text-[15px]">Achievements by hour of the day</figcaption>
+            <figcaption className="text-[15px]">{awards().Many} by hour of the day</figcaption>
             <UnlockClock hours={a.hours} dark height={150} />
           </figure>
           <figure className="flex flex-col gap-3 rounded-2xl border-2 p-5" style={{ background: OV.paper, borderColor: OV.ink }}>
@@ -302,8 +302,8 @@ function Years() {
   const counted = rows?.filter((r) => r.top) ?? [];
   const best = counted.length ? counted.reduce((a, b) => (b.unlocks > a.unlocks ? b : a)) : null;
   return (
-    <Band label="Your most active game each year · by achievements"
-          title={best ? `${best.year} was your biggest year: ${plural(best.unlocks, "achievement")}.` : "Each year"}>
+    <Band label={`Your most active game each year · by ${awards().many}`}
+          title={best ? `${best.year} was your biggest year: ${plural(best.unlocks, awards().one, awards().many)}.` : "Each year"}>
       {!rows ? <Skeleton h={260} /> : <YearsRow rows={rows} />}
     </Band>
   );

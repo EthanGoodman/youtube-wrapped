@@ -131,6 +131,7 @@ export interface GamesWrappedData {
   hours: number[];
   perfect: { game: GameCard; achievements: number; completed: string }[];
   tracked: { est_s: number; days: number; top: GameCard | null } | null;
+  platinums: { count: number; latest: GameUnlock } | null;
   personality: Personality;
 }
 

@@ -2,7 +2,7 @@
    nothing here invents dated hours: the past is told by achievement unlocks (real, timestamped moments of play),
    hours by day only from days the app tracked, and lifetime hours only as totals. */
 import { ReactNode } from "react";
-import { Link } from "../platform";
+import { Link, awards } from "../platform";
 import { useMeta } from "../api";
 import { useLinkQuery } from "../filters";
 import { date, num } from "../format";
@@ -21,7 +21,7 @@ export interface Activity {
   tracked: { est_s: number; days: number };
 }
 export interface TimelineRow { game: GameCard; minutes: number; genres: string[]; first_unlock: string | null; last_unlock: string | null; unlocks: number;
-  achievements: number; acquired: string | null; last_played: string | null }
+  achievements: number; acquired: string | null; last_played: string | null; first_played?: string | null; plays?: number | null }
 export interface YearRow { year: number; unlocks: number; active_days: number; games: number;
   top: { game: GameCard; unlocks: number } | null; tracked_s: number; tracked_days: number }
 export interface GameRecords {
@@ -31,6 +31,10 @@ export interface GameRecords {
   fastest_perfect: { key: string; days: number; achievements: number; completed: string; game: GameCard } | null;
   streak: { days: number; start: string; end: string } | null;
   tracked_best_day: { date: string; game: GameCard; est_s: number } | null;
+  platinums?: { count: number; latest: Unlock } | null;
+  sessions?: number | null;
+  most_sessions?: { game: GameCard; plays: number } | null;
+  longest_sessions?: { game: GameCard; minutes: number; plays: number } | null;
 }
 
 export const gameLink = (k: string) => `/channel/${encodeURIComponent(k)}`;
@@ -47,7 +51,7 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour:
 export function YearsRow({ rows }: { rows: YearRow[] }) {
   const thisYear = Number(useMeta().data?.today.slice(0, 4));
   const shown = rows.filter((y) => y.top || y.tracked_s);
-  if (!shown.length) return <p style={{ color: OV.soft }}>No achievements or tracked play yet.</p>;
+  if (!shown.length) return <p style={{ color: OV.soft }}>No {awards().many} or tracked play yet.</p>;
   return (
     <>
       <ScrollRow outer="-mx-4 sm:mx-0" className="snap-x px-4 sm:px-0 lg:overflow-visible">
@@ -64,7 +68,7 @@ export function YearsRow({ rows }: { rows: YearRow[] }) {
                 </span>
                 <span className="w-full truncate text-[15px] font-bold group-hover:underline">{y.top?.game.title ?? "Tracked play"}</span>
                 <span className="font-ov-display text-[17px] font-extrabold leading-tight">
-                  {y.top ? plural(y.top.unlocks, "achievement") : hoursShort(y.tracked_s)}
+                  {y.top ? plural(y.top.unlocks, awards().one, awards().many) : hoursShort(y.tracked_s)}
                 </span>
                 <span className="font-shelf-mono text-[11px]" style={{ color: OV.soft }}>
                   {plural(y.games, "game")}{y.tracked_s && y.top ? ` · ${hoursShort(y.tracked_s)} tracked` : ""}
@@ -86,8 +90,8 @@ export function GameTimeline({ rows, limit = 12 }: { rows: TimelineRow[]; limit?
   const q = useLinkQuery();
   const today = useMeta().data?.today;
   const shown = [...rows].sort((a, b) => b.minutes - a.minutes || b.unlocks - a.unlocks).slice(0, limit);
-  const dates = shown.flatMap((r) => [r.first_unlock, r.last_unlock, r.acquired, r.last_played]).filter(Boolean) as string[];
-  if (!dates.length || !today) return <p style={{ color: OV.soft }}>No dated activity yet: unlock an achievement and it shows up here.</p>;
+  const dates = shown.flatMap((r) => [r.first_unlock, r.last_unlock, r.acquired, r.last_played, r.first_played]).filter(Boolean) as string[];
+  if (!dates.length || !today) return <p style={{ color: OV.soft }}>No dated activity yet.</p>;
   const y0 = Number(dates.reduce((a, b) => (a < b ? a : b)).slice(0, 4));
   const y1 = Number(today.slice(0, 4));
   const t = (d: string) => (new Date(d + "T00:00:00").getTime() - new Date(`${y0}-01-01T00:00:00`).getTime())
@@ -107,13 +111,17 @@ export function GameTimeline({ rows, limit = 12 }: { rows: TimelineRow[]; limit?
               </span>
               <span className="relative h-6" aria-label={timelineLabel(r)}>
                 <span className="absolute inset-x-0 top-1/2 h-px" style={{ background: "#E0D5C1" }} />
+                {r.first_played && r.last_played && (
+                  <span className="absolute top-1/2 h-4 -translate-y-1/2 rounded-full"
+                        style={{ left: `${t(r.first_played)}%`, width: `max(10px, ${t(r.last_played) - t(r.first_played)}%)`, background: "#D9CDB6" }} />
+                )}
                 {r.first_unlock && r.last_unlock && (
-                  <span className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full"
-                        style={{ left: `${t(r.first_unlock)}%`, width: `max(10px, ${t(r.last_unlock) - t(r.first_unlock)}%)`, background: OV.ink }} />
+                  <span className={`absolute top-1/2 -translate-y-1/2 rounded-full ${r.first_played ? "h-1.5" : "h-3"}`}
+                        style={{ left: `${t(r.first_unlock)}%`, width: `max(${r.first_played ? 6 : 10}px, ${t(r.last_unlock) - t(r.first_unlock)}%)`, background: OV.ink }} />
                 )}
                 {r.acquired && <Mark at={t(r.acquired)} shape="diamond" />}
-                {r.last_played && !r.last_unlock && <Mark at={t(r.last_played)} shape="dot" />}
-                {!r.first_unlock && !r.acquired && !r.last_played && (
+                {r.last_played && !r.last_unlock && !r.first_played && <Mark at={t(r.last_played)} shape="dot" />}
+                {!r.first_unlock && !r.acquired && !r.last_played && !r.first_played && (
                   <span className="absolute inset-y-0 left-0 flex items-center font-shelf-mono text-[11px]" style={{ color: OV.soft }}>no dated activity</span>
                 )}
               </span>
@@ -131,9 +139,10 @@ export function GameTimeline({ rows, limit = 12 }: { rows: TimelineRow[]; limit?
         </span>
       </div>
       <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 font-shelf-mono text-[12px]" style={{ color: OV.soft }}>
-        <span><span className="mr-1.5 inline-block h-2.5 w-5 rounded-full align-middle" style={{ background: OV.ink }} />first to last achievement</span>
+        {rows.some((r) => r.first_played) && <span><span className="mr-1.5 inline-block h-2.5 w-5 rounded-full align-middle" style={{ background: "#D9CDB6" }} />first to last played</span>}
+        <span><span className="mr-1.5 inline-block h-2.5 w-5 rounded-full align-middle" style={{ background: OV.ink }} />first to last {awards().one}</span>
         {rows.some((r) => r.acquired) && <span><Mark inline shape="diamond" />when you got it</span>}
-        {rows.some((r) => r.last_played && !r.last_unlock) && <span><Mark inline shape="dot" />last played</span>}
+        {rows.some((r) => r.last_played && !r.last_unlock && !r.first_played) && <span><Mark inline shape="dot" />last played</span>}
       </p>
     </div>
   );
@@ -141,7 +150,8 @@ export function GameTimeline({ rows, limit = 12 }: { rows: TimelineRow[]; limit?
 
 function timelineLabel(r: TimelineRow): string {
   const parts = [];
-  if (r.first_unlock && r.last_unlock) parts.push(`achievements from ${date(r.first_unlock)} to ${date(r.last_unlock)}`);
+  if (r.first_played && r.last_played) parts.push(`played from ${date(r.first_played)} to ${date(r.last_played)}`);
+  if (r.first_unlock && r.last_unlock) parts.push(`${awards().many} from ${date(r.first_unlock)} to ${date(r.last_unlock)}`);
   if (r.acquired) parts.push(`got it ${date(r.acquired)}`);
   if (r.last_played && !r.last_unlock) parts.push(`last played ${date(r.last_played)}`);
   return `${r.game.title}: ${parts.join(", ") || "no dated activity"}, ${hoursShort(r.minutes * 60)} in all`;
@@ -161,9 +171,9 @@ export function UnlockClock({ hours, height = 140, dark = false }: { hours: numb
   const peak = hours.reduce((b, v, h) => (v > hours[b] ? h : b), 0);
   return (
     <HoverBars dark={dark} height={height} hint={`${hourLabel(peak)} is your busiest hour. Hover one to see it.`}
-               ariaLabel={`Achievements by hour of the day. Busiest: ${hourLabel(peak)}.`}
+               ariaLabel={`${awards().Many} by hour of the day. Busiest: ${hourLabel(peak)}.`}
                bars={hours.map((v, h) => ({ key: String(h), label: `${hourLabel(h)} to ${hourLabel((h + 1) % 24)}`, value: v,
-                                            display: plural(v, "achievement"), color: h === peak ? (dark ? OV.mustard : OV.teal) : dark ? "#5E554A" : "#CDBFA6" }))}
+                                            display: plural(v, awards().one, awards().many), color: h === peak ? (dark ? OV.mustard : OV.teal) : dark ? "#5E554A" : "#CDBFA6" }))}
                ticks={<Ticks dark={dark} labels={["12 AM", "6 AM", "12 PM", "6 PM"]} />} />
   );
 }
@@ -176,8 +186,8 @@ export function busiestWeekday(weekdays: number[]): string | null {
 export function UnlockWeekdays({ weekdays }: { weekdays: number[] }) {
   const max = Math.max(1, ...weekdays);
   return (
-    <HoverBars height={120} gap={8} radius={6} hint="Hover a day to see it." ariaLabel={`Achievements by day of the week. Busiest: ${busiestWeekday(weekdays) ?? "none"}.`}
-               bars={weekdays.map((v, i) => ({ key: DAYS[i], label: WEEKDAYS[i], value: v, display: plural(v, "achievement"), color: v === max ? OV.teal : "#D9CDB6" }))}
+    <HoverBars height={120} gap={8} radius={6} hint="Hover a day to see it." ariaLabel={`${awards().Many} by day of the week. Busiest: ${busiestWeekday(weekdays) ?? "none"}.`}
+               bars={weekdays.map((v, i) => ({ key: DAYS[i], label: WEEKDAYS[i], value: v, display: plural(v, awards().one, awards().many), color: v === max ? OV.teal : "#D9CDB6" }))}
                ticks={<Ticks labels={DAYS} />} />
   );
 }
@@ -189,7 +199,7 @@ export function timeOfDayTitle(hours: number[]): string {
   const parts: [string, number][] = [["late at night", sum(hours, 0, 5)], ["in the morning", sum(hours, 5, 12)],
     ["in the afternoon", sum(hours, 12, 17)], ["in the evening", sum(hours, 17, 24)]];
   const [name, n] = parts.reduce((a, b) => (b[1] > a[1] ? b : a));
-  return `Mostly ${name}: ${Math.round((n / total) * 100)}% of your achievements.`;
+  return `Mostly ${name}: ${Math.round((n / total) * 100)}% of your ${awards().many}.`;
 }
 const sum = (xs: number[], a: number, b: number) => xs.slice(a, b).reduce((s, v) => s + v, 0);
 
@@ -223,22 +233,31 @@ export function recordCards(r: GameRecords, q: string): ReactNode[] {
   const pic = (g: GameCard) => <Poster src={g.poster} name={g.title} width="52px" />;
   const out: ReactNode[] = [];
   const rare = r.rarest[0];
-  if (rare) out.push(<RecordCard key="rare" label="Rarest achievement" bg={OV.mustard} to={gameLink(rare.game.key) + q} pic={pic(rare.game)}
+  if (rare) out.push(<RecordCard key="rare" label={`Rarest ${awards().one}`} bg={OV.mustard} to={gameLink(rare.game.key) + q} pic={pic(rare.game)}
                                  big={rare.name} line={<>{rarityLine(rare.rarity)} · {rare.game.title}, {date(rare.unlocked)}</>} />);
   if (r.latest_night) out.push(<RecordCard key="night" label="Latest night" bg={OV.ink} fg={OV.paper} to={gameLink(r.latest_night.game.key) + q}
                                            pic={pic(r.latest_night.game)} big={clock(r.latest_night.unlocked)}
                                            line={<>{r.latest_night.name} in {r.latest_night.game.title}, {date(r.latest_night.unlocked)}</>} />);
-  if (r.best_day) out.push(<RecordCard key="day" label="Most achievements in a day" bg={OV.paper} to={gameLink(r.best_day.game.key) + q}
-                                       pic={pic(r.best_day.game)} big={plural(r.best_day.count, "achievement")}
+  if (r.best_day) out.push(<RecordCard key="day" label={`Most ${awards().many} in a day`} bg={OV.paper} to={gameLink(r.best_day.game.key) + q}
+                                       pic={pic(r.best_day.game)} big={plural(r.best_day.count, awards().one, awards().many)}
                                        line={<>in {r.best_day.game.title}, {date(r.best_day.date)}</>} />);
   if (r.fastest_perfect) out.push(<RecordCard key="perfect" label="Fastest 100%" bg={OV.teal} fg={OV.paper} to={gameLink(r.fastest_perfect.key) + q}
                                               pic={pic(r.fastest_perfect.game)} big={plural(r.fastest_perfect.days, "day")}
                                               line={<>all {num(r.fastest_perfect.achievements)} in {r.fastest_perfect.game.title}, done {date(r.fastest_perfect.completed)}</>} />);
   if (r.streak && r.streak.days > 1) out.push(<RecordCard key="streak" label="Longest unlock streak" bg={OV.paper}
-                                                          big={`${num(r.streak.days)} days in a row`} line={`${spanLabel(r.streak.start, r.streak.end)}, an achievement every day`} />);
+                                                          big={`${num(r.streak.days)} days in a row`} line={`${spanLabel(r.streak.start, r.streak.end)}, one every day`} />);
   if (r.earliest_morning) out.push(<RecordCard key="morning" label="Earliest morning" bg={OV.paper} to={gameLink(r.earliest_morning.game.key) + q}
                                                pic={pic(r.earliest_morning.game)} big={clock(r.earliest_morning.unlocked)}
                                                line={<>{r.earliest_morning.name} in {r.earliest_morning.game.title}, {date(r.earliest_morning.unlocked)}</>} />);
+  if (r.platinums) out.push(<RecordCard key="plat" label="Platinums" bg={OV.teal} fg={OV.paper} to={gameLink(r.platinums.latest.game.key) + q}
+                                         pic={pic(r.platinums.latest.game)} big={plural(r.platinums.count, "platinum")}
+                                         line={<>latest: {r.platinums.latest.game.title}, {date(r.platinums.latest.unlocked)}</>} />);
+  if (r.most_sessions) out.push(<RecordCard key="sessions" label="Most sessions" bg={OV.paper} to={gameLink(r.most_sessions.game.key) + q}
+                                            pic={pic(r.most_sessions.game)} big={plural(r.most_sessions.plays, "session")}
+                                            line={<>of {r.most_sessions.game.title}{r.sessions ? <>, of {num(r.sessions)} in all</> : null}</>} />);
+  if (r.longest_sessions) out.push(<RecordCard key="long" label="Longest sessions" bg={OV.paper} to={gameLink(r.longest_sessions.game.key) + q}
+                                               pic={pic(r.longest_sessions.game)} big={`${hoursShort(r.longest_sessions.minutes * 60)} on average`}
+                                               line={<>in {r.longest_sessions.game.title}, over {plural(r.longest_sessions.plays, "session")}</>} />);
   if (r.tracked_best_day) out.push(<RecordCard key="tracked" label="Biggest tracked day" bg={OV.paper} to={gameLink(r.tracked_best_day.game.key) + q}
                                                pic={pic(r.tracked_best_day.game)} big={hoursShort(r.tracked_best_day.est_s)}
                                                line={<>of {r.tracked_best_day.game.title}, {date(r.tracked_best_day.date)}</>} />);

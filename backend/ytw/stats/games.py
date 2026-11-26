@@ -83,21 +83,21 @@ def game_achievements(conn: sqlite3.Connection, key: str, tz) -> dict | None:
 # timestamped moment of play, so everything below that has a date comes from unlocks; hours only from days the
 # app tracked (watches), and lifetime hours only as totals.
 
-Unlock = tuple  # (game key, api, name, description, local datetime, rarity)
+Unlock = tuple  # (game key, api, name, description, local datetime, rarity, kind: trophy type or None)
 
 
 def _unlocks(conn: sqlite3.Connection, tz, r: Range | None = None) -> list[Unlock]:
     """Every unlock, oldest first; only those inside `r` when given."""
     if not _has(conn):
         return []
-    rows = [(f"game:{g}", a, n, d, datetime.fromtimestamp(ts, tz), rr) for g, a, n, d, ts, rr in conn.execute(
-        f"SELECT game, api, name, description, unlocked, rarity FROM {TABLE} WHERE unlocked IS NOT NULL ORDER BY unlocked, game, api")]
+    rows = [(f"game:{g}", a, n, d, datetime.fromtimestamp(ts, tz), rr, k) for g, a, n, d, ts, rr, k in conn.execute(
+        f"SELECT game, api, name, description, unlocked, rarity, kind FROM {TABLE} WHERE unlocked IS NOT NULL ORDER BY unlocked, game, api")]
     return [x for x in rows if r.start <= x[4].date() <= r.end] if r else rows
 
 
 def _card(games: dict, x: Unlock) -> dict:
     return {"game": games.get(x[0], {"key": x[0]}), "api": x[1], "name": x[2] or x[1], "description": x[3],
-            "unlocked": x[4].isoformat(), "rarity": x[5]}
+            "unlocked": x[4].isoformat(), "rarity": x[5], "kind": x[6]}
 
 
 def _tracked(conn: sqlite3.Connection, r: Range) -> dict:
@@ -157,8 +157,10 @@ def timeline(conn: sqlite3.Connection, tz) -> list[dict]:
         out.append({"game": g, "minutes": g.get("minutes") or 0, "genres": genres.get(k, []),
                     "first_unlock": s[0].date().isoformat() if s else None, "last_unlock": s[1].date().isoformat() if s else None,
                     "unlocks": s[2] if s else 0, "achievements": g.get("achievements") or 0,
-                    "acquired": g.get("acquired"), "last_played": g.get("last_played")})
-    out.sort(key=lambda t: (t["first_unlock"] is None, t["first_unlock"] or "", -t["minutes"], t["game"]["key"]))
+                    "acquired": g.get("acquired"), "last_played": g.get("last_played"),
+                    "first_played": g.get("first_played"), "plays": g.get("plays")})
+    first = lambda t: min(d for d in (t["first_unlock"], t["first_played"]) if d) if (t["first_unlock"] or t["first_played"]) else None  # noqa: E731
+    out.sort(key=lambda t: (first(t) is None, first(t) or "", -t["minutes"], t["game"]["key"]))
     return [t for t in out if t["minutes"] or t["unlocks"]]
 
 
@@ -206,6 +208,18 @@ def records(conn: sqlite3.Connection, tz, r: Range | None = None) -> dict:
                     fastest = {"key": f"game:{g}", "days": d, "achievements": n, "completed": done.isoformat()}
     if fastest:
         fastest["game"] = _games(conn, [fastest["key"]]).get(fastest["key"], {"key": fastest["key"]})
+    plats = [x for x in rows if x[6] == "platinum"]
+    sessions = most_sessions = longest = None
+    if r is None:                                   # lifetime counts: only for all time
+        played = [(k, g) for k, g in _games(conn, [k for (k,) in conn.execute("SELECT item_id FROM items")]).items() if g.get("plays")]
+        if played:
+            k, g = max(played, key=lambda kg: (kg[1]["plays"], kg[0]))
+            most_sessions = {"game": g, "plays": g["plays"]}
+            avg = [(k, g, g["minutes"] / g["plays"]) for k, g in played if g["plays"] >= 10 and g.get("minutes")]
+            if avg:
+                k, g, m = max(avg, key=lambda x: (x[2], x[0]))
+                longest = {"game": g, "minutes": round(m), "plays": g["plays"]}
+            sessions = sum(g["plays"] for _, g in played)
     lo_d, hi_d = (r.start.isoformat(), r.end.isoformat()) if r else ("0000-01-01", "9999-12-31")
     day = conn.execute("SELECT local_date, video_id, est_s FROM watches WHERE local_date BETWEEN ? AND ? "
                        "ORDER BY est_s DESC, local_date LIMIT 1", (lo_d, hi_d)).fetchone()
@@ -218,6 +232,8 @@ def records(conn: sqlite3.Connection, tz, r: Range | None = None) -> dict:
         "fastest_perfect": fastest,
         "streak": _streak(sorted({x[4].date() for x in rows})),
         "tracked_best_day": {"date": day[0], "game": _games(conn, [day[1]]).get(day[1], {"key": day[1]}), "est_s": day[2]} if day else None,
+        "platinums": {"count": len(plats), "latest": _card(games, plats[-1])} if plats else None,
+        "sessions": sessions, "most_sessions": most_sessions, "longest_sessions": longest,
     }
 
 
@@ -231,9 +247,14 @@ def wrapped_year(conn: sqlite3.Connection, r: Range, tz) -> dict:
     first_ever: dict[str, datetime] = {}
     for x in _unlocks(conn, tz):
         first_ever.setdefault(x[0], x[4])
-    new = sorted((k for k in count if r.start <= first_ever[k].date() <= r.end), key=lambda k: first_ever[k])
+    # a game is new this year when you first played it this year (where the platform says), else by its first unlock
+    every = _games(conn, [k for (k,) in conn.execute("SELECT item_id FROM items")])
+    started = {k: g["first_played"] for k, g in every.items() if g.get("first_played")}
+    for k, t in first_ever.items():
+        started.setdefault(k, t.date().isoformat())
+    new = sorted((k for k, d in started.items() if r.start.isoformat() <= d <= r.end.isoformat()), key=lambda k: (started[k], k))
     order = sorted(count.items(), key=lambda kv: (-kv[1], kv[0]))
-    games = _games(conn, [k for k, _ in order])
+    games = every
     hours = [0] * 24
     for x in rows:
         hours[x[4].hour] += 1
@@ -245,9 +266,10 @@ def wrapped_year(conn: sqlite3.Connection, r: Range, tz) -> dict:
         "unlocks": len(rows), "active_days": len({x[4].date() for x in rows}), "games": len(count),
         "top_games": [{"game": games.get(k, {"key": k}), "unlocks": n, "share": n / len(rows)} for k, n in order[:5]],
         "new_games": [games.get(k, {"key": k}) for k in new],
+        "platinums": rec["platinums"],
         "rarest": rec["rarest"], "best_day": rec["best_day"], "streak": rec["streak"], "latest_night": rec["latest_night"],
         "busiest_hour": max(range(24), key=lambda h: (hours[h], -h)) if rows else None,
         "hours": hours, "perfect": achievements_summary(conn, r, tz)["perfect"],
         "tracked": {**tracked, "top": _games(conn, [top_t[0]]).get(top_t[0])} if tracked["est_s"] and top_t else None,
-        "counts": count, "new": new, "unlock_times": [x[4] for x in rows], "rarities": [x[5] for x in rows],
+        "counts": count, "new": [k for k in new if k in count], "unlock_times": [x[4] for x in rows], "rarities": [x[5] for x in rows],
     }

@@ -1,0 +1,22 @@
+{
+ "day": "2026-11-21",
+ "at": 1795656472,
+ "games": [
+  {
+   "id": "CUSA00001_00",
+   "name": "Kart Rally",
+   "minutes": 690,
+   "last_played": 1730860200,
+   "first_played": 1555178400,
+   "plays": 40
+  },
+  {
+   "id": "NPWR00002_00",
+   "name": "Old Quest",
+   "minutes": 0,
+   "last_played": null,
+   "first_played": null,
+   "plays": 0
+  }
+ ]
+}

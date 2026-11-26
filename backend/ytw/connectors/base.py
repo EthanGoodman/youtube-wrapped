@@ -99,9 +99,10 @@ class Manifest:
 
 
 def vocab(creator: str, creators: str, item: str, items: str, verb: str = "watch", verbed: str = "watched",
-          time: str = "watch time") -> dict[str, str]:
+          time: str = "watch time", award: str = "achievement", awards: str = "achievements") -> dict[str, str]:
+    """`award`: what games call what you unlock (achievements; PlayStation: trophies)."""
     return {"creator": creator, "creators": creators, "item": item, "items": items,
-            "verb": verb, "verbed": verbed, "time": time}
+            "verb": verb, "verbed": verbed, "time": time, "award": award, "awards": awards}
 
 
 class ConnectorError(Exception):

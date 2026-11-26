@@ -26,6 +26,8 @@ KNOWN = {
     "STEAM_PROFILE": "Your Steam profile link or SteamID64 (which library to read)",
     "EPIC_AUTH_CODE": "Epic one-time sign-in code (used once by the next fetch, then deleted)",
     "EPIC_REFRESH_TOKEN": "Epic sign-in, saved by fetch (treat it like a password)",
+    "PSN_NPSSO": "PlayStation sign-in (npsso), from ca.account.sony.com/api/v1/ssocookie (treat it like a password)",
+    "PSN_REFRESH_TOKEN": "PlayStation sign-in, saved by fetch (treat it like a password)",
 }
 _NAME = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 log = logging.getLogger("ytw.secrets")

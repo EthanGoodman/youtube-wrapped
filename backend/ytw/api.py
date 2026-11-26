@@ -220,6 +220,9 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
                         if c.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (UNDATED_TABLE,)).fetchone():
                             un, un_s = c.execute(f"SELECT COUNT(*), SUM(est_s) FROM {UNDATED_TABLE}").fetchone()
                             n, est = n + un, (est or 0) + (un_s or 0)     # lifetime hours count even if undated
+                            # games: "since" is the first real day of play (first played, an unlock), not tracking
+                            bounds = data_bounds(c)
+                            first, last = (bounds[0].isoformat(), bounds[1].isoformat()) if bounds else (first, last)
                     finally:
                         c.close()
                     d.update(has_data=bool(n), items=n, est_s=est or 0, first_date=first, last_date=last)
