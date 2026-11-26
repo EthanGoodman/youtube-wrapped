@@ -226,6 +226,17 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
                     finally:
                         c.close()
                     d.update(has_data=bool(n), items=n, est_s=est or 0, first_date=first, last_date=last)
+                    if p.family == "social" and n:
+                        # no hours: the shelf shows a social app as a magazine with its likes (a real count)
+                        c = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+                        try:
+                            likes = c.execute("SELECT COUNT(*) FROM ig_events WHERE kind = 'like'").fetchone()[0]
+                        except sqlite3.Error:
+                            likes = None
+                        finally:
+                            c.close()
+                        if likes is not None:
+                            d["headline"] = {"value": likes, "unit": "like" if likes == 1 else "likes"}
                 except sqlite3.Error:
                     pass
             out.append(d)

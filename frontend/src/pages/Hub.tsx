@@ -15,6 +15,7 @@ import { Spine, headline, hoursOf, isCounted, monthYear, sizeHours } from "../co
 import { SHELF_MAX_H, fitShelf, shelfHeight, slotHeight, spineSize, waitRank } from "../components/shelf/scale";
 import { OthersSpine } from "../components/shelf/Others";
 import { MoreSlot } from "../components/shelf/MoreSlot";
+import { MAGAZINE_W, MagazineStack } from "../components/shelf/Magazines";
 import { cameraDistance, tiltFromHeight } from "../components/shelf/book3d/timeline";
 
 function useMedia(query: string): boolean {
@@ -81,18 +82,21 @@ export function Hub() {
   const all = q.data ?? [];
   const views = all.filter((p) => p.shelf === false && p.has_data);      // All games: in the More menu, not a book
   const list = all.filter((p) => p.shelf !== false);
-  const ready = list.filter((p) => p.has_data).sort((a, b) => (b.est_s ?? 0) - (a.est_s ?? 0));
+  const withData = list.filter((p) => p.has_data);
+  // books are the apps with hours; social apps (no hours) are magazines stacked at the end of the shelf
+  const ready = withData.filter((p) => !isCounted(p)).sort((a, b) => (b.est_s ?? 0) - (a.est_s ?? 0));
+  const magazines = withData.filter(isCounted).sort((a, b) => (b.items ?? 0) - (a.items ?? 0));
   const notYet = [
     ...list.filter((p) => p.implemented && !p.has_data).sort((a, b) => waitRank(a.export_wait) - waitRank(b.export_wait)),
     ...list.filter((p) => !p.implemented && p.issue),
   ];
-  const firstVisit = !!q.data && ready.length === 0;
+  const firstVisit = !!q.data && withData.length === 0;
   // room under the shelf: lift room + plank + page padding (+ the "Add your first app" button)
   const [shelfRef, maxH] = useShelfHeight(!phone && !q.isLoading, firstVisit ? 144 : 72);
   // with books on the shelf, the apps not added yet are one "+ N more" slot (or that app's own slot when it's the only one)
   const slots = firstVisit ? notYet.slice(0, 5) : notYet.length === 1 ? notYet : [];
   const more = notYet.length - slots.length;
-  const colors = shelfColors(ready.map((p) => p.id));
+  const colors = shelfColors([...ready, ...magazines].map((p) => p.id));
   const max = Math.max(1, ...ready.map(hoursOf));
   const total = ready.reduce((s, p) => s + hoursOf(p), 0);
 
@@ -133,7 +137,10 @@ export function Hub() {
   const shelfW = useWidth(shelfRef);
   const GAP = 10;
   const moreSlot = !firstVisit && (more > 0 || views.length > 0);
-  const slotRoom = (slots.length + (moreSlot ? 1 : 0)) * (slotSize.w + GAP) + (slots.length || moreSlot ? 24 : 0);
+  // with magazines, "+ N more" lies on top of their stack instead of standing as its own slot
+  const moreOnStack = moreSlot && magazines.length > 0 && !phone;
+  const slotRoom = (slots.length + (moreSlot && !moreOnStack ? 1 : 0)) * (slotSize.w + GAP) + (slots.length || (moreSlot && !moreOnStack) ? 24 : 0)
+                 + (magazines.length ? MAGAZINE_W + GAP + 16 : 0);
   const spineMaxW = tablet ? 180 : 220;
   const natural = ready.map((p) => spineSize(sizeHours(p, max), max, spineMaxW, maxH).w);
   const fit = shelfW && !phone ? fitShelf(natural, shelfW - slotRoom, GAP) : { widths: natural, folded: 0 };
@@ -183,14 +190,20 @@ export function Hub() {
                              w={fit.widths[i]} onOpen={(el) => void open(p, el)} />
                     ))}
                     {others.length > 0 && <OthersSpine items={others} colors={colors} h={spineSize(0, max, spineMaxW, maxH).h} />}
+                    {magazines.length > 0 && (
+                      <div className={phone ? "w-full" : "ml-4"}>
+                        <MagazineStack items={magazines} colors={colors} flat={phone}
+                                       top={moreOnStack ? <MoreSlot views={views} toAdd={notYet.slice(slots.length)} w={slotSize.w} h={slotSize.h} slab /> : undefined} />
+                      </div>
+                    )}
                     {slots.map((p, i) => (
                       <div key={p.id} className={!phone && i === 0 && ready.length ? "ml-6" : phone ? "w-full" : ""}>
                         <EmptySlot p={p} w={slotSize.w} h={slotSize.h} flat={phone} />
                       </div>
                     ))}
                     {firstVisit && more > 0 && <div className={phone ? "w-full" : ""}><EmptySlot more={more} w={slotSize.w} h={slotSize.h} flat={phone} /></div>}
-                    {moreSlot && (
-                      <div className={phone ? "w-full" : !slots.length && ready.length ? "ml-6" : ""}>
+                    {moreSlot && !moreOnStack && (
+                      <div className={phone ? "w-full" : !slots.length && withData.length ? "ml-6" : ""}>
                         <MoreSlot views={views} toAdd={notYet.slice(slots.length)} w={slotSize.w} h={slotSize.h} flat={phone} />
                       </div>
                     )}
