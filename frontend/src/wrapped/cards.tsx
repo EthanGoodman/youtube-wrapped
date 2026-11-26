@@ -11,7 +11,7 @@ import { Badge, Big, Face, fit, GrowBar, Kicker, Label, StatBox, Sticker, Streak
 export { pop, rise };
 
 /** "viewer" or "listener", from the platform's verb (outside React: cards are plain render functions). */
-const who = () => (platformVerb() === "listen" ? "listener" : platformVerb() === "play" ? "player" : "viewer");
+const who = () => (platformVerb() === "listen" ? "listener" : platformVerb() === "play" ? "player" : platformVerb() === "like" ? "Instagram" : "viewer");
 
 export const CARD_W = 360;
 export const CARD_H = 640;

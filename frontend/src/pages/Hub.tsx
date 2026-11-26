@@ -11,8 +11,8 @@ import { compact, num } from "../format";
 import { HubLink } from "../platform";
 import { shelfColors } from "../themes";
 import { EmptySlot } from "../components/shelf/EmptySlot";
-import { Spine, hoursOf, monthYear } from "../components/shelf/Spine";
-import { SHELF_MAX_H, fitShelf, hoursLabel, shelfHeight, slotHeight, spineSize, waitRank } from "../components/shelf/scale";
+import { Spine, headline, hoursOf, isCounted, monthYear, sizeHours } from "../components/shelf/Spine";
+import { SHELF_MAX_H, fitShelf, shelfHeight, slotHeight, spineSize, waitRank } from "../components/shelf/scale";
 import { OthersSpine } from "../components/shelf/Others";
 import { MoreSlot } from "../components/shelf/MoreSlot";
 import { cameraDistance, tiltFromHeight } from "../components/shelf/book3d/timeline";
@@ -116,8 +116,8 @@ export function Hub() {
       const played = await openBook3d({
         spine, axis: phone ? "x" : "y", color: colors[p.id], tilt0,
         text: {
-          name: p.name, hours: `${num(hoursOf(p))} hours`, line: [items, since].filter(Boolean).join(" · "),
-          spineHours: hoursLabel(num(hoursOf(p))), spineMeta: [items, since].filter(Boolean),
+          name: p.name, hours: isCounted(p) ? `${num(p.items ?? 0)} ${p.vocab.items}` : `${num(hoursOf(p))} hours`,
+          line: [items, since].filter(Boolean).join(" · "), spineHours: headline(p), spineMeta: [items, since].filter(Boolean),
         },
         onCovered: () => navigate(to),
         ready: () => settled(qc),
@@ -135,7 +135,7 @@ export function Hub() {
   const moreSlot = !firstVisit && (more > 0 || views.length > 0);
   const slotRoom = (slots.length + (moreSlot ? 1 : 0)) * (slotSize.w + GAP) + (slots.length || moreSlot ? 24 : 0);
   const spineMaxW = tablet ? 180 : 220;
-  const natural = ready.map((p) => spineSize(hoursOf(p), max, spineMaxW, maxH).w);
+  const natural = ready.map((p) => spineSize(sizeHours(p, max), max, spineMaxW, maxH).w);
   const fit = shelfW && !phone ? fitShelf(natural, shelfW - slotRoom, GAP) : { widths: natural, folded: 0 };
   const shown = ready.slice(0, fit.widths.length);
   const others = ready.slice(fit.widths.length);

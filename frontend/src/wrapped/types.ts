@@ -135,7 +135,26 @@ export interface GamesWrappedData {
   personality: Personality;
 }
 
-export type AnyWrapped = (WrappedData & { platform?: undefined; kind?: undefined }) | ShowsWrappedData | MusicWrappedData | GamesWrappedData;
+/** Social Wrapped (Instagram): the year in real, dated actions; no time spent. */
+type SocialPerson = { key: string; name: string; count: number; first: string; last: string; sent?: number; received?: number };
+export interface SocialWrappedData {
+  kind: "social";
+  platform: string;
+  year: number;
+  mode: "all";
+  empty: boolean;
+  summary: { likes: number; comments: number; saves: number; follows: number; posts: number; stories: number; messages: number;
+             messages_sent: number; messages_received: number; shared: number; chats: number; accounts_liked: number; active_days: number };
+  people: { liked: SocialPerson[]; chats: SocialPerson[]; shared_with: SocialPerson[]; commented: SocialPerson[] };
+  tags: { tag: string; count: number }[];
+  busiest_hour: number | null;
+  hours: number[];
+  weekdays: number[];
+  active_days: number;
+  personality: Personality;
+}
+
+export type AnyWrapped = (WrappedData & { platform?: undefined; kind?: undefined }) | ShowsWrappedData | MusicWrappedData | GamesWrappedData | SocialWrappedData;
 
 /** Route every YouTube image through the local relay so cards can be exported as PNG. */
 // <img src> can't send headers, so the relay takes the app token as a query parameter

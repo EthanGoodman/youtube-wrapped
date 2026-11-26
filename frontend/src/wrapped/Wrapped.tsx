@@ -17,6 +17,7 @@ import { CARDS, CARD_H, CARD_W, CardDef } from "./cards";
 import { SHOWS_CARDS } from "./showsCards";
 import { MUSIC_CARDS } from "./musicCards";
 import { GAMES_CARDS } from "./gamesCards";
+import { SOCIAL_CARDS } from "./socialCards";
 import { AnyWrapped, WrappedData, WrappedMode } from "./types";
 
 /** The platform's name and the file name for saved cards. */
@@ -181,7 +182,9 @@ function Fullscreen({ children }: { children: React.ReactNode }) {
 function Player({ data, setMode }: { data: AnyWrapped; setMode: (m: WrappedMode) => void }) {
   const brand = useBrand();
   // each card set renders its own platform's data
-  const cards = useMemo<CardDef<AnyWrapped>[]>(() => ("kind" in data && data.kind === "games"
+  const cards = useMemo<CardDef<AnyWrapped>[]>(() => ("kind" in data && data.kind === "social"
+    ? (SOCIAL_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
+    : "kind" in data && data.kind === "games"
     ? (GAMES_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
     : "kind" in data && data.kind === "music"
     ? (MUSIC_CARDS as CardDef<AnyWrapped>[]).filter((c) => !c.when || c.when(data))
