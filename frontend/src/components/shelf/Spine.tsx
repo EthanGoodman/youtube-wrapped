@@ -29,10 +29,12 @@ interface Props {
   onOpen: (el: HTMLElement) => void;
   maxW?: number;
   maxH?: number;
+  /** a width the shelf fitted it to (narrower than its natural one when the row is full) */
+  w?: number;
   flat?: boolean;
 }
 
-export function Spine({ p, max, color, onOpen, maxW = 220, maxH, flat = false }: Props) {
+export function Spine({ p, max, color, onOpen, maxW = 220, maxH, w: fitW, flat = false }: Props) {
   const hours = hoursOf(p);
   const ref = useRef<HTMLAnchorElement>(null);
   const common = {
@@ -54,7 +56,9 @@ export function Spine({ p, max, color, onOpen, maxW = 220, maxH, flat = false }:
       </HubLink>
     );
   }
-  const { w, h } = spineSize(hours, max, maxW, maxH);
+  const natural = spineSize(hours, max, maxW, maxH);
+  const { h } = natural;
+  const w = fitW ?? natural.w;
   return (
     <HubLink {...common} className="shelf-tip shelf-focus flex shrink-0 flex-col items-center justify-between py-[14px] no-underline"
             style={{ width: w, height: h, background: color.bg, color: color.fg }}>
