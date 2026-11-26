@@ -25,7 +25,7 @@ class FakeEpic:
 
     def __call__(self, method, url, opts):
         self.calls.append(url.split("?")[0].rsplit("/", 1)[-1] if "graphql" not in url else opts["json"]["query"].split("(")[0].split()[-1])
-        if url == api.OAUTH:
+        if url == api.ACCOUNT_API + "oauth/token":
             f = opts["form"]
             if f["grant_type"] == "authorization_code" and f["code"] == CODE or f.get("refresh_token") == "fake-refresh":
                 return 200, {**SESSION, "refresh_token": "fake-refresh"}

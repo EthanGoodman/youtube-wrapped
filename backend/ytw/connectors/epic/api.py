@@ -26,7 +26,7 @@ from ... import net
 # launcher app, not you; it grants nothing without your own sign-in.
 LAUNCHER_CLIENT = ("34a02cf8f4414e29b15921876da36f9a", "daafbccc737745039dffe53d94fc76cf")  # gitleaks:allow
 LOGIN_URL = f"https://www.epicgames.com/id/api/redirect?clientId={LAUNCHER_CLIENT[0]}&responseType=code"
-OAUTH = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token"
+ACCOUNT_API = "https://account-public-service-prod03.ol.epicgames.com/account/api/"   # sign-in lives at oauth/token
 LIBRARY = "https://library-service.live.use1a.on.epicgames.com/library/api/public/"
 CATALOG = "https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/namespace/{ns}/bulk/items"
 GRAPHQL = "https://launcher.store.epicgames.com/graphql"
@@ -76,7 +76,7 @@ def sign_in(call: Http, *, code: str | None = None, refresh: str | None = None) 
     form = ({"grant_type": "authorization_code", "code": code, "token_type": "eg1"} if code
             else {"grant_type": "refresh_token", "refresh_token": refresh, "token_type": "eg1"})
     basic = base64.b64encode(":".join(LAUNCHER_CLIENT).encode()).decode()
-    status, body = call("POST", OAUTH, {"form": form, "headers": {"Authorization": f"basic {basic}"}})
+    status, body = call("POST", ACCOUNT_API + "oauth/token", {"form": form, "headers": {"Authorization": f"basic {basic}"}})
     body = body if isinstance(body, dict) else {}
     if status >= 500:
         raise EpicError(f"Epic's sign-in service answered {status}; try again later")
