@@ -28,7 +28,7 @@ REVIEWED = {
     "early": "constant FROM/WHERE built from w_sql",
     "ph": "a run of ? placeholders",
     "UNKNOWN": "module constant", "UNKNOWN_SHOW": "module constant", "_BRAND": "module constant",
-    "cols": "constant column list", "', '.join(WATCH_COLS)": "store.py: constant column list", "', '.join(ITEM_COLS)": "store.py: constant column list", "TABLE": "games.py: constant achievements table name",
+    "cols": "constant column list", "', '.join(WATCH_COLS)": "store.py: constant column list", "', '.join(ITEM_COLS)": "store.py: constant column list", "TABLE": "games.py: constant achievements table name", "', '.join(cols)": "constant column list (store.WATCH_COLS)",
     "UNDATED_TABLE": "common.py: constant table name", "rows_src": "common.watches_for_totals(): watches or a constant UNION of two fixed tables",
     "watches_for_totals(conn, r)": "common.py: watches or a constant UNION of two fixed tables",
     "', '.join(_ENTRY_COLS)": "constant column list", "', '.join(_SEARCH_COLS)": "constant column list",

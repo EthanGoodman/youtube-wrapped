@@ -71,6 +71,7 @@ class Manifest:
     oauth: OAuthSpec | None = None  # for "Connect" sign-ins: endpoints + least-privilege scopes
     sync_every: int | None = None   # live sources: seconds between background syncs (floor 5 min)
     order: int = 100                # position on the hub page
+    shelf: bool = True              # False for a combined view built from other platforms (not its own book)
 
     def __post_init__(self):
         if self.family not in FAMILIES:
@@ -95,7 +96,7 @@ class Manifest:
         return {"id": self.id, "name": self.name, "implemented": self.implemented, "theme": self.theme,
                 "vocab": self.vocab, "capabilities": sorted(self.capabilities),
                 "export_steps": list(self.export_steps), "export_wait": self.export_wait, "issue": self.issue,
-                "family": self.family}
+                "family": self.family, "shelf": self.shelf}
 
 
 def vocab(creator: str, creators: str, item: str, items: str, verb: str = "watch", verbed: str = "watched",

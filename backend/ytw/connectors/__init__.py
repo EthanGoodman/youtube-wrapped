@@ -10,6 +10,7 @@ import pkgutil
 from typing import TYPE_CHECKING
 
 from .base import Connector, Manifest
+from .allgames import MANIFEST as ALLGAMES
 from .planned import PLANNED
 
 if TYPE_CHECKING:
@@ -31,7 +32,8 @@ def _discover() -> dict[str, type[Connector]]:
 
 
 CONNECTORS: dict[str, type[Connector]] = _discover()
-_all = [c.manifest for c in CONNECTORS.values()] + [p for p in PLANNED if p.id not in CONNECTORS]
+# platforms without a connector of their own: planned ones, and views built from others (All games)
+_all = [c.manifest for c in CONNECTORS.values()] + [p for p in PLANNED if p.id not in CONNECTORS] + [ALLGAMES]
 PLATFORMS: dict[str, Manifest] = {p.id: p for p in sorted(_all, key=lambda p: (p.order, p.id))}
 
 

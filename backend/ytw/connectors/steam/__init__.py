@@ -65,6 +65,8 @@ class Steam(Connector):
         games, lifetime = conn.execute("SELECT COUNT(DISTINCT video_id), SUM(est_s) / 3600.0 FROM "
                                        "(SELECT video_id, est_s FROM watches UNION ALL SELECT video_id, est_s FROM undated_watches)").fetchone()
         self.out(f"Built: {games or 0:,} games, {lifetime or 0:,.0f} h lifetime; {n:,} tracked play days")
+        from ..allgames import rebuild_quietly
+        rebuild_quietly(self.cfg, self.out)
 
 
 CONNECTOR = Steam
