@@ -86,6 +86,28 @@ def test_new_user_adds_youtube_and_netflix_without_a_terminal(env):
     assert env.get("/api/sources/netflix").json()["status"]["rows"] == by["netflix"]["status"]["rows"]
 
 
+def spotify_zip() -> bytes:
+    """The zip Spotify emails: extended history and account data each in their own folder."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for p in (FIXTURES / "spotify").iterdir():
+            folder = "Spotify Extended Streaming History" if p.name.startswith("Streaming_History_Audio") else "Spotify Account Data"
+            z.writestr(f"{folder}/{p.name}", p.read_bytes())
+    return buf.getvalue()
+
+
+def test_spotify_zip_upload_imports_it(env):
+    """#106: adding the Spotify .zip on the Data sources page imports it (through .incoming, kept as the original)."""
+    r = upload(env, "spotify", "my_spotify_data.zip", spotify_zip())
+    assert r.status_code == 200, r.text
+    job = wait(env, "spotify")
+    assert job["state"] == "done", job
+    assert env.get("/api/sources/spotify").json()["status"]["has_data"]
+    assert env.get("/api/overview?platform=spotify&range=all").json()["videos"] > 0
+    assert not list((env.cfg.platform_dir("spotify") / "imports" / ".incoming").iterdir())   # nothing left half-written
+    assert len(list((env.cfg.platform_dir("spotify") / "imports").glob("*/my_spotify_data.zip"))) == 1
+
+
 @pytest.mark.parametrize("name, data, message", [
     ("evil.zip", None, "unsafe path"),
     ("photo.json", b"\x89PNG\r\n\x1a\n\x00\x00\x00", "ZIP, JSON or CSV"),

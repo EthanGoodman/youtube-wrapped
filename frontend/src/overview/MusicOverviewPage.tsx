@@ -42,7 +42,8 @@ export function MusicOverviewPage() {
             title={periodTitle(filters, meta.data?.today)} topMove={top ? rankMove(1, prevRank(top)) : null} />
       <main className="mx-auto flex max-w-[1400px] flex-col gap-12 px-4 pb-16 pt-10 sm:px-8">
         <SongsRow items={songs.data?.items as Music[] | undefined} prevRank={songsPrev.prevRank} cmp={songsPrev.cmp} />
-        <div className="grid gap-12 xl:grid-cols-2">
+        {/* minmax(0,1fr): long names truncate instead of pushing the column (and the phone page) wider */}
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-12 xl:grid-cols-2">
           <ArtistsBand items={artists.data?.items} />
           <AlbumsBand />
         </div>
