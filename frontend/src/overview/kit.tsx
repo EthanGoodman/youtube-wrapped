@@ -3,7 +3,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { HubLink, Link, awards, useCapability, usePlatform } from "../platform";
-import { RankedItem, TopResponse, useMeta, useStats } from "../api";
+import { RankedItem, TopResponse, useMeta, usePlatforms, useStats } from "../api";
 import { ALL_BUCKETS, Bucket, Filters, useFilters, useLinkQuery } from "../filters";
 import { num } from "../format";
 import { Comparison, Move, comparison, hoursShort, periodYear } from "./takeaways";
@@ -90,7 +90,7 @@ export function useCreator(): { one: string; many: string; Many: string } {
 }
 
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
-const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A", epic: "#4A4560", playstation: "#2A4FA0" };
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A", epic: "#4A4560", playstation: "#2A4FA0", allgames: "#5A4A3A" };
 export function useAccent(): string {
   return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
 }
@@ -146,6 +146,7 @@ export function TopBar() {
         </nav>
         </ScrollRow>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {family === "games" && <AllPlatformsLink />}
           <PeriodPicker />
           <ContentPicker />
           {wrappedYear && (
@@ -158,6 +159,23 @@ export function TopBar() {
         </div>
       </div>
     </header>
+  );
+}
+
+/** Games: jump between one platform and every platform together (All games), when there's more than one. */
+function AllPlatformsLink() {
+  const list = usePlatforms().data ?? [];
+  const id = useMeta().data?.platform.id;
+  const combined = list.find((p) => p.id === "allgames" && p.has_data);
+  const sources = list.filter((p) => p.family === "games" && p.shelf !== false && p.has_data);
+  if (!combined || sources.length < 2) return null;
+  const on = id === "allgames";
+  return (
+    <HubLink to={on ? `/${sources[0].id}` : "/allgames"}
+             className="inline-flex min-h-10 items-center whitespace-nowrap rounded-[10px] border-2 px-3 text-[14px] font-bold hover:bg-white/10"
+             style={{ borderColor: "#4A433B" }}>
+      {on ? "One platform" : "All platforms"}
+    </HubLink>
   );
 }
 

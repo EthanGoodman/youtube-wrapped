@@ -7,7 +7,7 @@ import { useMeta } from "./api";
 import { themeOf } from "./themes";
 
 /** Known platform ids: the built-in ones, plus every id /api/platforms reports (registerPlatforms). */
-export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll", "steam", "epic", "playstation"];
+export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll", "steam", "epic", "playstation", "allgames"];
 
 export function registerPlatforms(ids: string[]) {
   ids.forEach((id) => { if (!PLATFORM_IDS.includes(id)) PLATFORM_IDS.push(id); });
@@ -20,6 +20,8 @@ export interface PlatformInfo {
   implemented: boolean;
   theme: string;
   vocab: { creator: string; creators: string; item: string; items: string; verb: string; verbed: string; time: string; award?: string; awards?: string };
+  /** false for a combined view built from other platforms (All games): not a book on the shelf */
+  shelf?: boolean;
   capabilities: string[];
   export_steps: string[];
   export_wait: string;

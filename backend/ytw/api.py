@@ -238,7 +238,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         years: dict[int, dict[str, int]] = {}
         for p in platforms.PLATFORMS.values():
             path = path_for(p.id)
-            if not p.implemented or not path.exists():
+            if not p.implemented or not p.shelf or not path.exists():   # a combined view would count hours twice
                 continue
             try:
                 c = sqlite3.connect(f"file:{path}?mode=ro", uri=True)

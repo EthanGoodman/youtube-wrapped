@@ -1,0 +1,12 @@
+# Which games are the same across your game platforms, for the combined "All games" view. Names are matched
+# automatically (cleaned of symbols, platform tags and edition words, then compared; sequel numbers must agree),
+# so you only need this for the rare rename or mistake. Edit freely; the combined view rebuilds whenever a game
+# platform syncs or builds (e.g. python backend/cli.py build --platform steam).
+
+# Names that are the same game (e.g. after a rename).
+[[same]]
+names = ["Fall Guys", "Fall Guys: Ultimate Knockout"]
+
+# Names that must stay apart even though they look alike. Example:
+# [[different]]
+# names = ["Rust", "Rust Console Edition"]

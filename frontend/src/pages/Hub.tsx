@@ -14,6 +14,7 @@ import { EmptySlot } from "../components/shelf/EmptySlot";
 import { Spine, hoursOf, monthYear } from "../components/shelf/Spine";
 import { SHELF_MAX_H, fitShelf, hoursLabel, shelfHeight, slotHeight, spineSize, waitRank } from "../components/shelf/scale";
 import { OthersSpine } from "../components/shelf/Others";
+import { MoreSlot } from "../components/shelf/MoreSlot";
 import { cameraDistance, tiltFromHeight } from "../components/shelf/book3d/timeline";
 
 function useMedia(query: string): boolean {
@@ -77,7 +78,9 @@ export function Hub() {
   const phone = useMedia("(max-width: 639px)");
   const tablet = useMedia("(max-width: 1023px)");
 
-  const list = q.data ?? [];
+  const all = q.data ?? [];
+  const views = all.filter((p) => p.shelf === false && p.has_data);      // All games: in the More menu, not a book
+  const list = all.filter((p) => p.shelf !== false);
   const ready = list.filter((p) => p.has_data).sort((a, b) => (b.est_s ?? 0) - (a.est_s ?? 0));
   const notYet = [
     ...list.filter((p) => p.implemented && !p.has_data).sort((a, b) => waitRank(a.export_wait) - waitRank(b.export_wait)),
@@ -129,7 +132,8 @@ export function Hub() {
   // one row, never wrapping: room for the spines is the shelf minus the slot(s) after them
   const shelfW = useWidth(shelfRef);
   const GAP = 10;
-  const slotRoom = (slots.length + (more > 0 ? 1 : 0)) * (slotSize.w + GAP) + (slots.length + more > 0 ? 24 : 0);
+  const moreSlot = !firstVisit && (more > 0 || views.length > 0);
+  const slotRoom = (slots.length + (moreSlot ? 1 : 0)) * (slotSize.w + GAP) + (slots.length || moreSlot ? 24 : 0);
   const spineMaxW = tablet ? 180 : 220;
   const natural = ready.map((p) => spineSize(hoursOf(p), max, spineMaxW, maxH).w);
   const fit = shelfW && !phone ? fitShelf(natural, shelfW - slotRoom, GAP) : { widths: natural, folded: 0 };
@@ -184,7 +188,12 @@ export function Hub() {
                         <EmptySlot p={p} w={slotSize.w} h={slotSize.h} flat={phone} />
                       </div>
                     ))}
-                    {more > 0 && <div className={phone ? "w-full" : ""}><EmptySlot more={more} w={slotSize.w} h={slotSize.h} flat={phone} /></div>}
+                    {firstVisit && more > 0 && <div className={phone ? "w-full" : ""}><EmptySlot more={more} w={slotSize.w} h={slotSize.h} flat={phone} /></div>}
+                    {moreSlot && (
+                      <div className={phone ? "w-full" : !slots.length && ready.length ? "ml-6" : ""}>
+                        <MoreSlot views={views} toAdd={notYet.slice(slots.length)} w={slotSize.w} h={slotSize.h} flat={phone} />
+                      </div>
+                    )}
                   </>
                 )}
               </Shelf>

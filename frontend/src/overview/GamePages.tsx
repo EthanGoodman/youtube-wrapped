@@ -11,7 +11,7 @@ import { date, num, pct, safeHref } from "../format";
 import { OV, PageBody, PageHeader, Poster, Seg, Skeleton, StatsFrame, kicker } from "./kit";
 import { HoverBars, Ticks } from "./charts";
 import { Achievements, UnlockRow, rarityLine } from "./GamesOverviewPage";
-import { TimelineRow, plural } from "./gamesKit";
+import { PlatformSplit, TimelineRow, plural } from "./gamesKit";
 import { hoursShort, periodTitle } from "./takeaways";
 
 function Card({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
@@ -42,6 +42,7 @@ export function AllGamesPage() {
     rows.filter((r) => r.genres.includes(b)).length - rows.filter((r) => r.genres.includes(a)).length || a.localeCompare(b));
   const latest = (r: TimelineRow) => [r.last_unlock, r.last_played].filter(Boolean).sort().pop() ?? "";
   const hasPlays = rows.some((r) => r.plays);
+  const combined = useMeta().data?.platform.id === "allgames";
   const shown = rows.filter((r) => !genre || r.genres.includes(genre)).sort((a, b) =>
     sort === "hours" ? b.minutes - a.minutes
     : sort === "achievements" ? done(b) - done(a) || b.unlocks - a.unlocks
@@ -83,6 +84,7 @@ export function AllGamesPage() {
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate text-[16px] font-bold">{r.game.title}</span>
                       <span className="truncate font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{knownDates(r)}</span>
+                      {combined && <span className="max-w-[360px]"><PlatformSplit split={r.game.platforms} /></span>}
                       {r.plays ? <span className="truncate font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{plural(r.plays, "session")} · {hoursShort((r.minutes * 60) / r.plays)} each on average</span> : null}
                       <span className="font-ov-display text-[15px] font-extrabold sm:hidden">{hoursShort(r.minutes * 60)}{r.achievements ? ` · ${r.unlocks}/${r.achievements}` : ""}</span>
                     </span>
