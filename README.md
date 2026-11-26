@@ -11,7 +11,7 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 | Spotify | ✅ Supported (see [Spotify](#spotify)) |
 | Prime Video | Planned ([#4](https://github.com/EthanGoodman/youtube-wrapped/issues/4)) |
 | TikTok | Planned ([#5](https://github.com/EthanGoodman/youtube-wrapped/issues/5)) |
-| Instagram | Planned ([#6](https://github.com/EthanGoodman/youtube-wrapped/issues/6)) |
+| Instagram | ✅ Supported (see [Instagram](#instagram)) |
 | Crunchyroll | ✅ Supported, unofficial (see [Crunchyroll](#crunchyroll)) |
 | Steam | ✅ Supported (see [Steam](#steam)) |
 | Epic Games | ✅ Supported, unofficial (see [Epic Games](#epic-games)) |
@@ -218,6 +218,16 @@ Sony has no public API or export for this, so it reads your own data from the Pl
 PlayStation says more than Steam or Epic: for PS4 and PS5 games, lifetime hours, **first and last played** and how many **sessions**; trophies with when you earned them, their type and how rare they are, including PS3 and Vita games. Hours by day start when tracking begins, like the other game platforms.
 
 What's stored: per game its name, minutes, first/last played, sessions and picture; per trophy its name, description, type, when you earned it and its rarity. Nothing about friends, messages or your account. Wrapped uses `personalities-playstation.toml`.
+
+## Instagram
+
+1. In the Instagram app: **Profile → ☰ → Accounts Center → Your information and permissions → Export your information** (on the web: [accountscenter.instagram.com](https://accountscenter.instagram.com/info_and_permissions/dyi/)).
+2. **Create export** → your Instagram → **Export to device**, with **Date range: All time**, **Format: JSON** and **Media quality: Low**.
+3. When Instagram emails you (hours to a few days), add the .zip (or every part) on the **Data sources** page, or put it in `data/instagram/` and run `python backend/cli.py ingest --platform instagram`.
+
+What it shows, all from real dated actions: likes and the accounts you like most, your chats (messages both ways, who sent more), the posts and reels you shared and with whom, hashtags you like, follows, your own posts and stories, when you're active, records, and Wrapped. Instagram doesn't export time spent, so there are no hours; it only exports about a week of videos watched and a month of stories viewed, shown as exactly that.
+
+What's stored: per action its kind, when, and which account or chat; for messages, who sent it and whether it was a shared post. **Never** message text, captions, photos, or the login, device, location and payment files. Wrapped uses `personalities-instagram.toml`.
 
 ## All games (combined)
 

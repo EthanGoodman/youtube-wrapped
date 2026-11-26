@@ -247,6 +247,7 @@ const SHELF: Record<string, [string, string]> = {
   steam: ["#2F4A7A", "#FFFFFF"],
   epic: ["#4A4560", "#FFFFFF"],
   playstation: ["#2A4FA0", "#FFFFFF"],
+  instagram: ["#A8366B", "#FFFFFF"],
   prime_video: ["#2F5D8A", "#FFFFFF"],
 };
 const SHELF_FALLBACK: [string, string][] = [["#7A5C99", "#FFFFFF"], ["#C9A227", "#141312"], ["#4F7F7A", "#FFFFFF"], ["#9C4F6B", "#FFFFFF"]];

@@ -254,6 +254,17 @@ export function spanLabel(start: string, end: string): string {
   return start === end ? fmt(start) : `${fmt(start)} to ${fmt(end)}`;
 }
 
+/** A date span with its years: "Mar 4 – Jul 19, 2020" within a year, "Aug 2021 – Nov 2026" across years. */
+export function yearSpan(start: string, end: string): string {
+  const d = (s: string) => new Date(s.slice(0, 10) + "T00:00:00");
+  const a = d(start), b = d(end);
+  if (start.slice(0, 10) === end.slice(0, 10)) return a.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  if (a.getFullYear() === b.getFullYear())
+    return `${a.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${b.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  const my = (x: Date) => x.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  return `${my(a)} – ${my(b)}`;
+}
+
 /** The hours card's label: "2026 so far", "2025", "Past 4 weeks", "Lifetime". */
 export function periodTitle(f: { range: string; start?: string; end?: string }, today: string | undefined): string {
   if (f.range === "this_year") return today ? `${today.slice(0, 4)} so far` : "This year";

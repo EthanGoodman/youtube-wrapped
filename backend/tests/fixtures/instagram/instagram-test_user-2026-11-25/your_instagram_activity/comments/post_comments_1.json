@@ -1,0 +1,20 @@
+[
+ {
+  "media_list_data": [
+   {
+    "uri": ""
+   }
+  ],
+  "string_map_data": {
+   "Comment": {
+    "value": "never stored"
+   },
+   "Media Owner": {
+    "value": "trail_cam"
+   },
+   "Time": {
+    "timestamp": 1600000200
+   }
+  }
+ }
+]

@@ -42,9 +42,14 @@ const NAV: Record<Family, { tabs: Tab[]; more: MoreLink[] }> = {
     tabs: [["/", "Overview", true], ["/top/channels", "All games"], ["/achievements", "Achievements", false, "achievements"], ["/wrapped", "Wrapped"]],
     more: [],
   },
+  // social (Instagram first): no time spent, so it's about who and when, from real dated actions
+  social: {
+    tabs: [["/", "Overview", true], ["/people", "People"], ["/activity", "Activity"], ["/wrapped", "Wrapped"]],
+    more: [],
+  },
 };
 
-export type Family = "videos" | "shows" | "music" | "games";
+export type Family = "videos" | "shows" | "music" | "games" | "social";
 
 /** Which family's pages a platform gets: music (Spotify), shows (Netflix) or videos (YouTube). */
 export function useFamily(): Family {
@@ -52,6 +57,7 @@ export function useFamily(): Family {
   const fam = usePlatform()?.family;
   if (fam === "music") return "music";
   if (fam === "games") return "games";
+  if (fam === "social") return "social";
   return series ? "shows" : "videos";
 }
 
@@ -90,7 +96,7 @@ export function useCreator(): { one: string; many: string; Many: string } {
 }
 
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
-const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A", epic: "#4A4560", playstation: "#2A4FA0", allgames: "#5A4A3A" };
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A", epic: "#4A4560", playstation: "#2A4FA0", allgames: "#5A4A3A", instagram: "#A8366B" };
 export function useAccent(): string {
   return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
 }

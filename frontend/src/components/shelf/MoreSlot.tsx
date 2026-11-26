@@ -6,9 +6,10 @@ import { num } from "../../format";
 import { HubLink } from "../../platform";
 import { waitLabel } from "./EmptySlot";
 
-interface Props { views: PlatformSummary[]; toAdd: PlatformSummary[]; w: number; h: number; flat?: boolean }
+/** flat: the phone's lying-flat list; slab: a dashed magazine on top of the magazine stack (opens upward) */
+interface Props { views: PlatformSummary[]; toAdd: PlatformSummary[]; w: number; h: number; flat?: boolean; slab?: boolean }
 
-export function MoreSlot({ views, toAdd, w, h, flat = false }: Props) {
+export function MoreSlot({ views, toAdd, w, h, flat = false, slab = false }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -22,13 +23,13 @@ export function MoreSlot({ views, toAdd, w, h, flat = false }: Props) {
   const title = toAdd.length ? `+ ${toAdd.length} more` : "+ More";
   const label = [views.map((v) => v.name).join(", "), toAdd.length ? `${toAdd.length} apps you can add` : ""].filter(Boolean).join("; ");
   return (
-    <div ref={ref} className={`relative ${flat ? "w-full" : "shrink-0"}`}>
+    <div ref={ref} className={`relative ${flat || slab ? "w-full" : "shrink-0"}`}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={`More: ${label}`}
-              className={flat
+              className={flat || slab
                 ? "shelf-slot shelf-focus flex h-14 w-full items-center justify-between border-2 border-dashed border-[#5C554B] px-4 text-[#A39B8D]"
                 : "shelf-lift shelf-slot shelf-focus flex items-center justify-center border-2 border-dashed border-[#5C554B] text-[#A39B8D]"}
-              style={flat ? undefined : { width: w, height: h }}>
-        <span aria-hidden className={`${flat ? "" : "shelf-vertical"} font-shelf-display text-[30px] uppercase leading-none`}>{title}</span>
+              style={flat || slab ? undefined : { width: w, height: h }}>
+        <span aria-hidden className={`${flat || slab ? "" : "shelf-vertical"} font-shelf-display ${slab ? "text-[26px]" : "text-[30px]"} uppercase leading-none`}>{title}</span>
       </button>
       {open && (
         <div className={`absolute z-20 w-72 border-2 border-[#EDE7DC] bg-[#141312] p-1 ${flat ? "left-0 top-full mt-2" : "bottom-full right-0 mb-2"}`}>

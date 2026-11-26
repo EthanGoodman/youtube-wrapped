@@ -55,6 +55,8 @@ export interface PlatformSummary extends PlatformInfo {
   est_s?: number;
   first_date?: string | null;
   last_date?: string | null;
+  /** social apps (no hours): the count the shelf shows instead, e.g. { value: 3759, unit: "likes" } */
+  headline?: { value: number; unit: string };
 }
 
 /** All platforms, with a headline for the ones that have data (the hub page). */
