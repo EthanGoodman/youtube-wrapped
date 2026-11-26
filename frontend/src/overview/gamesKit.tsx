@@ -14,6 +14,7 @@ export interface GameCard { key: string; title: string | null; poster: string | 
   acquired?: string | null; last_played?: string | null }
 export interface Unlock { game: GameCard; api: string; name: string; description: string | null; unlocked: string; rarity: number | null }
 export interface Activity {
+  range: { start: string; end: string };
   unlocks: number; active_days: number; games: number;
   top_games: { game: GameCard; unlocks: number; rank: number }[];
   days: { date: string; count: number }[]; hours: number[]; weekdays: number[];

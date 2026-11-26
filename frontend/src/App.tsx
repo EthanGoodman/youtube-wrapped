@@ -22,6 +22,7 @@ import { ShowsOverviewPage } from "./overview/ShowsOverviewPage";
 import { MusicOverviewPage } from "./overview/MusicOverviewPage";
 import { GamesOverviewPage } from "./overview/GamesOverviewPage";
 import { AchievementsPage, GameDetailPage } from "./overview/GamePages";
+import { GamesEvolutionPage, GamesPatternsPage, GamesRecordsPage } from "./overview/GamesSections";
 import { HowFarPage } from "./overview/HowFarPage";
 import { AnimePage } from "./overview/AnimePage";
 import { ShowDetailPage } from "./overview/ShowDetailPage";
@@ -114,9 +115,9 @@ function PlatformApp() {
       <Route path="top/:kind" element={NEW_LOOK.includes(platform) ? <TopPage /> : <Layout><Top /></Layout>} />
       <Route path="shows" element={<Gate capability="series">{SHOWS_NEW.includes(platform) ? <HowFarPage /> : <Layout><Shows /></Layout>}</Gate>} />
       <Route path="anime" element={<Gate capability="anime">{SHOWS_NEW.includes(platform) ? <AnimePage /> : <Layout><Anime /></Layout>}</Gate>} />
-      <Route path="patterns" element={NEW_LOOK.includes(platform) ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
-      <Route path="records" element={NEW_LOOK.includes(platform) ? <RecordsPage /> : <Layout><Records /></Layout>} />
-      <Route path="evolution" element={NEW_LOOK.includes(platform) ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
+      <Route path="patterns" element={GAMES_NEW.includes(platform) ? <GamesPatternsPage /> : NEW_LOOK.includes(platform) ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
+      <Route path="records" element={GAMES_NEW.includes(platform) ? <GamesRecordsPage /> : NEW_LOOK.includes(platform) ? <RecordsPage /> : <Layout><Records /></Layout>} />
+      <Route path="evolution" element={GAMES_NEW.includes(platform) ? <GamesEvolutionPage /> : NEW_LOOK.includes(platform) ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
       <Route path="ads" element={<Gate capability="ads">{platform === "youtube" ? <AdsPage /> : <Layout><Ads /></Layout>}</Gate>} />
       <Route path="search" element={<Gate capability="search">{platform === "youtube" ? <SearchPage /> : <Layout><Search /></Layout>}</Gate>} />
       <Route path="channel/:id" element={SHOWS_NEW.includes(platform) ? <ShowDetailPage /> : GAMES_NEW.includes(platform) ? <GameDetailPage /> : platform === "youtube" || MUSIC_NEW.includes(platform) ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />
