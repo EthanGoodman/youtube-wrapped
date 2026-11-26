@@ -123,13 +123,18 @@ def activity(conn: sqlite3.Connection, r: Range, tz) -> dict:
     """Patterns, from unlocks: which days, hours and weekdays you were unlocking; and tracked hours in the range."""
     rows = _unlocks(conn, tz, r)
     per_day: dict[str, int] = {}
+    per_game: dict[str, int] = {}
     hours, weekdays = [0] * 24, [0] * 7
     for x in rows:
         k = x[4].date().isoformat()
         per_day[k] = per_day.get(k, 0) + 1
+        per_game[x[0]] = per_game.get(x[0], 0) + 1
         hours[x[4].hour] += 1
         weekdays[x[4].weekday()] += 1
-    return {"unlocks": len(rows), "active_days": len(per_day), "games": len({x[0] for x in rows}),
+    order = sorted(per_game.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+    games = _games(conn, [k for k, _ in order])
+    return {"unlocks": len(rows), "active_days": len(per_day), "games": len(per_game),
+            "top_games": [{"game": games.get(k, {"key": k}), "unlocks": n, "rank": i + 1} for i, (k, n) in enumerate(order)],
             "days": [{"date": d, "count": n} for d, n in sorted(per_day.items())],
             "hours": hours, "weekdays": weekdays, "tracked": _tracked(conn, r)}
 

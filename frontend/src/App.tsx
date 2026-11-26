@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useBuildCheck } from "./useBuildCheck";
+import { GAME_PLATFORMS } from "./families";
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { PageTitle } from "./components/ui";
@@ -38,7 +39,7 @@ import { applyThemeColors, themeOf } from "./themes";
 /** Platforms on the new stats pages (the rest keep the old layout until they move over). */
 const SHOWS_NEW = ["netflix", "crunchyroll"];
 const MUSIC_NEW = ["spotify"];
-const GAMES_NEW = ["steam", "epic"];
+const GAMES_NEW = GAME_PLATFORMS;
 const NEW_LOOK = ["youtube", ...SHOWS_NEW, ...MUSIC_NEW, ...GAMES_NEW];
 
 /** Sections of a platform. Old single-platform links (/top/channels, …) redirect to /youtube/… */
