@@ -1,4 +1,4 @@
-"""Steam: your library and achievements from Steam's official Web API (your own key), snapshotted daily."""
+"""Steam: your library and achievements from Steam's official Web API (your own key), checked hourly while the app runs."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -14,7 +14,7 @@ MANIFEST = Manifest(
      "python backend/cli.py secrets set STEAM_API_KEY",
      "Save your profile link: python backend/cli.py secrets set STEAM_PROFILE (steamcommunity.com/id/... or /profiles/...)",
      "In Steam: Profile > Edit Profile > Privacy > Game details: Public"),
-    "instant", issue=59, family="games", auth="api_key", order=5, sync_every=24 * 3600,
+    "instant", issue=59, family="games", auth="api_key", order=5, sync_every=3600,
     image_hosts=(("shared.cloudflare.steamstatic.com", "/store_item_assets/steam/apps/"),),
     secrets=("STEAM_API_KEY", "STEAM_PROFILE"))
 
@@ -23,7 +23,7 @@ class Steam(Connector):
     manifest = MANIFEST
 
     def fetch(self, **_) -> None:
-        """Today's library snapshot plus achievements and genres for games played since the last fetch."""
+        """This check's library snapshot (the day's last one stands) plus achievements and genres for games played since the last fetch."""
         from . import api
         key, who = secrets.get("STEAM_API_KEY"), secrets.get("STEAM_PROFILE")
         if not key or not who:
@@ -40,7 +40,7 @@ class Steam(Connector):
         self.out(f"Steam: {r['games']:,} games ({r['played']:,} played, {r['hours']:,} h); details refreshed for {r['refreshed']:,}")
         if r["achievements_hidden"]:
             self.out(f"Achievements were hidden for {r['achievements_hidden']:,} games: in Steam, set Profile > Edit Profile > Privacy > "
-                     "Game details to Public, then fetch again. Until then, past hours can only be placed on each game's last-played day.")
+                     "Game details to Public, then fetch again (achievements are what tell your history).")
         self.ingest()
 
     def sync(self, **opts) -> None:

@@ -24,32 +24,24 @@ def _built(tmp_path):
     return conn, res, n
 
 
-def test_hours_dated_by_snapshots_and_achievements(tmp_path):
+def test_only_tracked_days_get_dated_hours(tmp_path):
     conn, res, _ = _built(tmp_path)
     assert res == {"snapshots": 2, "games": 4, "achievements": 4}
-    by_game = {g: (n, t) for g, n, t in conn.execute(
-        "SELECT video_id, COUNT(*), SUM(est_s) FROM watches GROUP BY video_id")}
-    # every minute of lifetime playtime is somewhere: 1290 + 300 + 90 (the unplayed gift has none)
-    assert {g: t // 60 for g, (_, t) in by_game.items()} == {"game:900001": 1290, "game:900002": 300, "game:900003": 90}
-    days = dict(((g, d), (m // 60, how)) for g, d, m, how in conn.execute(
-        "SELECT video_id, local_date, est_s, est_method FROM watches"))
-    # Starfall: 1200 min before tracking spread over its 3 unlocks (2 on Mar 2, 1 on Jan 12), +90 tracked on Nov 21
-    assert days[("game:900001", "2024-03-02")] == (800, "estimate")
-    assert days[("game:900001", "2025-01-12")] == (400, "estimate")
-    assert days[("game:900001", "2026-11-21")] == (90, "snapshot")
-    # Harbor Kart: one unlock (May 1, 2023 local); Quiet Orchard: no achievements -> its last-played day
-    assert days[("game:900002", "2023-05-01")] == (300, "estimate")
-    assert days[("game:900003", "2021-08-10")] == (90, "estimate")
+    # the one real day of play: Starfall grew 90 min between the Nov 20 and Nov 21 snapshots
+    assert [tuple(r) for r in conn.execute("SELECT video_id, local_date, est_s / 60, est_method FROM watches")] == \
+        [("game:900001", "2026-11-21", 90, "snapshot")]
+    # everything from before tracking has no date: lifetime totals only (the unplayed gift has none)
+    undated = {g: s // 60 for g, s in conn.execute("SELECT video_id, est_s FROM undated_watches")}
+    assert undated == {"game:900001": 1200, "game:900002": 300, "game:900003": 90}
 
 
-def test_time_of_day_from_achievements(tmp_path):
+def test_activity_years_and_capabilities(tmp_path):
     conn, _, _ = _built(tmp_path)
-    hour = conn.execute("SELECT local_hour FROM watches WHERE video_id = 'game:900002'").fetchone()[0]
-    # first unlock 17:00 UTC = 1pm New York; the estimated 300 min are centred on it (capped at 6 h either side)
-    assert hour == 10
     assert db.get_meta(conn, "tracked_since") == "2026-11-20"
-    caps = db.get_meta(conn, "extra_capabilities").split(",")
-    assert {"estimated_time", "achievements", "genres"} <= set(caps)
+    # unlocks in 2023 (Harbor Kart), 2024 and 2025 (Starfall), plus the tracked day in 2026
+    assert db.get_meta(conn, "activity_years") == "2023,2024,2025,2026"
+    caps = set(db.get_meta(conn, "extra_capabilities").split(","))
+    assert {"achievements", "genres"} <= caps and not caps & {"estimated_time", "time_of_day"}   # nothing estimated, no clock
 
 
 def test_games_items_art_and_genres(tmp_path):
@@ -133,21 +125,57 @@ def test_achievement_stats_and_api(tmp_path):
     g = client.get(f"/api/games/game/game:900001?{q}").json()
     assert (g["unlocked"], g["total"]) == (3, 4) and g["achievements"][-1]["name"] == "No Mercy"   # locked last
     top = client.get(f"/api/top/channels?{q}&metric=time").json()["items"]
-    assert top[0]["title"] == "Starfall Tactics" and round(top[0]["time_s"] / 3600, 1) == 21.5
+    assert top[0]["title"] == "Starfall Tactics" and round(top[0]["time_s"] / 3600, 1) == 21.5   # lifetime, undated too
     assert client.get("/api/games/achievements?platform=spotify").status_code in (404, 503)
 
 
-def test_games_wrapped(tmp_path):
+def _client(tmp_path):
     from conftest import make_client
     from ytw.api import create_app
-    from ytw.config import load_config
+    from ytw.config import load_config          # config.toml's timezone is America/New_York, like the fixtures
     conn, _, _ = _built(tmp_path)
     conn.close()
-    client = make_client(create_app(load_config(), db_paths={"steam": tmp_path / "steam.db"}, static_dir=tmp_path / "x"))
+    return make_client(create_app(load_config(), db_paths={"steam": tmp_path / "steam.db"}, static_dir=tmp_path / "x"))
+
+
+def test_activity_from_real_unlocks(tmp_path):
+    client = _client(tmp_path)
+    a = client.get("/api/games/activity?platform=steam&range=all").json()
+    # 4 unlocks on 3 days in 2 games; all time reaches back to the first unlock (May 2023), not just tracked days
+    assert (a["unlocks"], a["active_days"], a["games"]) == (4, 3, 2) and a["range"]["start"] == "2023-05-01"
+    assert a["days"] == [{"date": "2023-05-01", "count": 1}, {"date": "2024-03-02", "count": 2}, {"date": "2025-01-12", "count": 1}]
+    assert a["hours"][13] == 1 and a["hours"][18] == 1 and sum(a["weekdays"]) == 4
+    assert a["tracked"] == {"est_s": 90 * 60, "days": 1}
+    assert client.get("/api/games/activity?platform=steam&range=2024").json()["unlocks"] == 2
+
+
+def test_timeline_years_and_records(tmp_path):
+    client = _client(tmp_path)
+    t = {x["game"]["title"]: x for x in client.get("/api/games/timeline?platform=steam").json()}
+    assert (t["Starfall Tactics"]["first_unlock"], t["Starfall Tactics"]["last_unlock"], t["Starfall Tactics"]["unlocks"]) == \
+        ("2024-03-02", "2025-01-12", 3)
+    assert t["Quiet Orchard"]["unlocks"] == 0 and t["Quiet Orchard"]["minutes"] == 90       # lifetime only, still listed
+    assert "Unplayed Gift" not in t
+    y = {x["year"]: x for x in client.get("/api/games/years?platform=steam").json()}
+    assert sorted(y) == [2023, 2024, 2025, 2026]
+    assert y[2024]["unlocks"] == 2 and y[2024]["top"]["game"]["title"] == "Starfall Tactics" and y[2024]["tracked_s"] == 0
+    assert y[2026]["unlocks"] == 0 and y[2026]["tracked_s"] == 90 * 60
+    r = client.get("/api/games/records?platform=steam&range=all").json()
+    assert r["rarest"][0]["name"] == "First Lap" and r["best_day"]["count"] == 2
+    assert r["streak"]["days"] == 1 and r["latest_night"] is None and r["fastest_perfect"] is None   # Harbor Kart has 1: not 5+
+    assert r["tracked_best_day"]["date"] == "2026-11-21" and r["tracked_best_day"]["est_s"] == 90 * 60
+
+
+def test_games_wrapped_from_unlocks(tmp_path):
+    client = _client(tmp_path)
     w = client.get("/api/wrapped/2024?platform=steam").json()
-    assert w["kind"] == "games" and w["platform"] == "steam" and not w["empty"] and w["estimated"]
-    assert w["top_games"][0]["title"] == "Starfall Tactics" and w["achievements"]["unlocked"] == 2
-    assert w["personality"]["name"] and "top_game_share" in w["metrics"]
+    assert w["kind"] == "games" and w["platform"] == "steam" and not w["empty"]
+    assert (w["unlocks"], w["active_days"], w["games"]) == (2, 1, 1)
+    assert w["top_games"][0]["game"]["title"] == "Starfall Tactics" and w["new_games"][0]["title"] == "Starfall Tactics"
+    assert w["tracked"] is None and w["busiest_hour"] == 15                  # no hours invented for 2024
+    assert w["personality"]["name"] and w["metrics"]["top_game_share"] == 1.0
+    w26 = client.get("/api/wrapped/2026?platform=steam").json()
+    assert not w26["empty"] and w26["unlocks"] == 0 and w26["tracked"]["est_s"] == 90 * 60   # only tracked play
     assert client.get("/api/wrapped/2019?platform=steam").json()["empty"] is True
 
 

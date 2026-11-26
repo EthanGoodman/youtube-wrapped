@@ -29,7 +29,7 @@ import logging
 from . import db, images, platforms, secrets, security, sources
 from .config import Config
 from .stats import ads, details, evolution, games, music, overview, patterns, records, search, shows, tops
-from .stats.common import ALL_BUCKETS, Filters, Range, check_year, data_bounds, resolve_range
+from .stats.common import ALL_BUCKETS, UNDATED_TABLE, Filters, Range, check_year, data_bounds, resolve_range
 from .wrapped import (MODES as WRAPPED_MODES, METRICS as YT_METRICS, NETFLIX_METRICS, load_personalities,
                       netflix_wrapped, personalities_file, wrapped as wrapped_data, MUSIC_METRICS, music_wrapped,
                       GAMES_METRICS, games_wrapped)
@@ -217,6 +217,9 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
                         n, est, first, last = c.execute(
                             "SELECT COUNT(*), SUM(CASE WHEN is_background = 1 THEN 0 ELSE est_s END), "
                             "MIN(local_date), MAX(local_date) FROM watches").fetchone()
+                        if c.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (UNDATED_TABLE,)).fetchone():
+                            un, un_s = c.execute(f"SELECT COUNT(*), SUM(est_s) FROM {UNDATED_TABLE}").fetchone()
+                            n, est = n + un, (est or 0) + (un_s or 0)     # lifetime hours count even if undated
                     finally:
                         c.close()
                     d.update(has_data=bool(n), items=n, est_s=est or 0, first_date=first, last_date=last)
@@ -261,7 +264,9 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
             "today": today().isoformat(),
             "first_date": bounds[0].isoformat() if bounds else None,
             "last_date": bounds[1].isoformat() if bounds else None,
-            "years": [r[0] for r in c.execute("SELECT DISTINCT year FROM watches ORDER BY 1")],
+            # games: the years with real activity (achievement unlocks too), not only tracked play
+            "years": sorted({r[0] for r in c.execute("SELECT DISTINCT year FROM watches")}
+                            | {int(y) for y in (db.get_meta(c, "activity_years") or "").split(",") if y.isdigit()}),
             "watches": q("SELECT COUNT(*) FROM watches"),
             "platform": p.to_dict(),
             "enriched": q("SELECT COUNT(*) FROM items WHERE status='ok'") > 0,
@@ -393,6 +398,30 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
     def get_game_achievements(key: str, request: Request):
         require_family(request, "games")
         return _or_404(cached(request, lambda: games.game_achievements(conn(request), key, cfg.tz)), "game")
+
+    # the games family's past, from real unlocks (hours aren't known by day before tracking began)
+    @app.get("/api/games/activity")
+    def get_game_activity(request: Request):
+        require_family(request, "games")
+        r, _ = parse(request)
+        return cached(request, lambda: {"range": r.to_dict(), **games.activity(conn(request), r, cfg.tz)})
+
+    @app.get("/api/games/timeline")
+    def get_game_timeline(request: Request):
+        require_family(request, "games")
+        return cached(request, lambda: games.timeline(conn(request), cfg.tz))
+
+    @app.get("/api/games/years")
+    def get_game_years(request: Request):
+        require_family(request, "games")
+        return cached(request, lambda: games.years(conn(request), cfg.tz))
+
+    @app.get("/api/games/records")
+    def get_game_records(request: Request):
+        require_family(request, "games")
+        r, _ = parse(request)
+        everything = r.label == "All time"
+        return cached(request, lambda: {"range": r.to_dict(), **games.records(conn(request), cfg.tz, None if everything else r)})
 
     @app.get("/api/music/records")
     def get_music_records(request: Request):

@@ -1,7 +1,8 @@
 """Talk to Steam: your library (lifetime minutes per game, last played) and each game's achievements, saved as small
 JSON files in data/steam/ for ingest.py to read. Official Web API with the user's own key (STEAM_API_KEY); the
 profile's "Game details" must be public. Achievement rarity comes from the same API; genres from the store's public
-app details (no key). Runs once a day as the background sync, so the snapshots build a dated history.
+app details (no key). Runs hourly as the background sync while the app runs; each day's last check is kept, so the snapshots build a
+dated history.
 
 Only what the stats use is saved: per game its name, minutes and last-played time; per achievement its name,
 description, unlock time and rarity. Nothing about friends or the profile.
@@ -10,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import date
 from pathlib import Path
 from typing import Callable
@@ -110,7 +112,8 @@ def fetch_all(folder: Path, fetch: Fetcher, steam_id: str, today: date, progress
     (folder / "snapshots").mkdir(parents=True, exist_ok=True)
     (folder / "games").mkdir(parents=True, exist_ok=True)
     games = owned_games(fetch, steam_id)
-    (folder / "snapshots" / f"{today.isoformat()}.json").write_text(json.dumps({"day": today.isoformat(), "games": games}), encoding="utf-8")
+    (folder / "snapshots" / f"{today.isoformat()}.json").write_text(json.dumps({"day": today.isoformat(), "at": int(time.time()), "games": games}),
+                                                                   encoding="utf-8")
     todo = []
     for g in sorted(games, key=lambda g: (-g["minutes"], g["appid"])):
         if not g["minutes"]:

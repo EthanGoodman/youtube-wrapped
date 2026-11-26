@@ -35,7 +35,7 @@ class FakeEpic:
                         [{"accountId": ACCOUNT, "artifactId": "Barely", "totalTime": 20}]
         if url.endswith("/items") and "/bulk/" not in url:
             if not opts["params"].get("cursor"):
-                return 200, {"records": [{"appName": "Sugar", "namespace": "ns1", "catalogItemId": "cat1"}],
+                return 200, {"records": [{"appName": "Sugar", "namespace": "ns1", "catalogItemId": "cat1", "acquisitionDate": "2020-12-25T17:43:32.193Z"}],
                              "responseMetadata": {"nextCursor": "page2"}}
             return 200, {"records": [{"appName": "Unplayed", "namespace": "ns2", "catalogItemId": "cat2"}], "responseMetadata": {}}
         if "/bulk/items" in url:
@@ -102,20 +102,33 @@ def _built(tmp_path):
     return conn, res, n
 
 
-def test_build_dates_hours_like_steam(tmp_path):
+def test_build_dates_only_tracked_play(tmp_path):
     conn, res, _ = _built(tmp_path)
     assert res == {"snapshots": 2, "games": 2, "achievements": 1}
-    days = {(g, d): (s // 60, how) for g, d, s, how in conn.execute("SELECT video_id, local_date, est_s, est_method FROM watches")}
-    # 600 min before tracking on the one unlock day (Jun 1 7:30pm New York), +90 tracked on Nov 26
-    assert days[("game:Sugar", "2024-06-01")] == (600, "estimate")
-    assert days[("game:Sugar", "2026-11-26")] == (90, "snapshot")
-    # no achievements and Epic gives no last-played day: the day before tracking began
-    assert days[("game:Ghost", "2026-11-24")] == (30, "estimate")
-    row = conn.execute("SELECT title, thumb_small, url FROM items WHERE item_id = 'game:Sugar'").fetchone()
+    # the one real day: +90 min between the Nov 25 and Nov 26 checks; everything before tracking has no date
+    assert [tuple(r) for r in conn.execute("SELECT video_id, local_date, est_s / 60 FROM watches")] == [("game:Sugar", "2026-11-26", 90)]
+    assert sorted(tuple(r) for r in conn.execute("SELECT video_id, est_s / 60 FROM undated_watches")) == [("game:Ghost", 30), ("game:Sugar", 600)]
+    row = conn.execute("SELECT title, thumb_small, url, extra FROM items WHERE item_id = 'game:Sugar'").fetchone()
     assert row[0] == "Sugar Rush" and row[1].endswith("/tall.jpg") and row[2].endswith("/sugar-rush")
+    assert json.loads(row[3])["acquired"] == "2020-12-25"            # when you got it (Epic's library says)
     from ytw.images import check_url
     check_url(row[1])                                            # the image relay allows Epic's art host
     assert "achievements" in db.get_meta(conn, "extra_capabilities")
+    assert db.get_meta(conn, "activity_years") == "2024,2026"     # an unlock in 2024, tracked play in 2026
+
+
+def test_a_gap_in_tracking_is_not_dated(tmp_path):
+    """Two checks three days apart: the growth could be any of those days, so it counts in lifetime totals only."""
+    fake = FakeEpic()
+    folder = tmp_path / "epic"
+    api.fetch_all(folder, fake, SESSION, date(2026, 11, 25))
+    fake.minutes["Sugar"] = 900
+    api.fetch_all(folder, fake, SESSION, date(2026, 11, 28))
+    conn = db.connect(tmp_path / "epic.db")
+    ep.ingest(conn, folder)
+    ep.build(conn, NY)
+    assert conn.execute("SELECT COUNT(*) FROM watches").fetchone()[0] == 0
+    assert conn.execute("SELECT SUM(est_s) / 60 FROM undated_watches WHERE video_id = 'game:Sugar'").fetchone()[0] == 900
 
 
 def test_achievement_pages(tmp_path):
@@ -131,8 +144,29 @@ def test_achievement_pages(tmp_path):
     assert a["unlocked"] == 1 and a["total"] == 2
     g = client.get(f"/api/games/game/game:Sugar?{q}").json()
     assert (g["unlocked"], g["total"]) == (1, 2)
-    w = client.get("/api/wrapped/2024?platform=epic").json()
-    assert w["kind"] == "games" and w["top_games"][0]["title"] == "Sugar Rush"
+
+
+def test_undated_hours_count_in_lifetime_totals_only(tmp_path):
+    """The 630 undated minutes: in all-time hours, top games, a game's page and the hub; never in a year, a calendar
+    or a chart over time."""
+    from conftest import make_client
+    from ytw.api import create_app
+    from ytw.config import load_config
+    conn, _, _ = _built(tmp_path)
+    conn.close()
+    client = make_client(create_app(load_config(), db_paths={"epic": tmp_path / "epic.db"}, static_dir=tmp_path / "x"))
+    hours = lambda q: client.get(f"/api/overview?platform=epic&{q}").json()["est_s"] // 60   # noqa: E731
+    assert hours("range=all") == 600 + 90 + 30
+    top = {t["title"]: t["time_s"] // 60 for t in client.get("/api/top/channels?platform=epic&range=all&metric=time").json()["items"]}
+    assert top == {"Sugar Rush": 690, "Ghost": 30}
+    assert client.get("/api/channel/game:Ghost?platform=epic&range=all").json()["all_time"]["est_s"] == 1800
+    hub = {p["id"]: p for p in client.get("/api/platforms").json()}
+    assert hub["epic"]["est_s"] == (600 + 90 + 30) * 60
+    # anything dated leaves it out: a year (even one holding every tracked day), the calendar
+    assert hours("range=2026") == 90 and hours("range=2024") == 0
+    assert "Ghost" not in {t["title"] for t in client.get("/api/top/channels?platform=epic&range=2026&metric=time").json()["items"]}
+    cal = client.get("/api/patterns/calendar?platform=epic&range=all").json()
+    assert sum(d.get("time_s", 0) for d in cal["data"]) // 60 == 90
 
 
 def test_old_steam_tables_move_over(tmp_path):

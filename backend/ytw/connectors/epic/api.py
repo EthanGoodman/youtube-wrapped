@@ -5,7 +5,7 @@ Epic has no public API for this. These are the Epic Games Launcher's own endpoin
 client id, the way the open-source launchers Legendary, Heroic and Playnite do. Read-only: nothing is ever written
 to your account. You sign in yourself in your browser; Epic shows a one-time code that you save with
 `python backend/cli.py secrets set EPIC_AUTH_CODE`, and the first fetch trades it for a refresh token kept in the OS
-keychain (EPIC_REFRESH_TOKEN). Each fetch refreshes it, so the daily sync keeps it alive.
+keychain (EPIC_REFRESH_TOKEN). Each fetch refreshes it, so the hourly sync keeps it alive.
 
 Only what the stats use is saved: per game its name, minutes, art and store link; per achievement its name,
 description, unlock time and rarity. No friends, purchases, email or other account data.
@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import Callable
@@ -123,7 +124,8 @@ def library(call: Http, s: dict) -> dict[str, dict]:
         body = body if isinstance(body, dict) else {}
         for r in body.get("records") or []:
             if isinstance(r, dict) and isinstance(r.get("appName"), str) and r.get("namespace") and r.get("catalogItemId"):
-                out[r["appName"]] = {"namespace": str(r["namespace"]), "catalog": str(r["catalogItemId"])}
+                out[r["appName"]] = {"namespace": str(r["namespace"]), "catalog": str(r["catalogItemId"]),
+                                     "acquired": _epoch(r.get("acquisitionDate")) if r.get("acquisitionDate") else None}
         cursor = (body.get("responseMetadata") or {}).get("nextCursor")
         if not cursor:
             break
@@ -207,7 +209,7 @@ def _safe(app: str) -> str:
 
 
 def fetch_all(folder: Path, call: Http, s: dict, today: date, progress: Callable[[str], None] = lambda s: None) -> dict:
-    """Save today's snapshot of every played game's minutes, then refresh the details (name, art, achievements)
+    """Save this check's snapshot of every played game's minutes (the day's last check stands), then refresh the details (name, art, achievements)
     of games that are new or were played since they were last saved. Earlier snapshots stay: they're the history."""
     (folder / "snapshots").mkdir(parents=True, exist_ok=True)
     (folder / "games").mkdir(parents=True, exist_ok=True)
@@ -230,8 +232,9 @@ def fetch_all(folder: Path, call: Http, s: dict, today: date, progress: Callable
                                     **{k: info.get(k) or (old or {}).get(k) for k in ("poster", "header", "url")}}), encoding="utf-8")
         if n % 5 == 0 or n == len(todo):
             progress(f"games {n:,}/{len(todo):,}")
-    games = [{"id": app, "name": names[app], "minutes": m, "last_played": None} for app, m in sorted(minutes.items())]
-    (folder / "snapshots" / f"{today.isoformat()}.json").write_text(json.dumps({"day": today.isoformat(), "games": games}),
+    games = [{"id": app, "name": names[app], "minutes": m, "last_played": None, "acquired": (lib.get(app) or {}).get("acquired")}
+             for app, m in sorted(minutes.items())]
+    (folder / "snapshots" / f"{today.isoformat()}.json").write_text(json.dumps({"day": today.isoformat(), "at": int(time.time()), "games": games}),
                                                                    encoding="utf-8")
     return {"played": len(games), "refreshed": len(todo), "hours": round(sum(minutes.values()) / 60),
             "in_library": len(lib), "unknown": sum(1 for app in minutes if app not in lib)}

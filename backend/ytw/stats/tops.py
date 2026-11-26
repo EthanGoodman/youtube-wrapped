@@ -46,14 +46,21 @@ def top_channels(conn, r: Range, f: Filters, limit: int = 50) -> list[dict]:
         for n, i in enumerate(items, 1):
             i["rank"] = n
             i["rank_change"] = (i["prev_rank"] - n) if i["prev_rank"] else None
-    return _attach(conn, items[:limit], _CHANNEL_INFO)
+    out = _attach(conn, items[:limit], _CHANNEL_INFO)
+    # all time can rank play nothing dates (a game's undated hours): the name and picture still come from creators
+    _attach(conn, [i for i in out if "title" not in i],
+            "SELECT creator_id AS k, title, avatar_url, subscriber_count, handle FROM creators WHERE creator_id IN ({ph})")
+    return out
 
 
 def top_videos(conn, r: Range, f: Filters, limit: int = 50) -> list[dict]:
     """By rewatch count (or time). Unavailable videos are included: they're still watches."""
     # nameless Netflix episodes ("Unknown show · Episode 1") from different shows would look like rewatches
     items = ranked(conn, "w.video_id", r, f, limit, extra_where="COALESCE(w.channel_id, '') != 'show:unknown-show'")
-    return _attach(conn, items, _VIDEO_INFO)
+    out = _attach(conn, items, _VIDEO_INFO)
+    _attach(conn, [i for i in out if "title" not in i],
+            "SELECT item_id AS k, title, thumb_small AS thumb, duration_s, creator_id AS channel_id FROM items WHERE item_id IN ({ph})")
+    return out
 
 
 def top_categories(conn, r: Range, f: Filters, limit: int = 30) -> list[dict]:

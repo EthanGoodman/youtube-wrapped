@@ -177,9 +177,12 @@ Notes on the data:
    python backend/cli.py secrets set STEAM_PROFILE     # steamcommunity.com/id/... or /profiles/...
    ```
 2. In Steam: *Profile → Edit Profile → Privacy settings → Game details: Public* (Steam only shares playtime from public game details).
-3. Run `python backend/cli.py fetch --platform steam`, or **Fetch** on the Data sources page. After that it syncs once a day on its own.
+3. Run `python backend/cli.py fetch --platform steam`, or **Fetch** on the Data sources page. After that it checks hourly on its own while the app is running.
 
-How the hours are dated: Steam only gives lifetime hours per game, not a play log. So the app saves a snapshot of your library every day, and the growth between snapshots is real play on that day. Hours from before the first snapshot are **estimated**: each game's hours are spread over the days you unlocked its achievements (or its last-played day when it has none). The pages and Wrapped say which hours are estimates. Achievements are dated exactly, including how rare each one is.
+What's real and what isn't known: Steam only gives lifetime hours per game, never when you played. So nothing is guessed:
+- **Lifetime hours** per game are exact, and count in the all-time totals and top games.
+- **Your past** is told by your **achievement unlocks**, which are real, timestamped moments of play. They drive the calendar, the hours of the day you play, each year's most active game, records (rarest unlock, latest night…) and Wrapped.
+- **Hours by day** start when the app starts tracking: it checks your library hourly while it runs, and the growth from one day's last check to the next day's is that day's play. If the app wasn't running for a few days, that growth can't be pinned to a day, so it counts in lifetime totals only.
 
 What's stored: per game its name, minutes and last-played time; per achievement its name, description, unlock time and rarity; genres from the Steam store. Nothing about friends or your profile. Wrapped has its own games story and player personalities in `personalities-steam.toml`.
 
@@ -193,9 +196,9 @@ Epic has no public API or export for playtime, so this reads your own data from 
    python backend/cli.py secrets set EPIC_AUTH_CODE
    python backend/cli.py fetch --platform epic
    ```
-3. That's it: the fetch trades the code for a sign-in kept in your OS keychain (`EPIC_REFRESH_TOKEN`) and deletes the code. It syncs once a day on its own, which keeps the sign-in alive. If it ever expires, repeat steps 1–2.
+3. That's it: the fetch trades the code for a sign-in kept in your OS keychain (`EPIC_REFRESH_TOKEN`) and deletes the code. It checks hourly on its own while the app runs, which keeps the sign-in alive. If it ever expires, repeat steps 1–2.
 
-Hours are dated like Steam's: daily snapshots from now on, and earlier hours spread over your achievement days. Epic doesn't say when you last played a game, so a game with no achievements has its earlier hours on the day before tracking began.
+It works like Steam: lifetime hours are exact, your past is told by achievement unlocks, and hours by day start when tracking begins. Epic also says when you got each game. Games without achievements (Fortnite, GTA V) count in lifetime hours and top games, never on invented dates.
 
 What's stored: per game its name, minutes, cover art and store link; per achievement its name, description, unlock time and rarity. Nothing about friends, purchases or your account. Wrapped uses `personalities-epic.toml`.
 

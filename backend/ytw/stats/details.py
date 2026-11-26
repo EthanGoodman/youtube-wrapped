@@ -6,7 +6,7 @@ import sqlite3
 from datetime import date
 
 from . import evolution, overview, patterns, records, tops
-from .common import Filters, Range, ranked, time_expr, where
+from .common import Filters, Range, ranked, time_expr, watches_for_totals, where
 
 EVER = evolution.EVER
 
@@ -16,7 +16,7 @@ def _subset_totals(conn, r: Range, f: Filters, joins: str, cond: str, params: li
     row = conn.execute(f"""
         SELECT COUNT(*), COUNT(DISTINCT w.video_id), SUM({time_expr(f)}), MIN(w.local_date),
                MAX(w.local_date), COUNT(DISTINCT w.local_date)
-        FROM watches w {joins} WHERE {w_sql} AND {cond}""", [*p, *params]).fetchone()
+        FROM {watches_for_totals(conn, r)} w {joins} WHERE {w_sql} AND {cond}""", [*p, *params]).fetchone()
     return {"videos": row[0], "unique_videos": row[1], "est_s": row[2] or 0,
             "first_watched": row[3], "last_watched": row[4], "active_days": row[5]}
 
