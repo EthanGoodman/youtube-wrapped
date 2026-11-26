@@ -9,6 +9,11 @@ import { HubLink } from "../../platform";
 export const MAGAZINE_W = 196;
 const MAG_H = 56;
 
+/** The biggest font (up to `max`) at which `text` fits in `width` px; never below `min` (then it truncates). */
+export function fitFont(text: string, width: number, max: number, min: number): number {
+  return Math.max(min, Math.min(max, Math.floor(width / (Math.max(1, text.length) * 0.42))));
+}
+
 const label = (p: PlatformSummary) =>
   p.headline ? `${compact(p.headline.value)} ${p.headline.unit}` : `${compact(p.items ?? 0)} ${p.vocab.items}`;
 
@@ -24,11 +29,14 @@ export function MagazineStack({ items, colors, flat = false, top }: {
         return (
           <HubLink key={p.id} to={`/${p.id}`}
                    aria-label={`${p.name} stats: ${p.headline ? `${num(p.headline.value)} ${p.headline.unit}` : `${num(p.items ?? 0)} ${p.vocab.items}`}`}
-                   className="shelf-lift shelf-focus flex items-center justify-between gap-3 px-4 no-underline"
+                   className={`shelf-lift shelf-focus flex min-w-0 overflow-hidden px-4 no-underline ${flat ? "items-center justify-between gap-3" : "flex-col justify-center gap-1"}`}
                    style={{ width: flat ? "100%" : MAGAZINE_W - (i % 2 ? 10 : 0), height: MAG_H, background: c.bg, color: c.fg,
                             marginLeft: flat ? 0 : (i % 2 ? 6 : 0) }}>
-            <span aria-hidden className="font-shelf-display text-[28px] uppercase leading-none">{p.name}</span>
-            <span aria-hidden className="whitespace-nowrap text-right font-shelf-display text-[17px] uppercase leading-none">{label(p)}</span>
+            {/* the name above, the count under it: both fit the magazine (Bebas glyphs average ~0.42em), never past its edge */}
+            <span aria-hidden className="truncate font-shelf-display uppercase leading-none"
+                  style={{ fontSize: flat ? 28 : fitFont(p.name, MAGAZINE_W - 42, 24, 14) }}>{p.name}</span>
+            <span aria-hidden className={`truncate font-shelf-display uppercase leading-none ${flat ? "shrink-0 text-right" : ""}`}
+                  style={{ fontSize: flat ? 17 : fitFont(label(p), MAGAZINE_W - 42, 15, 10), opacity: flat ? 1 : 0.85 }}>{label(p)}</span>
           </HubLink>
         );
       })}
