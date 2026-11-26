@@ -63,7 +63,11 @@ def cmd_secrets(args, _cfg) -> None:
     elif args.action == "set":
         if not args.name:
             sys.exit("Which one? e.g. secrets set TMDB_TOKEN  (known: " + ", ".join(secrets.KNOWN) + ")")
-        value = getpass.getpass(f"Paste {args.name} (hidden), then Enter: ")
+        value = getpass.getpass(f"Paste {args.name} (hidden), then Enter: ").strip()
+        # on Windows, Ctrl+V at a hidden prompt types the key (\x16) instead of pasting
+        if not value or any(ord(c) < 32 for c in value):
+            sys.exit("Nothing was pasted (on Windows, Ctrl+V doesn't paste at a hidden prompt). "
+                     "Right-click in the terminal to paste, or use Ctrl+Shift+V, then Enter. Nothing was saved.")
         st.set(args.name, value)
         print(f"Saved {args.name} in {st.where}.")
         if args.name in os.environ:

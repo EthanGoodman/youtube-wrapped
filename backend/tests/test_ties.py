@@ -64,7 +64,7 @@ def _same_everywhere(tmp_path: Path, platform: str, built: Path) -> None:
         path = tmp_path / f"{platform}-{seed}.db"
         _shuffled_copy(built, path, seed)
         # the other platforms point at files that don't exist (YouTube's database has its own argument)
-        others = {p: tmp_path / f"none-{p}.db" for p in ("netflix", "crunchyroll", "spotify", "steam", "epic") if p != platform}
+        others = {p: tmp_path / f"none-{p}.db" for p in ("netflix", "crunchyroll", "spotify", "steam", "epic", "playstation") if p != platform}
         app = (create_app(load_config(), db_path=path, db_paths=others, static_dir=tmp_path / "nodist") if platform == "youtube"
                else create_app(load_config(), db_paths={platform: path, **others}, static_dir=tmp_path / "nodist"))
         clients[seed] = make_client(app)
