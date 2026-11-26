@@ -28,11 +28,11 @@ import logging
 
 from . import db, images, platforms, secrets, security, sources
 from .config import Config
-from .stats import ads, details, evolution, games, music, overview, patterns, records, search, shows, tops
+from .stats import ads, details, evolution, games, music, overview, patterns, records, search, shows, social, tops
 from .stats.common import ALL_BUCKETS, UNDATED_TABLE, Filters, Range, check_year, data_bounds, resolve_range
 from .wrapped import (MODES as WRAPPED_MODES, METRICS as YT_METRICS, NETFLIX_METRICS, load_personalities,
                       netflix_wrapped, personalities_file, wrapped as wrapped_data, MUSIC_METRICS, music_wrapped,
-                      GAMES_METRICS, games_wrapped)
+                      GAMES_METRICS, games_wrapped, SOCIAL_METRICS, social_wrapped)
 
 TOP_KINDS: dict[str, Callable] = {
     "channels": tops.top_channels, "videos": tops.top_videos, "categories": tops.top_categories,
@@ -402,6 +402,47 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         require_family(request, "games")
         return _or_404(cached(request, lambda: games.game_achievements(conn(request), key, cfg.tz)), "game")
 
+    # the social family (Instagram): real dated actions; no time spent (Instagram doesn't say)
+    def _social(request: Request):
+        require_family(request, "social")
+        r, _ = parse(request)
+        return r, (None if r.label == "All time" else r)
+
+    @app.get("/api/social/summary")
+    def get_social_summary(request: Request):
+        r, rr = _social(request)
+        return cached(request, lambda: {"range": r.to_dict(), **social.summary(conn(request), rr, cfg.tz)})
+
+    @app.get("/api/social/people")
+    def get_social_people(request: Request):
+        r, rr = _social(request)
+        return cached(request, lambda: {"range": r.to_dict(), **social.people(conn(request), rr, cfg.tz, limit(request, 10))})
+
+    @app.get("/api/social/years")
+    def get_social_years(request: Request):
+        _social(request)
+        return cached(request, lambda: social.years(conn(request), cfg.tz))
+
+    @app.get("/api/social/patterns")
+    def get_social_patterns(request: Request):
+        r, rr = _social(request)
+        return cached(request, lambda: {"range": r.to_dict(), **social.patterns(conn(request), rr, cfg.tz)})
+
+    @app.get("/api/social/tags")
+    def get_social_tags(request: Request):
+        r, rr = _social(request)
+        return cached(request, lambda: social.tags(conn(request), rr, cfg.tz, limit(request, 15)))
+
+    @app.get("/api/social/recent")
+    def get_social_recent(request: Request):
+        _social(request)
+        return cached(request, lambda: social.recent(conn(request), cfg.tz))
+
+    @app.get("/api/social/records")
+    def get_social_records(request: Request):
+        _social(request)
+        return cached(request, lambda: social.records(conn(request), cfg.tz))
+
     # the games family's past, from real unlocks (hours aren't known by day before tracking began)
     @app.get("/api/games/activity")
     def get_game_activity(request: Request):
@@ -463,6 +504,7 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         try:
             mtime = personalities_path.stat().st_mtime
             pcfg = load_personalities(personalities_path, MUSIC_METRICS if p.family == "music" else GAMES_METRICS if p.family == "games"
+                                      else SOCIAL_METRICS if p.family == "social"
                                       else NETFLIX_METRICS if p.has("series") else YT_METRICS)
         except FileNotFoundError:
             mtime, pcfg = 0, {}
@@ -477,6 +519,9 @@ def create_app(cfg: Config, db_path: Path | None = None, static_dir: Path | None
         p = p.with_extra(db.get_meta(conn(request), "extra_capabilities"))
         if p.family == "games":
             return cache_for(request).get_or_compute(stamp, key, lambda: {**games_wrapped(conn(request), year, f, pcfg, cfg.tz, today()),
+                                                                           "platform": p.id})
+        if p.family == "social":
+            return cache_for(request).get_or_compute(stamp, key, lambda: {**social_wrapped(conn(request), year, pcfg, cfg.tz),
                                                                            "platform": p.id})
         if p.family == "music":
             return cache_for(request).get_or_compute(stamp, key, lambda: {**music_wrapped(conn(request), year, f, pcfg, today()),

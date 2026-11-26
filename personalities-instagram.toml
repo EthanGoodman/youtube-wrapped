@@ -1,0 +1,105 @@
+# Personalities for Instagram Wrapped stories. Edit freely; reload the Wrapped page to see changes.
+#
+# Same rules as personalities.toml: each personality looks at one metric for the year, its score is
+# value / threshold, and the highest score wins if it reaches 1. Otherwise the fallback is used.
+#
+# Metrics (all for the chosen year; shares are 0..1), from your real, dated actions:
+#   likes              posts you liked
+#   messages_sent      messages you sent
+#   shared             posts and reels you sent to friends
+#   chats              how many different chats you were in
+#   top_chat_share     messages in your #1 chat / all messages
+#   top_account_share  likes on your #1 account / all likes
+#   night_share        your actions between midnight and 5am
+#   new_follows        accounts you started following (not used in your first year)
+#   posts              your own posts and stories
+#
+# In `reason`, {pct} is the value as a percentage, {value} the number rounded, {value1} with one decimal.
+
+[[personality]]
+id = "scroller"
+name = "The Double-Tapper"
+emoji = "❤️"
+color = "#B8322A"
+metric = "likes"
+threshold = 600
+tagline = "If it's good, it gets a heart."
+reason = "You liked {value} posts this year."
+
+[[personality]]
+id = "chatter"
+name = "The Group Chat"
+emoji = "💬"
+color = "#2E6B63"
+metric = "messages_sent"
+threshold = 1500
+tagline = "Always in the DMs."
+reason = "You sent {value} messages this year."
+
+[[personality]]
+id = "curator"
+name = "The Curator"
+emoji = "📨"
+color = "#E2A93B"
+metric = "shared"
+threshold = 120
+tagline = "Saw this and thought of you."
+reason = "You sent your friends {value} posts and reels."
+
+[[personality]]
+id = "bestie"
+name = "The Best Friend"
+emoji = "🤝"
+color = "#6E4C7E"
+metric = "top_chat_share"
+threshold = 0.45
+tagline = "One chat to rule them all."
+reason = "{pct} of your messages were in one chat."
+
+[[personality]]
+id = "superfan"
+name = "The Superfan"
+emoji = "⭐"
+color = "#4C7DA8"
+metric = "top_account_share"
+threshold = 0.15
+tagline = "You know who you like."
+reason = "{pct} of your likes went to one account."
+
+[[personality]]
+id = "night_owl"
+name = "The Night Scroller"
+emoji = "🌙"
+color = "#2F4A7A"
+metric = "night_share"
+threshold = 0.2
+tagline = "Just one more. It's 2am."
+reason = "{pct} of what you did was after midnight."
+
+[[personality]]
+id = "butterfly"
+name = "The Social Butterfly"
+emoji = "🦋"
+color = "#A34E6E"
+metric = "chats"
+threshold = 25
+tagline = "Everyone's in your inbox."
+reason = "You talked in {value} different chats."
+
+[[personality]]
+id = "creator"
+name = "The Creator"
+emoji = "📸"
+color = "#8A8B3C"
+metric = "posts"
+threshold = 12
+tagline = "Your feed, your story."
+reason = "You shared {value} posts and stories of your own."
+
+[fallback]
+id = "lurker"
+name = "The Lurker"
+emoji = "👀"
+color = "#2E6B63"
+tagline = "Seeing everything, saying little."
+reason = "A quiet year: you watched more than you posted."

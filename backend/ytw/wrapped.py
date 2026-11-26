@@ -390,3 +390,41 @@ def games_wrapped(conn: sqlite3.Connection, year: int, f: Filters, personalities
         "personality": pick_personality(metrics, personalities, frozenset({"new_game_share"}) if year <= first else frozenset()),
     }
 
+
+
+# ------------------------------------------------------------------ social (Instagram, …)
+
+SOCIAL_METRICS = ("likes", "messages_sent", "shared", "chats", "top_chat_share", "top_account_share", "night_share",
+                  "new_follows", "posts")
+
+
+def social_wrapped(conn: sqlite3.Connection, year: int, personalities: dict, tz) -> dict:
+    """The social Wrapped story, every number a real dated action: likes, your #1 account, messages and your #1 chat,
+    posts and reels you shared and with whom, new follows, your posts and stories, your hour, a personality."""
+    from .stats import social
+    r = Range(date(year, 1, 1), date(year, 12, 31), str(year))
+    s = social.summary(conn, r, tz)
+    yours = s["likes"] + s["comments"] + s["messages_sent"] + s["posts"] + s["stories"] + s["saves"]
+    if not yours and not s["messages"]:
+        return {"kind": "social", "year": year, "mode": "all", "empty": True}
+    who = social.people(conn, r, tz, 5)
+    pat = social.patterns(conn, r, tz)
+    hours = pat["hours"]
+    total = sum(hours)
+    metrics = {
+        "likes": float(s["likes"]), "messages_sent": float(s["messages_sent"]), "shared": float(s["shared"]),
+        "chats": float(s["chats"]), "new_follows": float(s["follows"]), "posts": float(s["posts"] + s["stories"]),
+        "top_chat_share": (who["chats"][0]["count"] / s["messages"]) if who["chats"] and s["messages"] else 0.0,
+        "top_account_share": (who["liked"][0]["count"] / s["likes"]) if who["liked"] and s["likes"] else 0.0,
+        "night_share": sum(hours[:5]) / total if total else 0.0,
+    }
+    first = social.records(conn, tz).get("first_action")
+    return {
+        "kind": "social", "year": year, "mode": "all", "empty": False,
+        "summary": s, "people": who, "tags": social.tags(conn, r, tz, 5),
+        "busiest_hour": max(range(24), key=lambda h: (hours[h], -h)) if total else None, "hours": hours,
+        "weekdays": pat["weekdays"], "active_days": s["active_days"],
+        "metrics": metrics,
+        "personality": pick_personality(metrics, personalities,
+                                        frozenset({"new_follows"}) if first and int(first[:4]) == year else frozenset()),
+    }

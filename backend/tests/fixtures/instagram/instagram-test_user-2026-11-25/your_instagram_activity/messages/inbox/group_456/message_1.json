@@ -1,0 +1,25 @@
+{
+ "participants": [
+  {
+   "name": "Pal Two"
+  },
+  {
+   "name": "Pal Three"
+  },
+  {
+   "name": "Test User"
+  }
+ ],
+ "title": "Weekend plans",
+ "is_still_participant": true,
+ "thread_path": "inbox/group_456",
+ "magic_words": [],
+ "messages": [
+  {
+   "sender_name": "Pal Two",
+   "timestamp_ms": 1600000700000,
+   "content": "never stored",
+   "is_geoblocked_for_viewer": false
+  }
+ ]
+}

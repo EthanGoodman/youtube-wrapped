@@ -1,0 +1,36 @@
+{
+ "participants": [
+  {
+   "name": "Pal OnÃ©"
+  },
+  {
+   "name": "Test User"
+  }
+ ],
+ "title": "Pal OnÃ©",
+ "is_still_participant": true,
+ "thread_path": "inbox/palone_123",
+ "magic_words": [],
+ "messages": [
+  {
+   "sender_name": "Test User",
+   "timestamp_ms": 1600000500000,
+   "content": "never stored",
+   "is_geoblocked_for_viewer": false
+  },
+  {
+   "sender_name": "Test User",
+   "timestamp_ms": 1600000500000,
+   "share": {
+    "link": "https://www.instagram.com/reel/x/"
+   },
+   "is_geoblocked_for_viewer": false
+  },
+  {
+   "sender_name": "Pal OnÃ©",
+   "timestamp_ms": 1600000600000,
+   "content": "never stored",
+   "is_geoblocked_for_viewer": false
+  }
+ ]
+}
