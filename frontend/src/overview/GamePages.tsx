@@ -32,7 +32,6 @@ type Sort = "hours" | "achievements" | "recent" | "name";
 
 /** Every game you've played: lifetime hours (exact), achievements done of total, and the dates that are known. */
 export function AllGamesPage() {
-  const meta = useMeta().data;
   const q = useLinkQuery();
   const t = useStats<TimelineRow[]>("games/timeline");
   const [sort, setSort] = useState<Sort>("hours");
@@ -51,7 +50,6 @@ export function AllGamesPage() {
   return (
     <StatsFrame>
       <PageHeader label={`All games · lifetime`} title={t.data ? `${plural(rows.length, "game")}, ${hoursShort(total * 60)}.` : "All your games"}>
-        <p className="max-w-[640px] text-[18px]" style={{ color: OV.mute }}>Lifetime hours from {meta?.platform.name ?? "the platform"}, and every achievement you've unlocked.</p>
       </PageHeader>
       <PageBody>
         {!t.data ? <Skeleton h={500} /> : (
@@ -130,9 +128,7 @@ export function AchievementsPage() {
   return (
     <StatsFrame>
       <PageHeader label={`Achievements · ${periodTitle(filters, meta?.today)}`} title={a ? `${num(a.unlocked)} achievements unlocked.` : "Achievements"}>
-        <p className="text-[17px]" style={{ color: OV.mute }}>
-          Every one is dated, so they show when you played, even before the app was tracking your hours.{a ? ` ${num(a.total)} in your games in all.` : ""}
-        </p>
+        {a && <p className="text-[17px]" style={{ color: OV.mute }}>{num(a.total)} in your games in all.</p>}
       </PageHeader>
       <PageBody>
         {!a ? <Skeleton h={400} /> : !a.unlocked ? <p style={{ color: OV.soft }}>No achievements unlocked in this period.</p> : (
@@ -256,7 +252,7 @@ export function GameDetailPage() {
         )}
         <Card label="When you played it · achievements unlocked per month"
               title={t?.first_unlock && t.last_unlock ? (t.first_unlock === t.last_unlock ? `All on ${date(t.first_unlock)}` : `${date(t.first_unlock)} to ${date(t.last_unlock)}`) : undefined}>
-          {!months.length ? <p style={{ color: OV.soft }}>No achievements to date it by: its {hoursShort(d.all_time.est_s)} count in your lifetime total.</p> : (
+          {!months.length ? <p style={{ color: OV.soft }}>No achievements in this game.</p> : (
             <HoverBars height={150} gap={2} radius={2} hint="Hover a month to see it." ariaLabel="Achievements unlocked per month"
                        bars={months.map((m) => ({ key: m.month, label: monthLabel(m.month), value: m.count, display: plural(m.count, "achievement"), color: OV.ink }))}
                        ticks={<Ticks labels={months.map((m) => (m.month.endsWith("-01") ? m.month.slice(0, 4) : many ? "" : monthLabel(m.month, false)))} />} />

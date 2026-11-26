@@ -43,7 +43,6 @@ export const GAMES_CARDS: GCard[] = [
           <p>On <b>{n(d.active_days, "different day")}</b>.</p>
           {d.perfect.length > 0 && <p>And finished <b>{n(d.perfect.length, "game")}</b> at 100%.</p>}
         </motion.div>
-        <Label delay={1.7} className="mt-auto normal-case tracking-normal">Every achievement is dated, so they tell your year.</Label>
       </WCard>
     ),
   },
@@ -216,7 +215,6 @@ export const GAMES_CARDS: GCard[] = [
         <motion.p {...rise(1)} className="mt-6 text-[17px]">
           On {n(d.tracked!.days, "day")}{d.tracked!.top ? <>, mostly <b>{d.tracked!.top.title}</b></> : null}.
         </motion.p>
-        <Label delay={1.5} className="mt-auto normal-case tracking-normal">Counted from the day this app started checking your library.</Label>
       </WCard>
     ),
   },

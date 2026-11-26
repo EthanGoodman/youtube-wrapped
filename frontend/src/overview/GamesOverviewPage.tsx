@@ -10,7 +10,7 @@ import { useFilters, useLinkQuery } from "../filters";
 import { date, num } from "../format";
 import { Band, MoveBadge, OV, Poster, ScrollRow, Skeleton, StatsFrame, kicker, useAccent, usePrevRanks } from "./kit";
 import {
-  Activity, GameCard, GameRecords, GameTimeline, HoursNote, TimelineRow, Unlock, UnlockClock, UnlockWeekdays, YearRow, YearsRow,
+  Activity, GameCard, GameRecords, GameTimeline, TimelineRow, Unlock, UnlockClock, UnlockWeekdays, YearRow, YearsRow,
   busiestWeekday, gameLink, plural, rarityLine, recordCards, timeOfDayTitle,
 } from "./gamesKit";
 import { hoursShort, periodTitle, rankMove } from "./takeaways";
@@ -110,7 +110,6 @@ function LifetimeHero({ o, top, act, ach }: { o?: Overview; top?: RankedItem; ac
             <Stat v={ach ? num(ach.perfect.length) : "–"} l="at 100%" />
             <Stat v={first ? first.slice(0, 4) : "–"} l="first achievement" />
           </dl>
-          <HoursNote dark />
         </>
       ) : <Skeleton h={240} dark />}
     </Shell>
@@ -137,12 +136,11 @@ function PeriodHero({ title, act }: { title: string; act?: Activity }) {
       {act && !act.unlocks && !act.tracked.est_s ? (
         <>
           <h1 className="font-ov-display text-[clamp(40px,5.4vw,72px)] font-extrabold leading-[1.02] tracking-[-0.02em]">Nothing dated in {title}.</h1>
-          <p className="max-w-[560px] text-[18px]">No achievements unlocked and no tracked play in this period.{" "}
+          <p className="max-w-[560px] text-[18px]">
             <button type="button" onClick={() => update({ range: "all" })} className="font-bold underline underline-offset-4" style={{ color: OV.mustard }}>
               See your lifetime
             </button>
           </p>
-          <HoursNote dark />
         </>
       ) : act ? (
         <>
@@ -152,7 +150,6 @@ function PeriodHero({ title, act }: { title: string; act?: Activity }) {
             <Stat v={num(act.games)} l={act.games === 1 ? "game" : "games"} />
             <Stat v={act.tracked.est_s ? hoursShort(act.tracked.est_s) : "–"} l="hours tracked" />
           </dl>
-          <HoursNote dark />
         </>
       ) : <Skeleton h={240} dark />}
     </Shell>
@@ -223,7 +220,7 @@ function Timeline() {
   const dated = t.data?.filter((r) => r.first_unlock);
   const lead = dated?.length ? dated.reduce((a, b) => (b.minutes > a.minutes ? b : a)) : null;
   return (
-    <Band label="When you were into each game · from your achievements"
+    <Band label="Your games over the years"
           title={lead && span(lead) > 60 ? `${lead.game.title}: ${yearsBetween(lead)} of achievements.` : "When you were into each game"}>
       {!t.data ? <Skeleton h={320} /> : <GameTimeline rows={t.data} />}
     </Band>
@@ -282,7 +279,7 @@ function Card({ label, children }: { label: string; children: ReactNode }) {
 function WhenYouPlay({ a }: { a?: Activity }) {
   const day = a ? busiestWeekday(a.weekdays) : null;
   return (
-    <Band label="When you play · from the times you unlocked achievements" title={a ? timeOfDayTitle(a.hours) : "When you play"}>
+    <Band label="When you play" title={a ? timeOfDayTitle(a.hours) : "When you play"}>
       {!a ? <Skeleton h={240} /> : !a.unlocks ? <p style={{ color: OV.soft }}>No achievements in this period to tell when you play.</p> : (
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
           <figure className="flex flex-col gap-3 rounded-2xl p-5" style={{ background: OV.ink, color: OV.paper }}>

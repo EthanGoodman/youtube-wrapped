@@ -40,18 +40,6 @@ export const plural = (n: number, one: string, many = `${one}s`) => `${num(n)} $
 const WEEKDAYS = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
 const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
-/** Where the hours come from, in one line: lifetime totals from the platform, daily hours since tracking began. */
-export function HoursNote({ dark = false }: { dark?: boolean }) {
-  const meta = useMeta().data;
-  const name = meta?.platform.name ?? "The platform";
-  return (
-    <p className="max-w-[560px] font-shelf-mono text-[12px]" style={{ color: dark ? OV.mute : OV.soft }}>
-      {name} only says how long you've played each game in total, not when. So past years are told by your achievements
-      (each one is dated), and hours by day count from {meta?.tracked_since ? date(meta.tracked_since) : "when tracking began"}, when this app started checking.
-    </p>
-  );
-}
-
 // ------------------------------------------------------------------ the year row
 
 /** Each year's most active game (most achievements unlocked), as big covers like the top 10 row. Years with only
@@ -86,9 +74,6 @@ export function YearsRow({ rows }: { rows: YearRow[] }) {
           ))}
         </ol>
       </ScrollRow>
-      <p className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>
-        Each year's game is the one you unlocked the most achievements in. Pick a year to open its Wrapped.
-      </p>
     </>
   );
 }
@@ -149,7 +134,6 @@ export function GameTimeline({ rows, limit = 12 }: { rows: TimelineRow[]; limit?
         <span><span className="mr-1.5 inline-block h-2.5 w-5 rounded-full align-middle" style={{ background: OV.ink }} />first to last achievement</span>
         {rows.some((r) => r.acquired) && <span><Mark inline shape="diamond" />when you got it</span>}
         {rows.some((r) => r.last_played && !r.last_unlock) && <span><Mark inline shape="dot" />last played</span>}
-        <span>Hours are lifetime totals.</span>
       </p>
     </div>
   );
