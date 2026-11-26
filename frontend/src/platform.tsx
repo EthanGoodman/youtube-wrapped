@@ -7,7 +7,7 @@ import { useMeta } from "./api";
 import { themeOf } from "./themes";
 
 /** Known platform ids: the built-in ones, plus every id /api/platforms reports (registerPlatforms). */
-export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll", "steam", "epic"];
+export const PLATFORM_IDS = ["youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll", "steam", "epic", "playstation"];
 
 export function registerPlatforms(ids: string[]) {
   ids.forEach((id) => { if (!PLATFORM_IDS.includes(id)) PLATFORM_IDS.push(id); });
@@ -19,7 +19,7 @@ export interface PlatformInfo {
   name: string;
   implemented: boolean;
   theme: string;
-  vocab: { creator: string; creators: string; item: string; items: string; verb: string; verbed: string; time: string };
+  vocab: { creator: string; creators: string; item: string; items: string; verb: string; verbed: string; time: string; award?: string; awards?: string };
   capabilities: string[];
   export_steps: string[];
   export_wait: string;
@@ -100,6 +100,13 @@ export function setVocab(v: PlatformInfo["vocab"] | null, name?: string) {
 /** The current platform's verb ("watch", "listen"), outside React (Wrapped cards). */
 export function platformVerb(): string {
   return currentVocab?.verb ?? "watch";
+}
+
+/** What games call what you unlock: achievements, or trophies on PlayStation. Works outside React too. */
+export function awards(): { one: string; many: string; One: string; Many: string } {
+  const one = currentVocab?.award ?? "achievement";
+  const many = currentVocab?.awards ?? "achievements";
+  return { one, many, One: one.charAt(0).toUpperCase() + one.slice(1), Many: many.charAt(0).toUpperCase() + many.slice(1) };
 }
 
 /** The current platform's name, outside React (Wrapped cards). */

@@ -196,6 +196,7 @@ export const THEMES: Record<string, PlatformTheme> = {
   spotify: { family: "videos", creatorShape: "circle", tile: { bg: "linear-gradient(140deg,#1ed760,#0b5c2a)", fg: "#0b0b0b" }, wrapped: YOUTUBE_WRAPPED },
   steam: { family: "videos", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#2a475e,#171a21)", fg: "#ffffff" }, wrapped: YOUTUBE_WRAPPED },
   epic: { family: "videos", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#4a4560,#16151c)", fg: "#ffffff" }, wrapped: YOUTUBE_WRAPPED },
+  playstation: { family: "videos", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#2a4fa0,#0e1a3a)", fg: "#ffffff" }, wrapped: YOUTUBE_WRAPPED },
   prime_video: {
     family: "shows", creatorShape: "poster",
     tile: { bg: "linear-gradient(140deg,#00a8e1,#0b2a4a)" },
@@ -244,6 +245,7 @@ const SHELF: Record<string, [string, string]> = {
   spotify: ["#3E8E5E", "#FFFFFF"],
   steam: ["#2F4A7A", "#FFFFFF"],
   epic: ["#4A4560", "#FFFFFF"],
+  playstation: ["#2A4FA0", "#FFFFFF"],
   prime_video: ["#2F5D8A", "#FFFFFF"],
 };
 const SHELF_FALLBACK: [string, string][] = [["#7A5C99", "#FFFFFF"], ["#C9A227", "#141312"], ["#4F7F7A", "#FFFFFF"], ["#9C4F6B", "#FFFFFF"]];

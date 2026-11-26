@@ -9,7 +9,7 @@ from ...imports import ImportRejected
 from ..base import Connector, ConnectorError, Manifest, vocab
 
 MANIFEST = Manifest(
-    "playstation", "PlayStation", True, "playstation", vocab("game", "games", "game", "games", "play", "played", "playtime"),
+    "playstation", "PlayStation", True, "playstation", vocab("game", "games", "game", "games", "play", "played", "playtime", "trophy", "trophies"),
     frozenset({"achievements"}),
     ("No official export, so this reads your own games and trophies from the PlayStation app's endpoints (unofficial, read-only)",
      "Sign in at playstation.com in your browser, then open https://ca.account.sony.com/api/v1/ssocookie",

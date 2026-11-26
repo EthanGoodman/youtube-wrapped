@@ -4,6 +4,7 @@
 import { motion } from "framer-motion";
 import { date, num } from "../format";
 import { OV } from "../overview/kit";
+import { awards } from "../platform";
 import { hourLabel } from "../overview/takeaways";
 import { CardDef, CountUp, Personality, PersonalityStrip, SmallLabel } from "./cards";
 import { Big, Kicker, Label, PosterImg, StatBox, Sticker, StreakStrip, WCard, Wordmark, fit, pop, rise } from "./kit";
@@ -37,7 +38,7 @@ export const GAMES_CARDS: GCard[] = [
       <WCard tone="cream" tag={tag(d)}>
         <Kicker>In {d.year} you unlocked</Kicker>
         <Big size={120} delay={0.3} hi><CountUp to={d.unlocks} /></Big>
-        <Big size={36} delay={0.4}>{d.unlocks === 1 ? "achievement" : "achievements"}</Big>
+        <Big size={36} delay={0.4}>{d.unlocks === 1 ? awards().one : awards().many}</Big>
         <motion.div {...rise(1.1)} className="mt-8 flex flex-col gap-2.5 text-[17px]">
           <p>Across <b>{n(d.games, "game")}</b>.</p>
           <p>On <b>{n(d.active_days, "different day")}</b>.</p>
@@ -62,7 +63,7 @@ export const GAMES_CARDS: GCard[] = [
             </motion.div>
             <Big size={fit(g.game.title, 38)} delay={1.5} className="mt-5">{g.game.title}</Big>
             <motion.p {...rise(1.8)} className="mt-2 font-shelf-mono text-[14px]">
-              {n(g.unlocks, "achievement")} · {Math.round(g.share * 100)}% of your achievements that year
+              {n(g.unlocks, awards().one, awards().many)} · {Math.round(g.share * 100)}% of your {awards().many} that year
             </motion.p>
           </div>
         </WCard>
@@ -74,7 +75,7 @@ export const GAMES_CARDS: GCard[] = [
     when: (d) => d.top_games.length > 1,
     render: (d) => (
       <WCard tone="paper" tag={tag(d)}>
-        <Big size={40} delay={0}>Where your achievements came from</Big>
+        <Big size={40} delay={0}>Where your {awards().many} came from</Big>
         <ol className="mt-5 flex flex-col gap-2.5">
           {d.top_games.slice(0, 5).map((g, i) => (
             <motion.li key={g.game.key} {...rise(0.3 + i * 0.16)} className="flex items-center gap-3">
@@ -83,7 +84,7 @@ export const GAMES_CARDS: GCard[] = [
               <PosterImg src={g.game.poster} name={g.game.title} w={48} />
               <div className="min-w-0">
                 <div className="truncate text-[18px] font-bold">{g.game.title}</div>
-                <div className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{n(g.unlocks, "achievement")}</div>
+                <div className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{n(g.unlocks, awards().one, awards().many)}</div>
               </div>
             </motion.li>
           ))}
@@ -92,13 +93,13 @@ export const GAMES_CARDS: GCard[] = [
     ),
   },
   {
-    id: "rarest", label: "Rarest achievement",
+    id: "rarest", label: "Rarest",
     when: (d) => d.rarest.length > 0,
     render: (d) => {
       const a = d.rarest[0];
       return (
         <WCard tone="ink" tag={tag(d)}>
-          <Kicker>Your rarest achievement</Kicker>
+          <Kicker>Your rarest {awards().one}</Kicker>
           <div className="flex flex-1 flex-col justify-center">
             <motion.div {...pop(0.4)} className="flex items-center gap-4">
               <PosterImg src={a.game.poster} name={a.game.title} w={96} />
@@ -126,7 +127,7 @@ export const GAMES_CARDS: GCard[] = [
       const p = d.perfect;
       return (
         <WCard tone="teal" tag={tag(d)}>
-          <Kicker>Every last achievement</Kicker>
+          <Kicker>Every last {awards().one}</Kicker>
           <Big size={110} delay={0.3} hi><CountUp to={p.length} /></Big>
           <Big size={34} delay={0.5}>game{p.length === 1 ? "" : "s"} at 100%</Big>
           <div className="mt-8 grid grid-cols-3 gap-3">
@@ -142,13 +143,36 @@ export const GAMES_CARDS: GCard[] = [
     },
   },
   {
+    id: "platinum", label: "Platinums",
+    when: (d) => !!d.platinums,
+    render: (d) => {
+      const p = d.platinums!;
+      return (
+        <WCard tone="ink" tag={tag(d)}>
+          <Kicker>Platinum {p.count === 1 ? "trophy" : "trophies"} this year</Kicker>
+          <Big size={150} delay={0.3} hi><CountUp to={p.count} /></Big>
+          <div className="flex flex-1 flex-col justify-end">
+            <motion.div {...pop(0.9)} className="flex items-center gap-4">
+              <PosterImg src={p.latest.game.poster} name={p.latest.game.title} w={88} />
+              <div className="min-w-0">
+                <Label delay={1}>Latest</Label>
+                <Big size={fit(p.latest.game.title, 30, 20)} delay={1.1}>{p.latest.game.title}</Big>
+                <motion.p {...rise(1.3)} className="font-shelf-mono text-[13px]" style={{ color: OV.mute }}>{p.latest.name} · {date(p.latest.unlocked)}</motion.p>
+              </div>
+            </motion.div>
+          </div>
+        </WCard>
+      );
+    },
+  },
+  {
     id: "clock", label: "Your hour",
     when: (d) => d.busiest_hour != null,
     render: (d) => (
       <WCard tone="ink" tag={tag(d)}>
         <Kicker>Your gaming hour</Kicker>
         <Big size={110} delay={0.3} hi className="whitespace-nowrap">{hourLabel(d.busiest_hour!)}</Big>
-        <motion.p {...rise(0.7)} className="mt-2 text-[17px]">More achievements unlocked at that hour than any other.</motion.p>
+        <motion.p {...rise(0.7)} className="mt-2 text-[17px]">More {awards().many} unlocked at that hour than any other.</motion.p>
         <div className="mt-8 flex h-[110px] items-end gap-[3px]" aria-hidden>
           {d.hours.map((v, h) => (
             <motion.span key={h} initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.8 + h * 0.03 }}
@@ -173,7 +197,7 @@ export const GAMES_CARDS: GCard[] = [
         <Kicker>Your longest run</Kicker>
         <div className="flex flex-1 flex-col justify-center gap-2">
           <Big size={150} delay={0.4} hi><CountUp to={d.streak!.days} /></Big>
-          <Big size={34} delay={0.6}>days in a row with an achievement</Big>
+          <Big size={34} delay={0.6}>days in a row with a new {awards().one}</Big>
           <Label delay={0.8} className="mb-6">{date(d.streak!.start)} – {date(d.streak!.end)}</Label>
           <StreakStrip days={d.streak!.days} delay={1} />
           {d.best_day && (
@@ -192,7 +216,7 @@ export const GAMES_CARDS: GCard[] = [
       <WCard tone="paper" tag={tag(d)}>
         <Kicker>New to you in {d.year}</Kicker>
         <Big size={64} delay={0.3}>{n(d.new_games.length, "game")}</Big>
-        <motion.p {...rise(0.6)} className="mt-1 text-[15px]" style={{ color: OV.soft }}>Your first achievement in each came this year.</motion.p>
+        <motion.p {...rise(0.6)} className="mt-1 text-[15px]" style={{ color: OV.soft }}>You first played each one this year.</motion.p>
         <div className="mt-6 grid grid-cols-3 gap-3">
           {d.new_games.slice(0, 6).map((g, i) => (
             <motion.div key={g.key} {...pop(0.8 + i * 0.1)} className="flex flex-col gap-1">
@@ -241,7 +265,7 @@ function GamesSummary({ d }: { d: GamesWrappedData }) {
         ))}
       </ol>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <StatBox label="Achievements" value={num(d.unlocks)} sub={d.perfect.length ? `${d.perfect.length} at 100%` : undefined} />
+        <StatBox label={awards().Many} value={num(d.unlocks)} sub={d.perfect.length ? `${d.perfect.length} at 100%` : undefined} />
         <StatBox label="Games" value={num(d.games)} sub={`${n(d.active_days, "day")} unlocking`} />
         <StatBox label={d.tracked ? "Hours tracked" : "Your hour"} value={d.tracked ? num(Math.round(d.tracked.est_s / 3600)) : d.busiest_hour != null ? hourLabel(d.busiest_hour) : "–"}
                  sub={d.tracked && d.tracked_since ? `since ${date(d.tracked_since)}` : undefined} />

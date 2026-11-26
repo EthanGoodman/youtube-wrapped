@@ -2,7 +2,7 @@
    the frame (top bar, period and content pickers), and small parts. Only `OV.accent` is the app's own color. */
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { HubLink, Link, useCapability, usePlatform } from "../platform";
+import { HubLink, Link, awards, useCapability, usePlatform } from "../platform";
 import { RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { ALL_BUCKETS, Bucket, Filters, useFilters, useLinkQuery } from "../filters";
 import { num } from "../format";
@@ -90,7 +90,7 @@ export function useCreator(): { one: string; many: string; Many: string } {
 }
 
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
-const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A", epic: "#4A4560" };
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A", epic: "#4A4560", playstation: "#2A4FA0" };
 export function useAccent(): string {
   return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
 }
@@ -126,7 +126,7 @@ export function TopBar() {
               <Link key={to} to={to + q} aria-current={on ? "page" : undefined}
                     className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium hover:underline"
                     style={on ? { background: OV.mustard, color: OV.ink } : undefined}>
-                {to === "/top/channels" && family !== "music" && family !== "games" ? `Top ${cr.many}` : label}
+                {to === "/top/channels" && family !== "music" && family !== "games" ? `Top ${cr.many}` : to === "/achievements" ? awards().Many : label}
               </Link>
             );
           })}
