@@ -9,7 +9,8 @@ from zoneinfo import ZoneInfo
 
 from .. import games
 
-ART = "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{appid}/"
+# Steam moved its art from shared.cloudflare.steamstatic.com (now a redirect, which the image relay never follows)
+ART = "https://shared.steamstatic.com/store_item_assets/steam/apps/{appid}/"
 
 
 def _links(appid: str) -> tuple[str, str, str]:

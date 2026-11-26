@@ -15,7 +15,7 @@ MANIFEST = Manifest(
      "Save your profile link: python backend/cli.py secrets set STEAM_PROFILE (steamcommunity.com/id/... or /profiles/...)",
      "In Steam: Profile > Edit Profile > Privacy > Game details: Public"),
     "instant", issue=59, family="games", auth="api_key", order=5, sync_every=3600,
-    image_hosts=(("shared.cloudflare.steamstatic.com", "/store_item_assets/steam/apps/"),),
+    image_hosts=(("shared.steamstatic.com", "/store_item_assets/steam/apps/"),),
     secrets=("STEAM_API_KEY", "STEAM_PROFILE"))
 
 
@@ -62,8 +62,9 @@ class Steam(Connector):
     def _derive(self, conn) -> None:
         from . import ingest as st
         n = st.build(conn, self.cfg.tz)
-        r = conn.execute("SELECT COUNT(DISTINCT video_id), SUM(est_s)/3600.0, MIN(local_date), MAX(local_date) FROM watches").fetchone()
-        self.out(f"Built {n:,} play days: {r[0] or 0:,} games, {r[1] or 0:,.0f} h ({r[2]} -> {r[3]})")
+        games, lifetime = conn.execute("SELECT COUNT(DISTINCT video_id), SUM(est_s) / 3600.0 FROM "
+                                       "(SELECT video_id, est_s FROM watches UNION ALL SELECT video_id, est_s FROM undated_watches)").fetchone()
+        self.out(f"Built: {games or 0:,} games, {lifetime or 0:,.0f} h lifetime; {n:,} tracked play days")
 
 
 CONNECTOR = Steam

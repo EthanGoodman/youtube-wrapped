@@ -20,7 +20,7 @@ export interface Activity {
   days: { date: string; count: number }[]; hours: number[]; weekdays: number[];
   tracked: { est_s: number; days: number };
 }
-export interface TimelineRow { game: GameCard; minutes: number; first_unlock: string | null; last_unlock: string | null; unlocks: number;
+export interface TimelineRow { game: GameCard; minutes: number; genres: string[]; first_unlock: string | null; last_unlock: string | null; unlocks: number;
   achievements: number; acquired: string | null; last_played: string | null }
 export interface YearRow { year: number; unlocks: number; active_days: number; games: number;
   top: { game: GameCard; unlocks: number } | null; tracked_s: number; tracked_days: number }

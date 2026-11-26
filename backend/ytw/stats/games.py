@@ -148,10 +148,13 @@ def timeline(conn: sqlite3.Connection, tz) -> list[dict]:
         s[1], s[2] = x[4], s[2] + 1
     keys = [k for (k,) in conn.execute("SELECT item_id FROM items")]
     games = _games(conn, keys)
+    genres: dict[str, list[str]] = {}
+    for k, genre in conn.execute("SELECT item_id, genre FROM item_genres ORDER BY item_id, genre"):
+        genres.setdefault(k, []).append(genre)
     out = []
     for k in keys:
         g, s = games[k], span.get(k)
-        out.append({"game": g, "minutes": g.get("minutes") or 0,
+        out.append({"game": g, "minutes": g.get("minutes") or 0, "genres": genres.get(k, []),
                     "first_unlock": s[0].date().isoformat() if s else None, "last_unlock": s[1].date().isoformat() if s else None,
                     "unlocks": s[2] if s else 0, "achievements": g.get("achievements") or 0,
                     "acquired": g.get("acquired"), "last_played": g.get("last_played")})

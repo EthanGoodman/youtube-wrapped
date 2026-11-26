@@ -223,7 +223,7 @@ function Timeline() {
   const dated = t.data?.filter((r) => r.first_unlock);
   const lead = dated?.length ? dated.reduce((a, b) => (b.minutes > a.minutes ? b : a)) : null;
   return (
-    <Band label="When you were into each game · from your achievements" link={["/evolution", "How it changed"]}
+    <Band label="When you were into each game · from your achievements"
           title={lead && span(lead) > 60 ? `${lead.game.title}: ${yearsBetween(lead)} of achievements.` : "When you were into each game"}>
       {!t.data ? <Skeleton h={320} /> : <GameTimeline rows={t.data} />}
     </Band>
@@ -282,7 +282,7 @@ function Card({ label, children }: { label: string; children: ReactNode }) {
 function WhenYouPlay({ a }: { a?: Activity }) {
   const day = a ? busiestWeekday(a.weekdays) : null;
   return (
-    <Band label="When you play · from the times you unlocked achievements" title={a ? timeOfDayTitle(a.hours) : "When you play"} link={["/patterns", "All your patterns"]}>
+    <Band label="When you play · from the times you unlocked achievements" title={a ? timeOfDayTitle(a.hours) : "When you play"}>
       {!a ? <Skeleton h={240} /> : !a.unlocks ? <p style={{ color: OV.soft }}>No achievements in this period to tell when you play.</p> : (
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
           <figure className="flex flex-col gap-3 rounded-2xl p-5" style={{ background: OV.ink, color: OV.paper }}>
@@ -305,7 +305,7 @@ function Years() {
   const counted = rows?.filter((r) => r.top) ?? [];
   const best = counted.length ? counted.reduce((a, b) => (b.unlocks > a.unlocks ? b : a)) : null;
   return (
-    <Band label="Your most active game each year · by achievements" link={["/evolution", "See how it changed"]}
+    <Band label="Your most active game each year · by achievements"
           title={best ? `${best.year} was your biggest year: ${plural(best.unlocks, "achievement")}.` : "Each year"}>
       {!rows ? <Skeleton h={260} /> : <YearsRow rows={rows} />}
     </Band>
@@ -317,7 +317,7 @@ function Records() {
   const r = useStats<GameRecords>("games/records");
   const cards = r.data ? recordCards(r.data, q).slice(0, 3) : null;
   return (
-    <Band label="Records" title={r.data?.rarest[0] ? "Your personal bests." : "Your records"} link={["/records", "All your records"]}>
+    <Band label="Records" title={r.data?.rarest[0] ? "Your personal bests." : "Your records"}>
       {!cards ? <Skeleton h={160} /> : !cards.length ? <p style={{ color: OV.soft }}>No records in this period yet.</p>
         : <div className="grid gap-4 md:grid-cols-3">{cards}</div>}
     </Band>

@@ -21,8 +21,7 @@ import { OverviewPage } from "./overview/OverviewPage";
 import { ShowsOverviewPage } from "./overview/ShowsOverviewPage";
 import { MusicOverviewPage } from "./overview/MusicOverviewPage";
 import { GamesOverviewPage } from "./overview/GamesOverviewPage";
-import { AchievementsPage, GameDetailPage } from "./overview/GamePages";
-import { GamesEvolutionPage, GamesPatternsPage, GamesRecordsPage } from "./overview/GamesSections";
+import { AchievementsPage, AllGamesPage, GameDetailPage } from "./overview/GamePages";
 import { HowFarPage } from "./overview/HowFarPage";
 import { AnimePage } from "./overview/AnimePage";
 import { ShowDetailPage } from "./overview/ShowDetailPage";
@@ -112,12 +111,12 @@ function PlatformApp() {
     <Routes>
       {/* YouTube is first on the new Overview (its own frame); the others keep their home until we generalize it */}
       <Route index element={platform === "youtube" ? <OverviewPage /> : SHOWS_NEW.includes(platform) ? <ShowsOverviewPage /> : MUSIC_NEW.includes(platform) ? <MusicOverviewPage /> : GAMES_NEW.includes(platform) ? <GamesOverviewPage /> : <Layout><Home /></Layout>} />
-      <Route path="top/:kind" element={NEW_LOOK.includes(platform) ? <TopPage /> : <Layout><Top /></Layout>} />
+      <Route path="top/:kind" element={GAMES_NEW.includes(platform) ? <AllGamesPage /> : NEW_LOOK.includes(platform) ? <TopPage /> : <Layout><Top /></Layout>} />
       <Route path="shows" element={<Gate capability="series">{SHOWS_NEW.includes(platform) ? <HowFarPage /> : <Layout><Shows /></Layout>}</Gate>} />
       <Route path="anime" element={<Gate capability="anime">{SHOWS_NEW.includes(platform) ? <AnimePage /> : <Layout><Anime /></Layout>}</Gate>} />
-      <Route path="patterns" element={GAMES_NEW.includes(platform) ? <GamesPatternsPage /> : NEW_LOOK.includes(platform) ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
-      <Route path="records" element={GAMES_NEW.includes(platform) ? <GamesRecordsPage /> : NEW_LOOK.includes(platform) ? <RecordsPage /> : <Layout><Records /></Layout>} />
-      <Route path="evolution" element={GAMES_NEW.includes(platform) ? <GamesEvolutionPage /> : NEW_LOOK.includes(platform) ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
+      <Route path="patterns" element={GAMES_NEW.includes(platform) ? <Navigate to=".." replace /> : NEW_LOOK.includes(platform) ? <PatternsPage /> : <Layout><Patterns /></Layout>} />
+      <Route path="records" element={GAMES_NEW.includes(platform) ? <Navigate to=".." replace /> : NEW_LOOK.includes(platform) ? <RecordsPage /> : <Layout><Records /></Layout>} />
+      <Route path="evolution" element={GAMES_NEW.includes(platform) ? <Navigate to=".." replace /> : NEW_LOOK.includes(platform) ? <EvolutionPage /> : <Layout><Evolution /></Layout>} />
       <Route path="ads" element={<Gate capability="ads">{platform === "youtube" ? <AdsPage /> : <Layout><Ads /></Layout>}</Gate>} />
       <Route path="search" element={<Gate capability="search">{platform === "youtube" ? <SearchPage /> : <Layout><Search /></Layout>}</Gate>} />
       <Route path="channel/:id" element={SHOWS_NEW.includes(platform) ? <ShowDetailPage /> : GAMES_NEW.includes(platform) ? <GameDetailPage /> : platform === "youtube" || MUSIC_NEW.includes(platform) ? <ChannelDetailPage /> : <Layout><ChannelPage /></Layout>} />

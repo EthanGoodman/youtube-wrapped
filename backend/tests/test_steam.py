@@ -155,6 +155,7 @@ def test_timeline_years_and_records(tmp_path):
     assert (t["Starfall Tactics"]["first_unlock"], t["Starfall Tactics"]["last_unlock"], t["Starfall Tactics"]["unlocks"]) == \
         ("2024-03-02", "2025-01-12", 3)
     assert t["Quiet Orchard"]["unlocks"] == 0 and t["Quiet Orchard"]["minutes"] == 90       # lifetime only, still listed
+    assert set(t["Starfall Tactics"]["genres"]) == {"Strategy", "RPG"}                      # for the All games filter
     assert "Unplayed Gift" not in t
     y = {x["year"]: x for x in client.get("/api/games/years?platform=steam").json()}
     assert sorted(y) == [2023, 2024, 2025, 2026]
