@@ -39,6 +39,7 @@ export async function openBook3d(o: OpenBook3d): Promise<boolean> {
     renderer.domElement.remove();
     disposables.forEach((d) => d.dispose());
     renderer.dispose();
+    renderer.forceContextLoss();      // dispose() alone keeps the WebGL context: one leaked per book opened
     o.spine.style.visibility = "";
     busy = false;
   };
