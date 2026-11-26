@@ -1,0 +1,27 @@
+{
+ "id": "Sugar",
+ "name": "Sugar Rush",
+ "minutes": 690,
+ "achievements": [
+  {
+   "api": "A1",
+   "name": "Sweet Start",
+   "desc": "Begin",
+   "unlocked": 1717284600
+  },
+  {
+   "api": "A2",
+   "name": "Sugar High",
+   "desc": "Win",
+   "unlocked": null
+  }
+ ],
+ "rarity": {
+  "A1": 61.2,
+  "A2": 4.5
+ },
+ "genres": [],
+ "poster": "https://cdn1.epicgames.com/offer/ns1/tall.jpg",
+ "header": "https://cdn1.epicgames.com/offer/ns1/wide.jpg",
+ "url": "https://store.epicgames.com/p/sugar-rush"
+}

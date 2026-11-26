@@ -38,9 +38,9 @@ const NAV: Record<Family, { tabs: Tab[]; more: MoreLink[] }> = {
   // games, from the priority table: hours played and top games; evolution, patterns, records; genres as a nice-to-have.
   // Achievements are the games family's own tab (dated history even before the app tracked playtime)
   games: {
-    tabs: [["/", "Overview", true], ["/top/channels", "Top games"], ["/achievements", "Achievements", false, "achievements"],
-           ["/evolution", "Evolution"], ["/patterns", "Patterns"], ["/records", "Records"], ["/wrapped", "Wrapped"]],
-    more: [["/top/genres", "Top genres", "genres"]],
+    // games say little beyond lifetime totals and achievements: one rich Overview, the full list, achievements, Wrapped
+    tabs: [["/", "Overview", true], ["/top/channels", "All games"], ["/achievements", "Achievements", false, "achievements"], ["/wrapped", "Wrapped"]],
+    more: [],
   },
 };
 
@@ -90,7 +90,7 @@ export function useCreator(): { one: string; many: string; Many: string } {
 }
 
 /** Each platform's own color, used sparingly (the hero's warm backdrop). */
-const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A" };
+const ACCENTS: Record<string, string> = { youtube: "#B83A24", netflix: "#B8322A", crunchyroll: "#D9601C", spotify: "#2E7D4F", steam: "#2F4A7A", epic: "#4A4560" };
 export function useAccent(): string {
   return ACCENTS[useMeta().data?.platform.id ?? ""] ?? OV.accent;
 }
@@ -134,7 +134,7 @@ export function TopBar() {
           {more.map(([to, label]) => (
             <Link key={to} to={to + q} className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium lg:hidden">{label}</Link>
           ))}
-          <details className="relative hidden shrink-0 lg:block">
+          {more.length > 0 && <details className="relative hidden shrink-0 lg:block">
             <summary className="inline-flex min-h-10 cursor-pointer list-none items-center whitespace-nowrap rounded-full px-3 text-[14px] font-medium hover:underline">More ▾</summary>
             <div className="absolute left-0 top-full z-50 mt-1 flex w-48 flex-col rounded-xl border-2 p-1 shadow-xl"
                  style={{ background: OV.paper, color: OV.ink, borderColor: OV.ink }}>
@@ -142,7 +142,7 @@ export function TopBar() {
                 <Link key={to} to={to + q} className="rounded-lg px-3 py-2.5 text-[14px] hover:bg-black/5">{label}</Link>
               ))}
             </div>
-          </details>
+          </details>}
         </nav>
         </ScrollRow>
         <div className="ml-auto flex flex-wrap items-center gap-2">

@@ -42,11 +42,41 @@ class Range:
                 "label": self.label}
 
 
+# Play that happened but can't be dated (a game's hours from before tracking began, or across days the app wasn't
+# running). Same columns as watches; every row sits on the first tracked day. Only lifetime totals read it
+# (all-time hours and rankings, a title's totals, the hub): calendars, charts, records and Wrapped never do.
+UNDATED_TABLE = "undated_watches"
+
+
+def _has_undated(conn: sqlite3.Connection) -> bool:
+    return bool(conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (UNDATED_TABLE,)).fetchone())
+
+
+def watches_for_totals(conn: sqlite3.Connection, r: Range) -> str:
+    """The FROM source for a total or ranking over `r`: watches, plus the undated rows when `r` is all time (the
+    "All time" preset, or everything ever). A year or custom range never gets them, even one that happens to span
+    all the data. Use it only where a lifetime number belongs, never for anything over time."""
+    lifetime = r.label == "All time" or r.start <= date(1970, 1, 1)
+    if not lifetime or not _has_undated(conn):
+        return "watches"
+    return f"(SELECT * FROM watches UNION ALL SELECT * FROM {UNDATED_TABLE})"
+
+
 def data_bounds(conn: sqlite3.Connection) -> tuple[date, date] | None:
-    row = conn.execute("SELECT MIN(local_date), MAX(local_date) FROM watches").fetchone()
-    if not row or not row[0]:
-        return None
-    return date.fromisoformat(row[0]), date.fromisoformat(row[1])
+    """First and last day with play. Undated rows count (they sit on the first tracked day), so "all time" covers
+    them even before any day has been tracked."""
+    src = f"(SELECT local_date FROM watches UNION ALL SELECT local_date FROM {UNDATED_TABLE})" if _has_undated(conn) else "watches"
+    row = conn.execute(f"SELECT MIN(local_date), MAX(local_date) FROM {src}").fetchone()
+    days = [date.fromisoformat(d) for d in (row or ()) if d]
+    # games: real activity beyond tracked play (achievement unlocks) widens "all time" (set by the games build)
+    span = conn.execute("SELECT value FROM meta WHERE key = 'activity_span'").fetchone() if _has_table(conn, "meta") else None
+    if span and span[0]:
+        days += [date.fromisoformat(d) for d in span[0].split(",") if d]
+    return (min(days), max(days)) if days else None
+
+
+def _has_table(conn: sqlite3.Connection, name: str) -> bool:
+    return bool(conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone())
 
 
 def resolve_range(conn: sqlite3.Connection, preset: str = "all", start: str | None = None,
@@ -124,14 +154,15 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
     """
     def run(rng: Range, lim: int | None) -> tuple[list[dict], float]:
         w_sql, params = where(rng, f)
+        rows_src = watches_for_totals(conn, rng)     # all time: plus play that can't be dated
         order = "time_s" if f.metric == "time" else "cnt"
         if pre_aggregate_by_video:
             src = (f"(SELECT w.video_id, COUNT(*) AS n, SUM({time_expr(f)}) AS t, "
-                   f"SUM(w.bucket = 'short') AS sh FROM watches w "
+                   f"SUM(w.bucket = 'short') AS sh FROM {rows_src} w "
                    f"WHERE {w_sql} GROUP BY w.video_id) pv {joins}")
             cnt, tsum, shorts, where_sql = "SUM(pv.n)", "SUM(pv.t)", "SUM(pv.sh)", "1=1"
         else:
-            src = f"watches w {joins}"
+            src = f"{rows_src} w {joins}"
             cnt, tsum, shorts, where_sql = "COUNT(*)", f"SUM({time_expr(f)})", "SUM(w.bucket = 'short')", w_sql
         if extra_where:
             where_sql += f" AND {extra_where}"
@@ -141,10 +172,10 @@ def ranked(conn: sqlite3.Connection, key_sql: str, r: Range, f: Filters, limit: 
         rows = conn.execute(q, params + list(extra_params)).fetchall()
         # share is relative to the same subset (e.g. within one channel on its detail page)
         if pre_aggregate_by_video or not extra_where:
-            tot = conn.execute(f"SELECT COUNT(*), SUM({time_expr(f)}) FROM watches w WHERE {w_sql}",
+            tot = conn.execute(f"SELECT COUNT(*), SUM({time_expr(f)}) FROM {rows_src} w WHERE {w_sql}",
                                params).fetchone()
         else:
-            tot = conn.execute(f"SELECT COUNT(*), SUM({time_expr(f)}) FROM watches w {joins} "
+            tot = conn.execute(f"SELECT COUNT(*), SUM({time_expr(f)}) FROM {rows_src} w {joins} "
                                f"WHERE {w_sql} AND {extra_where}", params + list(extra_params)).fetchone()
         total = (tot[1] if f.metric == "time" else tot[0]) or 0
         return [{"key": k, "count": c, "time_s": t or 0, "shorts": s or 0} for k, c, t, s in rows], total

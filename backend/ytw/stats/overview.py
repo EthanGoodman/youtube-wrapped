@@ -4,7 +4,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import date
 
-from .common import ALL_BUCKETS, Filters, Range, max_expr, pct_change, time_expr, where
+from .common import ALL_BUCKETS, Filters, Range, max_expr, pct_change, time_expr, watches_for_totals, where
 
 
 def _totals(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
@@ -15,7 +15,7 @@ def _totals(conn: sqlite3.Connection, r: Range, f: Filters) -> dict:
                COUNT(DISTINCT w.local_date),
                SUM(w.is_background), COALESCE(SUM(CASE WHEN w.is_background = 1 THEN w.est_s END), 0),
                SUM(w.duration_s IS NULL)
-        FROM watches w WHERE {w_sql}""", p).fetchone()
+        FROM {watches_for_totals(conn, r)} w WHERE {w_sql}""", p).fetchone()
     videos, uniq_v, uniq_c, est, mx, active, bg, bg_s, unknown = row
     days = r.days
     return {

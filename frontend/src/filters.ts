@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { defaultRange } from "./families";
 
 export type Bucket = "long" | "short" | "music" | "unknown";
 export type Metric = "count" | "time";
@@ -15,23 +16,26 @@ export interface Filters {
 
 export const ALL_BUCKETS: Bucket[] = ["long", "short", "music", "unknown"];
 const ALL = ALL_BUCKETS;
+/** range is the usual default; a platform can open on another one (defaultRange: games open on lifetime). */
 export const DEFAULTS: Filters = { range: "this_year", buckets: ALL, bg: true, metric: "count" };
 
 /** Filters live in the URL so every view can be bookmarked or shared. */
 export function useFilters() {
   const [params, setParams] = useSearchParams();
+  const platform = useLocation().pathname.split("/")[1];
+  const def = defaultRange(platform);
 
   const filters: Filters = useMemo(() => {
     const b = params.get("buckets");
     return {
-      range: params.get("range") ?? DEFAULTS.range,
+      range: params.get("range") ?? def,
       start: params.get("start") ?? undefined,
       end: params.get("end") ?? undefined,
       buckets: b ? (b.split(",").filter((x) => ALL.includes(x as Bucket)) as Bucket[]) : ALL,
       bg: params.get("bg") !== "0",
       metric: params.get("metric") === "time" ? "time" : "count",
     };
-  }, [params]);
+  }, [params, def]);
 
   const update = useCallback(
     (patch: Partial<Filters>) => {
@@ -41,7 +45,7 @@ export function useFilters() {
           const merged = { ...filters, ...patch };
           const set = (k: string, v: string | undefined, def?: string) =>
             v === undefined || v === def ? next.delete(k) : next.set(k, v);
-          set("range", merged.range, DEFAULTS.range);
+          set("range", merged.range, def);
           set("start", merged.range === "custom" ? merged.start : undefined);
           set("end", merged.range === "custom" ? merged.end : undefined);
           const bucketStr = merged.buckets.length === ALL.length ? undefined : merged.buckets.join(",");
@@ -53,7 +57,7 @@ export function useFilters() {
         { replace: true },
       );
     },
-    [filters, setParams],
+    [filters, setParams, def],
   );
 
   return { filters, update };

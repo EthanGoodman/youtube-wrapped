@@ -107,28 +107,30 @@ export interface MusicWrappedData {
   personality: Personality;
 }
 
-/** Games Wrapped (Steam, …): hours before the first daily snapshot are estimates. */
-type GameCard = { key: string; title: string | null; poster: string | null; header: string | null };
+/** Games Wrapped (Steam, Epic…): the year told by its achievement unlocks (real, timestamped), plus hours only for
+ *  days the app tracked. Game platforms don't say when past hours were played, so none are invented. */
+export type GameCard = { key: string; title: string | null; poster: string | null; header?: string | null };
+export type GameUnlock = { game: GameCard; api: string; name: string; description: string | null; unlocked: string; rarity: number | null };
 export interface GamesWrappedData {
   kind: "games";
   platform: string;
   year: number;
   mode: "all";
   empty: boolean;
-  estimated: boolean;
   tracked_since: string | null;
-  overview: { videos: number; unique_channels: number; est_s: number; active_days: number; days: number; change: Record<string, number | null> };
-  top_games: RankedItem[];
-  top_genres: RankedItem[];
-  achievements: {
-    unlocked: number;
-    best_day: { date: string; game: GameCard; count: number } | null;
-    rarest: { game: GameCard; api: string; name: string; description: string | null; unlocked: string; rarity: number | null }[];
-    perfect: { game: GameCard; achievements: number; completed: string }[];
-  };
+  unlocks: number;
+  active_days: number;
+  games: number;
+  top_games: { game: GameCard; unlocks: number; share: number }[];
+  new_games: GameCard[];
+  rarest: GameUnlock[];
+  best_day: { date: string; game: GameCard; count: number } | null;
   streak: { days: number; start: string; end: string } | null;
-  biggest_day: { date: string; count: number; time_s: number } | null;
-  discovery: { channel_id: string; title: string | null; avatar_url: string | null; first_watched: string; count: number; time_s: number } | null;
+  latest_night: GameUnlock | null;
+  busiest_hour: number | null;
+  hours: number[];
+  perfect: { game: GameCard; achievements: number; completed: string }[];
+  tracked: { est_s: number; days: number; top: GameCard | null } | null;
   personality: Personality;
 }
 

@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { DEFAULT_PLATFORM, Link, useCapability, usePlatformId } from "../platform";
 import { useStats, MonthPoint } from "../api";
 import { useFilters } from "../filters";
-import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, TopBar, kicker } from "../overview/kit";
+import { Avatar, OV, PageBody, PageHeader, Seg, Skeleton, TopBar, kicker, useFamily } from "../overview/kit";
+import { YearRow } from "../overview/gamesKit";
 import { YearTop } from "../overview/ReignTimeline";
 import { rankingFilters, yearlyHours } from "../overview/takeaways";
 import { AnimatePresence, MotionGlobalConfig, motion } from "framer-motion";
@@ -79,17 +80,23 @@ function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: Wrapped
   const { filters } = useFilters();
   // each year's hours and its #1, so a tile says what's inside
   const all = { ...filters, range: "all", metric: "time" as const };
-  const months = useStats<{ data: MonthPoint[] }>("patterns/monthly", {}, { filters: all });
-  const tops = useStats<YearTop[]>("evolution/top_per_year", {}, { filters: rankingFilters(all) });
+  // games: no hours by year exist (only lifetime totals), so a year shows its achievements and most active game
+  const games = useFamily() === "games";
+  const months = useStats<{ data: MonthPoint[] }>("patterns/monthly", {}, { filters: all, enabled: !games });
+  const tops = useStats<YearTop[]>("evolution/top_per_year", {}, { filters: rankingFilters(all), enabled: !games });
+  const gameYears = useStats<YearRow[]>("games/years", {}, { enabled: games });
   const hours = new Map(yearlyHours(months.data?.data ?? []).map((y) => [y.year, y.hours]));
-  const top = new Map((tops.data ?? []).map((t) => [t.year, t]));
+  const top = new Map(games
+    ? (gameYears.data ?? []).filter((y) => y.top).map((y) => [y.year, { title: y.top!.game.title, avatar_url: y.top!.game.poster } as Pick<YearTop, "title" | "avatar_url">])
+    : (tops.data ?? []).map((t) => [t.year, t]));
+  const unlocks = new Map((gameYears.data ?? []).map((y) => [y.year, y]));
   const years = [...(meta?.years ?? [])].reverse();
   const thisYear = Number(meta?.today.slice(0, 4));
   return (
     <div className="min-h-[100dvh] font-shelf-sans" style={{ background: OV.bg, color: OV.ink, colorScheme: "light" }}>
       <TopBar />
       <PageHeader label={`${brand.name} Wrapped`} title="Pick a year for your story.">
-        <p className="text-[17px]" style={{ color: OV.mute }}>A short story of your year: your #1, your hours, your habits. Save any card as an image.</p>
+        <p className="text-[17px]" style={{ color: OV.mute }}>A short story of your year: {games ? "your most active game, your achievements, your habits" : "your #1, your hours, your habits"}. Save any card as an image.</p>
         <ModeSwitch mode={mode} onChange={setMode} dark />
       </PageHeader>
       <PageBody>
@@ -110,8 +117,11 @@ function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: Wrapped
                     </span>
                     <span className="flex flex-col gap-1">
                       <span className="font-ov-display text-[clamp(44px,6vw,64px)] font-extrabold leading-none tracking-[-0.03em]">{y}</span>
-                      <span className="font-shelf-mono text-[12px]">{h != null ? `${num(h)} hours` : " "}</span>
-                      {t?.title && <span className="truncate text-[14px] font-bold">#1 {t.title}</span>}
+                      <span className="font-shelf-mono text-[12px]">
+                        {games ? (unlocks.get(y)?.unlocks ? `${num(unlocks.get(y)!.unlocks)} achievement${unlocks.get(y)!.unlocks === 1 ? "" : "s"}` : unlocks.get(y)?.tracked_s ? `${num(Math.round(unlocks.get(y)!.tracked_s / 3600))} hours tracked` : " ")
+                               : h != null ? `${num(h)} hours` : " "}
+                      </span>
+                      {t?.title && <span className="truncate text-[14px] font-bold">{games ? "Most active: " : "#1 "}{t.title}</span>}
                     </span>
                   </Link>
                 </motion.li>

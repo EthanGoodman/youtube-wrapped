@@ -1,19 +1,19 @@
-# Player personalities for games Wrapped stories (Steam, and later other game platforms). Edit freely; reload the
-# Wrapped page to see changes.
+# Player personalities for games Wrapped stories (Steam, Epic and later other game platforms). Edit freely;
+# reload the Wrapped page to see changes.
 #
 # Same rules as personalities.toml: each personality looks at one metric for the year, its score is
 # value / threshold, and the highest score wins if it reaches 1. Otherwise the fallback is used.
 #
-# Metrics (all for the chosen year; shares are 0..1). Hours before the app's first daily snapshot are estimates
-# (spread over your achievement days), so the time-based ones are approximate for past years.
-#   top_game_share     hours in your #1 game / all hours
-#   games_count        how many different games you played
-#   new_game_share     hours in games you first played this year (not used in your first year of data)
+# Metrics (all for the chosen year; shares are 0..1). Game platforms only say your lifetime hours per game, never
+# when you played, so the year is read from your achievement unlocks: each one is a real, timestamped moment of play.
+#   top_game_share     unlocks in your #1 game / all unlocks
+#   games_count        how many different games you unlocked achievements in
+#   new_game_share     unlocks in games you started this year (not used in your first year of data)
 #   achievements       achievements unlocked
-#   rare_achievements  of the rarest you unlocked, how many fewer than 10% of players have
-#   weekend_share      hours on Saturday or Sunday (an even spread is ~0.29)
-#   night_share        hours started between midnight and 5am
-#   hours_per_day      hours per day you played
+#   rare_achievements  unlocks that fewer than 10% of players have
+#   weekend_share      unlocks on Saturday or Sunday (an even spread is ~0.29)
+#   night_share        unlocks between midnight and 5am
+#   active_days        days you unlocked something
 #
 # In `reason`, {pct} is the value as a percentage, {value} the number rounded, {value1} with one decimal.
 
@@ -23,9 +23,9 @@ name = "The Devoted"
 emoji = "🛡️"
 color = "#6E4C7E"
 metric = "top_game_share"
-threshold = 0.5
+threshold = 0.6
 tagline = "One game. Every evening."
-reason = "{pct} of your playtime went to a single game."
+reason = "{pct} of your achievements came from a single game."
 
 [[personality]]
 id = "sampler"
@@ -33,9 +33,9 @@ name = "The Sampler"
 emoji = "🎲"
 color = "#4C7DA8"
 metric = "games_count"
-threshold = 15
+threshold = 8
 tagline = "So many games, so little time."
-reason = "You played {value} different games this year."
+reason = "You unlocked achievements in {value} different games this year."
 
 [[personality]]
 id = "trailblazer"
@@ -45,7 +45,7 @@ color = "#8A8B3C"
 metric = "new_game_share"
 threshold = 0.6
 tagline = "The backlog fears you."
-reason = "{pct} of your hours were in games you started this year."
+reason = "{pct} of your achievements were in games you started this year."
 
 [[personality]]
 id = "completionist"
@@ -63,9 +63,9 @@ name = "The Elite"
 emoji = "💎"
 color = "#2E6B63"
 metric = "rare_achievements"
-threshold = 2
+threshold = 3
 tagline = "Rare air."
-reason = "{value} of your achievements are ones fewer than 1 in 10 players have."
+reason = "{value} of your achievements this year are ones fewer than 1 in 10 players have."
 
 [[personality]]
 id = "weekend"
@@ -73,9 +73,9 @@ name = "The Weekend Warrior"
 emoji = "🎮"
 color = "#B83A24"
 metric = "weekend_share"
-threshold = 0.45
+threshold = 0.5
 tagline = "Weekdays are for waiting."
-reason = "{pct} of your playtime was on weekends."
+reason = "{pct} of your achievements were unlocked on weekends."
 
 [[personality]]
 id = "night_owl"
@@ -85,17 +85,17 @@ color = "#2F4A7A"
 metric = "night_share"
 threshold = 0.2
 tagline = "One more round. It's 3am."
-reason = "{pct} of your playtime started after midnight."
+reason = "{pct} of your achievements were unlocked after midnight."
 
 [[personality]]
-id = "marathon"
-name = "The Marathoner"
-emoji = "⏱️"
+id = "regular"
+name = "The Regular"
+emoji = "📅"
 color = "#A34E6E"
-metric = "hours_per_day"
-threshold = 4
-tagline = "Sessions measured in hours."
-reason = "{value1} hours a day on the days you played."
+metric = "active_days"
+threshold = 40
+tagline = "Always something on the go."
+reason = "You unlocked something on {value} different days."
 
 [fallback]
 id = "casual"

@@ -1,116 +1,158 @@
-/* The home page for game platforms (Steam first), in the shared look. From the priority table: hours played and your top
-   games up top; then the must-haves (patterns, records, evolution) and Steam's own story, achievements; genres as a link.
-   Hours before the app's first daily snapshot are estimates (spread over achievement days); the hero says so. */
+/* The home page for game platforms (Steam, Epic), in the shared look. Only what's really known:
+   - Lifetime: exact lifetime hours and your top 10 games by hours (the platform's own totals).
+   - A period (a year, the past 6 months…): measured by achievements unlocked in it, plus hours the app tracked.
+   - The past is told by achievement unlocks, real timestamped moments of play: when you were into each game, when
+     in the day you play, each year's most active game, and real records. No hours are spread onto invented days. */
 import { ReactNode } from "react";
 import { Link, useCapability } from "../platform";
-import { MonthPoint, Overview, RankedItem, TopResponse, useMeta, useStats } from "../api";
+import { Overview, RankedItem, TopResponse, useMeta, useStats } from "../api";
 import { useFilters, useLinkQuery } from "../filters";
 import { date, num } from "../format";
 import { Band, MoveBadge, OV, Poster, ScrollRow, Skeleton, StatsFrame, kicker, useAccent, usePrevRanks } from "./kit";
-import { HoverBars, Ticks } from "./charts";
-import { ReignTimeline, YearTop, reignTitle } from "./ReignTimeline";
 import {
-  Comparison, DAYS, Move, changeLine, hoursShort, periodTitle, rankMove, spanLabel, topHeadline, weekdayFacts, yearsToShow,
-} from "./takeaways";
+  Activity, GameCard, GameRecords, GameTimeline, TimelineRow, Unlock, UnlockClock, UnlockWeekdays, YearRow, YearsRow,
+  busiestWeekday, gameLink, plural, rarityLine, recordCards, timeOfDayTitle,
+} from "./gamesKit";
+import { hoursShort, periodTitle, rankMove } from "./takeaways";
 
-export interface GameCard { key: string; title: string | null; poster: string | null; header: string | null }
-export interface Unlock { game: GameCard; api: string; name: string; description: string | null; unlocked: string; rarity: number | null }
+export { rarityLine };
+export type { GameCard, Unlock };
 export interface Achievements {
   unlocked: number; total: number; per_month: { month: string; count: number }[];
   best_day: { date: string; game: GameCard; count: number } | null;
   rarest: Unlock[]; recent: Unlock[]; perfect: { game: GameCard; achievements: number; completed: string }[];
 }
-interface Streak { days: number; start: string; end: string }
-interface RecordsResponse { streaks: { longest: Streak | null }; biggest_day: { by_time: { date: string; time_s: number } | null } }
-
-const WEEKDAYS = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
-const gameLink = (k: string) => `/channel/${encodeURIComponent(k)}`;
-export const rarityLine = (r: number | null) => (r == null ? "" : r < 1 ? "under 1% of players have it" : `${r < 10 ? r.toFixed(1) : Math.round(r)}% of players have it`);
 
 export function GamesOverviewPage() {
   const meta = useMeta();
   const { filters } = useFilters();
+  const lifetime = filters.range === "all";
   const byTime = { ...filters, metric: "time" as const };
-  const ov = useStats<Overview>("overview");
-  const games = useStats<TopResponse>("top/channels", { limit: 10 }, { filters: byTime });
+  const ov = useStats<Overview>("overview", {}, { enabled: lifetime });
+  const games = useStats<TopResponse>("top/channels", { limit: 10 }, { filters: byTime, enabled: lifetime });
+  const act = useStats<Activity>("games/activity");
   const ach = useStats<Achievements>("games/achievements");
-  const { cmp, prevRank } = usePrevRanks("channels", byTime);
-  const top = games.data?.items[0];
+  const { prevRank } = usePrevRanks("channels", byTime);
+  const title = periodTitle(filters, meta.data?.today);
+  // a period with nothing dated in it: one line and the years, not a page of empty sections
+  const quiet = !lifetime && !!act.data && !act.data.unlocks && !act.data.tracked.est_s;
   return (
     <StatsFrame>
-      <Hero o={ov.data} top={top} topLoading={!games.data} cmp={cmp} title={periodTitle(filters, meta.data?.today)}
-            topMove={top ? rankMove(1, prevRank(top)) : null} achievements={ach.data?.unlocked} />
+      {lifetime ? <LifetimeHero o={ov.data} top={games.data?.items[0]} act={act.data} ach={ach.data} />
+                : <PeriodHero title={title} act={act.data} />}
       <main className="mx-auto flex max-w-[1400px] flex-col gap-12 px-4 pb-16 pt-10 sm:px-8">
-        <TopRow items={games.data?.items} prevRank={prevRank} cmp={cmp} />
-        <AchievementsBand a={ach.data} />
-        <Patterns />
-        <Evolution />
-        <Records a={ach.data} />
-        <More />
+        {!quiet && (lifetime ? <TopByHours items={games.data?.items} prevRank={prevRank} /> : <TopByUnlocks a={act.data} title={title} />)}
+        {lifetime && <Timeline />}
+        {!quiet && <AchievementsBand a={ach.data} />}
+        {!quiet && <WhenYouPlay a={act.data} />}
+        <Years />
+        {!quiet && <Records />}
       </main>
     </StatsFrame>
   );
 }
 
-// ------------------------------------------------------------------ hero
+// ------------------------------------------------------------------ heroes
 
-function Hero({ o, top, topLoading, cmp, title, topMove, achievements }: {
-  o?: Overview; top?: RankedItem; topLoading: boolean; cmp: Comparison | null; title: string; topMove: Move | null; achievements?: number;
-}) {
-  const q = useLinkQuery();
-  const meta = useMeta().data;
+function Shell({ children, side }: { children: ReactNode; side?: ReactNode }) {
   const accent = useAccent();
-  const hours = o ? Math.round(o.est_s / 3600) : null;
-  const change = o && cmp ? changeLine(o.est_s, o.previous.est_s, cmp.label) : null;
-  const since = meta?.tracked_since;
   return (
     <section className="relative overflow-hidden" style={{ background: OV.ink, color: OV.paper }}>
       <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(120deg, ${OV.ink} 35%, ${accent} 150%)` }} />
       <div className="relative mx-auto flex min-h-[clamp(400px,58vh,600px)] max-w-[1400px] flex-col justify-center gap-8 px-4 py-10 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex max-w-[640px] flex-col gap-5">
-          <span className={kicker} style={{ color: OV.mustard }}>Your {meta?.platform.name ?? "games"} · {title}</span>
-          {o && hours != null ? (
-            <>
-              <h1 className="flex items-baseline gap-4 font-ov-display font-extrabold leading-[0.82]">
-                <span className="text-[clamp(96px,13vw,190px)] tracking-[-0.05em]" style={{ color: OV.mustard }}>{num(hours)}</span>
-                <span className="flex flex-col gap-1">
-                  <span className="text-[clamp(26px,2.6vw,38px)]">hours</span>
-                  <span className="font-shelf-mono text-[12px] font-normal" style={{ color: OV.mute }}>played</span>
-                </span>
-              </h1>
-              {change && <p className="text-[18px]">{change}</p>}
-              <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
-                <Stat v={num(o.unique_channels)} l="games played" />
-                <Stat v={num(o.active_days)} l={`of ${num(o.days)} days`} />
-                <Stat v={achievements != null ? num(achievements) : "–"} l="achievements" />
-                <Stat v={`${Math.round(o.pct_days_active * 100)}%`} l="of days played" />
-              </dl>
-              {since && <p className="max-w-[520px] font-shelf-mono text-[12px]" style={{ color: OV.mute }}>
-                Exact from {date(since)}, when the app started its daily check. Hours before that are estimated from the days you earned achievements.
-              </p>}
-            </>
-          ) : <Skeleton h={240} dark />}
-        </div>
-        <div className="shrink-0 lg:w-[300px]">
-          {top ? (
-            <Link to={gameLink(top.key) + q} className="group flex items-center gap-5 lg:flex-col lg:items-start">
-              <span className="relative">
-                <Poster src={top.avatar_url} name={top.title} width="clamp(110px,12vw,180px)" ring={OV.paper} />
-                <span className="absolute -right-4 -top-3 flex h-14 w-14 rotate-6 items-center justify-center rounded-full border-[3px] font-ov-display text-[20px] font-extrabold"
-                      style={{ background: OV.mustard, color: OV.ink, borderColor: OV.ink }} aria-hidden>#1</span>
-              </span>
-              <span className="flex flex-col gap-1.5">
-                <span className={kicker} style={{ color: OV.mustard }}>Your #1 game</span>
-                <span className="font-ov-display text-[clamp(24px,2.4vw,34px)] font-extrabold leading-tight group-hover:underline">
-                  {topHeadline(top.title, topMove?.tone === "same" ? 1 : undefined)}
-                </span>
-                <span className="font-shelf-mono text-[13px]" style={{ color: OV.mute }}>{hoursShort(top.time_s)} · {num(top.count)} day{top.count === 1 ? "" : "s"} played</span>
-              </span>
-            </Link>
-          ) : topLoading ? <Skeleton h={200} dark /> : null}
-        </div>
+        <div className="flex max-w-[640px] flex-col gap-5">{children}</div>
+        {side && <div className="shrink-0 lg:w-[300px]">{side}</div>}
       </div>
     </section>
+  );
+}
+
+function BigNumber({ value, unit, sub }: { value: string; unit: string; sub: string }) {
+  return (
+    <h1 className="flex items-baseline gap-4 font-ov-display font-extrabold leading-[0.82]">
+      <span className="text-[clamp(96px,13vw,190px)] tracking-[-0.05em]" style={{ color: OV.mustard }}>{value}</span>
+      <span className="flex flex-col gap-1">
+        <span className="text-[clamp(26px,2.6vw,38px)]">{unit}</span>
+        <span className="font-shelf-mono text-[12px] font-normal" style={{ color: OV.mute }}>{sub}</span>
+      </span>
+    </h1>
+  );
+}
+
+function LifetimeHero({ o, top, act, ach }: { o?: Overview; top?: RankedItem; act?: Activity; ach?: Achievements }) {
+  const q = useLinkQuery();
+  const meta = useMeta().data;
+  const first = act?.days[0]?.date;
+  return (
+    <Shell side={top ? (
+      <Link to={gameLink(top.key) + q} className="group flex items-center gap-5 lg:flex-col lg:items-start">
+        <span className="relative">
+          <Poster src={top.avatar_url} name={top.title} width="clamp(110px,12vw,180px)" ring={OV.paper} />
+          <span className="absolute -right-4 -top-3 flex h-14 w-14 rotate-6 items-center justify-center rounded-full border-[3px] font-ov-display text-[20px] font-extrabold"
+                style={{ background: OV.mustard, color: OV.ink, borderColor: OV.ink }} aria-hidden>#1</span>
+        </span>
+        <span className="flex flex-col gap-1.5">
+          <span className={kicker} style={{ color: OV.mustard }}>Your most-played game</span>
+          <span className="font-ov-display text-[clamp(24px,2.4vw,34px)] font-extrabold leading-tight group-hover:underline">{top.title}</span>
+          <span className="font-shelf-mono text-[13px]" style={{ color: OV.mute }}>
+            {hoursShort(top.time_s)}{o?.est_s ? ` · ${Math.round((top.time_s / o.est_s) * 100)}% of all your hours` : ""}
+          </span>
+        </span>
+      </Link>
+    ) : undefined}>
+      <span className={kicker} style={{ color: OV.mustard }}>Your {meta?.platform.name ?? "games"} · lifetime</span>
+      {o ? (
+        <>
+          <BigNumber value={num(Math.round(o.est_s / 3600))} unit="hours" sub="played, all time" />
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+            <Stat v={num(o.unique_channels)} l="games played" />
+            <Stat v={ach ? num(ach.unlocked) : "–"} l="achievements" />
+            <Stat v={ach ? num(ach.perfect.length) : "–"} l="at 100%" />
+            <Stat v={first ? first.slice(0, 4) : "–"} l="first achievement" />
+          </dl>
+        </>
+      ) : <Skeleton h={240} dark />}
+    </Shell>
+  );
+}
+
+function PeriodHero({ title, act }: { title: string; act?: Activity }) {
+  const meta = useMeta().data;
+  const { update } = useFilters();
+  const top = act?.top_games[0];
+  const q = useLinkQuery();
+  return (
+    <Shell side={top ? (
+      <Link to={gameLink(top.game.key) + q} className="group flex items-center gap-5 lg:flex-col lg:items-start">
+        <Poster src={top.game.poster} name={top.game.title} width="clamp(110px,12vw,180px)" ring={OV.paper} />
+        <span className="flex flex-col gap-1.5">
+          <span className={kicker} style={{ color: OV.mustard }}>Most active in</span>
+          <span className="font-ov-display text-[clamp(24px,2.4vw,34px)] font-extrabold leading-tight group-hover:underline">{top.game.title}</span>
+          <span className="font-shelf-mono text-[13px]" style={{ color: OV.mute }}>{plural(top.unlocks, "achievement")}</span>
+        </span>
+      </Link>
+    ) : undefined}>
+      <span className={kicker} style={{ color: OV.mustard }}>Your {meta?.platform.name ?? "games"} · {title}</span>
+      {act && !act.unlocks && !act.tracked.est_s ? (
+        <>
+          <h1 className="font-ov-display text-[clamp(40px,5.4vw,72px)] font-extrabold leading-[1.02] tracking-[-0.02em]">Nothing dated in {title}.</h1>
+          <p className="max-w-[560px] text-[18px]">
+            <button type="button" onClick={() => update({ range: "all" })} className="font-bold underline underline-offset-4" style={{ color: OV.mustard }}>
+              See your lifetime
+            </button>
+          </p>
+        </>
+      ) : act ? (
+        <>
+          <BigNumber value={num(act.unlocks)} unit={act.unlocks === 1 ? "achievement" : "achievements"} sub="unlocked" />
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
+            <Stat v={num(act.active_days)} l={act.active_days === 1 ? "day with one" : "days with one"} />
+            <Stat v={num(act.games)} l={act.games === 1 ? "game" : "games"} />
+            <Stat v={act.tracked.est_s ? hoursShort(act.tracked.est_s) : "–"} l="hours tracked" />
+          </dl>
+        </>
+      ) : <Skeleton h={240} dark />}
+    </Shell>
   );
 }
 
@@ -123,35 +165,72 @@ function Stat({ v, l }: { v: string; l: string }) {
   );
 }
 
-// ------------------------------------------------------------------ top games, achievements
+// ------------------------------------------------------------------ top games
 
-function TopRow({ items, prevRank, cmp }: { items?: RankedItem[]; prevRank: (c: RankedItem) => number | null | undefined; cmp: Comparison | null }) {
+function CoverRow({ items }: { items: { key: string; rank: number; game: GameCard; big: string; extra?: ReactNode }[] }) {
   const q = useLinkQuery();
   return (
-    <Band label={`By hours played${cmp ? ` · arrows since ${cmp.label}` : ""}`} title="Your top 10 games" link={["/top/channels", "All your games"]}>
-      {!items ? <Skeleton h={300} /> : !items.length ? <p style={{ color: OV.soft }}>No games in this period.</p> : (
-        <ScrollRow key={q} outer="-mx-4 sm:mx-0" className="snap-x px-4 sm:px-0 lg:overflow-visible">
-          <ol className="flex gap-4 pb-2 pt-2 lg:grid lg:grid-cols-10">
-            {items.map((c) => (
-              <li key={c.key} className="w-[130px] shrink-0 snap-start lg:w-auto lg:min-w-0">
-                <Link to={gameLink(c.key) + q} className="group flex flex-col items-start gap-2">
-                  <span className="relative w-full">
-                    <Poster src={c.avatar_url} name={c.title} width="100%" className="transition-transform duration-150 group-hover:-translate-y-0.5" />
-                    <span className="absolute -left-2 -top-2 flex h-10 w-10 items-center justify-center rounded-full border-[3px] font-ov-display text-[16px] font-extrabold"
-                          style={{ background: c.rank === 1 ? OV.mustard : OV.paper, borderColor: OV.ink }} aria-hidden>{c.rank}</span>
-                  </span>
-                  <span className="w-full truncate text-[15px] font-bold group-hover:underline">{c.title}</span>
-                  <span className="font-ov-display text-[17px] font-extrabold leading-tight">{hoursShort(c.time_s)}</span>
-                  <MoveBadge m={rankMove(c.rank, prevRank(c))} />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        </ScrollRow>
+    <ScrollRow key={q} outer="-mx-4 sm:mx-0" className="snap-x px-4 sm:px-0 lg:overflow-visible">
+      <ol className="flex gap-4 pb-2 pt-2 lg:grid lg:grid-cols-10">
+        {items.map((c) => (
+          <li key={c.key} className="w-[130px] shrink-0 snap-start lg:w-auto lg:min-w-0">
+            <Link to={gameLink(c.key) + q} className="group flex flex-col items-start gap-2">
+              <span className="relative w-full">
+                <Poster src={c.game.poster} name={c.game.title} width="100%" className="transition-transform duration-150 group-hover:-translate-y-0.5" />
+                <span className="absolute -left-2 -top-2 flex h-10 w-10 items-center justify-center rounded-full border-[3px] font-ov-display text-[16px] font-extrabold"
+                      style={{ background: c.rank === 1 ? OV.mustard : OV.paper, borderColor: OV.ink }} aria-hidden>{c.rank}</span>
+              </span>
+              <span className="w-full truncate text-[15px] font-bold group-hover:underline">{c.game.title}</span>
+              <span className="font-ov-display text-[17px] font-extrabold leading-tight">{c.big}</span>
+              {c.extra}
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </ScrollRow>
+  );
+}
+
+function TopByHours({ items, prevRank }: { items?: RankedItem[]; prevRank: (c: RankedItem) => number | null | undefined }) {
+  return (
+    <Band label="By lifetime hours" title="Your top 10 games" link={["/top/channels", "All your games"]}>
+      {!items ? <Skeleton h={300} /> : !items.length ? <p style={{ color: OV.soft }}>No games played yet.</p> : (
+        <CoverRow items={items.map((c) => ({ key: c.key, rank: c.rank, game: { key: c.key, title: c.title ?? null, poster: c.avatar_url ?? null },
+                                             big: hoursShort(c.time_s), extra: <MoveBadge m={rankMove(c.rank, prevRank(c))} /> }))} />
       )}
     </Band>
   );
 }
+
+function TopByUnlocks({ a, title }: { a?: Activity; title: string }) {
+  return (
+    <Band label={`By achievements unlocked · ${title}`} title="Where your achievements came from" link={["/achievements", "All your achievements"]}>
+      {!a ? <Skeleton h={300} /> : !a.top_games.length
+        ? <p style={{ color: OV.soft }}>No achievements unlocked in this period. Lifetime shows all your games by hours.</p>
+        : <CoverRow items={a.top_games.map((t) => ({ key: t.game.key, rank: t.rank, game: t.game, big: plural(t.unlocks, "achievement") }))} />}
+    </Band>
+  );
+}
+
+// ------------------------------------------------------------------ timeline, achievements, patterns, years, records
+
+function Timeline() {
+  const t = useStats<TimelineRow[]>("games/timeline");
+  // the headline: your most-played game that has dated achievements, and how long you kept unlocking in it
+  const dated = t.data?.filter((r) => r.first_unlock);
+  const lead = dated?.length ? dated.reduce((a, b) => (b.minutes > a.minutes ? b : a)) : null;
+  return (
+    <Band label="Your games over the years"
+          title={lead && span(lead) > 60 ? `${lead.game.title}: ${yearsBetween(lead)} of achievements.` : "When you were into each game"}>
+      {!t.data ? <Skeleton h={320} /> : <GameTimeline rows={t.data} />}
+    </Band>
+  );
+}
+const span = (r: TimelineRow) => (r.first_unlock && r.last_unlock ? (Date.parse(r.last_unlock) - Date.parse(r.first_unlock)) / 864e5 : 0);
+const yearsBetween = (r: TimelineRow) => {
+  const y = Number(r.last_unlock!.slice(0, 4)) - Number(r.first_unlock!.slice(0, 4));
+  return y >= 1 ? `${y + 1} years` : `${Math.round(span(r) / 30)} months`;
+};
 
 export function UnlockRow({ u }: { u: Unlock }) {
   const q = useLinkQuery();
@@ -176,7 +255,7 @@ function AchievementsBand({ a }: { a?: Achievements }) {
   if (!useCapability("achievements")) return null;
   const rare = a?.rarest[0];
   return (
-    <Band label="Achievements · dated proof of when you played" title={a ? (rare ? `${rare.name}: ${rarityLine(rare.rarity)}.` : `${num(a.unlocked)} achievements.`) : "Achievements"}
+    <Band label="Achievements" title={a ? (rare ? `${rare.name}: ${rarityLine(rare.rarity)}.` : `${num(a.unlocked)} achievements.`) : "Achievements"}
           link={["/achievements", "All your achievements"]}>
       {!a ? <Skeleton h={240} /> : !a.unlocked ? <p style={{ color: OV.soft }}>No achievements unlocked in this period.</p> : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -197,34 +276,19 @@ function Card({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-// ------------------------------------------------------------------ patterns, evolution, records, more
-
-function Patterns() {
-  const heat = useStats<{ data: { time_s: number[][] } }>("patterns/heatmap");
-  const monthly = useStats<{ data: MonthPoint[] }>("patterns/monthly");
-  const w = heat.data ? weekdayFacts(heat.data.data.time_s) : null;
-  const wmax = w ? Math.max(1, ...w.totals) : 1;
-  const months = monthly.data?.data ?? [];
-  const best = months.length ? months.reduce((a, b) => (b.time_s > a.time_s ? b : a)) : null;
-  const label = (k: string) => new Date(k + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const many = months.length > 24;
+function WhenYouPlay({ a }: { a?: Activity }) {
+  const day = a ? busiestWeekday(a.weekdays) : null;
   return (
-    <Band label="Patterns · when you play" title={w ? `Mostly on ${w.busiest}s.` : "When you play"} link={["/patterns", "All your patterns"]}>
-      {!heat.data || !monthly.data ? <Skeleton h={240} /> : !w ? <p style={{ color: OV.soft }}>Nothing played in this period.</p> : (
+    <Band label="When you play" title={a ? timeOfDayTitle(a.hours) : "When you play"}>
+      {!a ? <Skeleton h={240} /> : !a.unlocks ? <p style={{ color: OV.soft }}>No achievements in this period to tell when you play.</p> : (
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
           <figure className="flex flex-col gap-3 rounded-2xl p-5" style={{ background: OV.ink, color: OV.paper }}>
-            <figcaption><span className="font-ov-display text-[28px] font-extrabold" style={{ color: OV.mustard }}>{best ? label(best.month) : "–"}</span>
-              <span className="ml-2 text-[15px]">was your biggest month</span></figcaption>
-            <HoverBars dark height={150} hint="Hover a month to see it." ariaLabel="Hours played per month"
-                       bars={months.map((x) => ({ key: x.month, label: label(x.month), value: x.time_s, display: hoursShort(x.time_s),
-                                                  color: x.month === best?.month ? OV.mustard : "#5E554A" }))}
-                       ticks={<Ticks dark labels={months.map((x) => (x.month.endsWith("-01") ? x.month.slice(0, 4) : many ? "" : new Date(x.month + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" })))} />} />
+            <figcaption className="text-[15px]">Achievements by hour of the day</figcaption>
+            <UnlockClock hours={a.hours} dark height={150} />
           </figure>
           <figure className="flex flex-col gap-3 rounded-2xl border-2 p-5" style={{ background: OV.paper, borderColor: OV.ink }}>
-            <figcaption><span className="font-ov-display text-[28px] font-extrabold">{w.busiest}</span><span className="ml-2 text-[15px]">is your busiest day</span></figcaption>
-            <HoverBars height={120} gap={8} radius={6} hint="Hover a day to see it." ariaLabel={`Hours by day of the week. Busiest: ${w.busiest}.`}
-                       bars={w.totals.map((t, i) => ({ key: DAYS[i], label: WEEKDAYS[i], value: t, display: hoursShort(t), color: t === wmax ? OV.teal : "#D9CDB6" }))}
-                       ticks={<Ticks labels={DAYS} />} />
+            <figcaption><span className="font-ov-display text-[28px] font-extrabold">{day ?? "–"}</span><span className="ml-2 text-[15px]">is your busiest day</span></figcaption>
+            <UnlockWeekdays weekdays={a.weekdays} />
           </figure>
         </div>
       )}
@@ -232,87 +296,27 @@ function Patterns() {
   );
 }
 
-function Evolution() {
-  const { filters } = useFilters();
-  const meta = useMeta().data;
-  const years = yearsToShow(filters, meta?.first_date, meta?.today);
-  const tops = useStats<YearTop[]>("evolution/top_per_year", {}, { filters: { ...filters, range: "all", metric: "time" }, enabled: !!years });
-  if (!years) return null;
-  const rows = tops.data?.filter((t) => years.includes(t.year));
+function Years() {
+  const y = useStats<YearRow[]>("games/years");
+  const rows = y.data;
+  const counted = rows?.filter((r) => r.top) ?? [];
+  const best = counted.length ? counted.reduce((a, b) => (b.unlocks > a.unlocks ? b : a)) : null;
   return (
-    <Band label="Your #1 game each year" title={rows ? reignTitle(rows) : "Your #1 each year"} link={["/evolution", "See how it changed"]}>
-      {!rows ? <Skeleton h={160} /> : <ReignTimeline rows={rows} calendarYears={filters.range === "custom"} />}
+    <Band label="Your most active game each year · by achievements"
+          title={best ? `${best.year} was your biggest year: ${plural(best.unlocks, "achievement")}.` : "Each year"}>
+      {!rows ? <Skeleton h={260} /> : <YearsRow rows={rows} />}
     </Band>
   );
 }
 
-function Records({ a }: { a?: Achievements }) {
+function Records() {
   const q = useLinkQuery();
-  const rec = useStats<RecordsResponse>("records");
-  const s = rec.data?.streaks.longest;
-  const d = rec.data?.biggest_day.by_time;
-  const p = a?.perfect[0];
+  const r = useStats<GameRecords>("games/records");
+  const cards = r.data ? recordCards(r.data, q).slice(0, 3) : null;
   return (
-    <Band label="Records · your personal bests" title={a?.perfect.length ? `${num(a.perfect.length)} game${a.perfect.length === 1 ? "" : "s"} at 100%.` : "Your records"}
-          link={["/records", "All your records"]}>
-      <div className="grid gap-4 md:grid-cols-3">
-        <RecordCard label="100% completed" bg={OV.mustard} loading={!a} to={p ? gameLink(p.game.key) + q : undefined}
-                    pic={p ? <Poster src={p.game.poster} name={p.game.title} width="56px" /> : undefined}
-                    big={p ? (p.game.title ?? "–") : "None yet"} line={p ? `all ${num(p.achievements)} achievements, ${date(p.completed)}` : "No game with every achievement in this period."} />
-        <RecordCard label="Longest streak" bg={OV.teal} fg={OV.paper} loading={!rec.data} to={`/records${q}`}
-                    big={s ? `${num(s.days)} day${s.days === 1 ? "" : "s"} in a row` : "–"} line={s ? `${spanLabel(s.start, s.end)}, something every day` : "Not enough data yet."} />
-        <RecordCard label="Biggest day" bg={OV.paper} loading={!rec.data} to={`/records${q}`}
-                    big={d ? hoursShort(d.time_s) : "–"} line={d ? `on ${date(d.date)}` : "Nothing in this period."} />
-      </div>
-    </Band>
-  );
-}
-
-function RecordCard({ label, big, line, bg, fg = OV.ink, pic, to, loading }: {
-  label: string; big: string; line: ReactNode; bg: string; fg?: string; pic?: ReactNode; to?: string; loading: boolean;
-}) {
-  const body = (
-    <>
-      <span className={kicker}>{label}</span>
-      {loading ? <Skeleton h={72} /> : (
-        <span className="flex items-center gap-4">
-          {pic}
-          <span className="flex min-w-0 flex-col gap-1">
-            <span className="font-ov-display text-[clamp(22px,2.2vw,30px)] font-extrabold leading-tight">{big}</span>
-            <span className="text-[14px]">{line}</span>
-          </span>
-        </span>
-      )}
-    </>
-  );
-  const cls = "flex flex-col gap-3 rounded-2xl border-2 p-5";
-  const style = { background: bg, color: fg, borderColor: OV.ink };
-  return to ? <Link to={to} className={`${cls} transition-transform hover:-translate-y-0.5`} style={style}>{body}</Link>
-            : <div className={cls} style={style}>{body}</div>;
-}
-
-function More() {
-  const q = useLinkQuery();
-  const genres = useCapability("genres");
-  const g = useStats<TopResponse>("top/genres", { limit: 1 }, { enabled: genres });
-  const card = "flex flex-col gap-3 rounded-2xl border-2 p-5 transition-transform hover:-translate-y-0.5";
-  return (
-    <Band label="More to explore" title="A few more things">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Link to={`${genres ? "/top/genres" : "/evolution"}${q}`} className={card} style={{ background: OV.mustard, borderColor: OV.ink }}>
-          <span className="flex justify-between"><span className={kicker}>{genres ? "Top genres" : "Evolution"}</span><span aria-hidden>›</span></span>
-          {genres && g.data?.items[0] ? (
-            <span className="flex flex-col gap-1">
-              <span className="font-ov-display text-[26px] font-extrabold leading-tight">{g.data.items[0].title}</span>
-              <span className="text-[14px]">in {Math.round(g.data.items[0].share * 100)}% of your playtime</span>
-            </span>
-          ) : <span className="text-[14px]">How your games changed over the years.</span>}
-        </Link>
-        <Link to={`/evolution${q}`} className={card} style={{ background: OV.paper, borderColor: OV.ink }}>
-          <span className="flex justify-between"><span className={kicker}>Evolution</span><span aria-hidden>›</span></span>
-          <span className="text-[14px]">Your #1 game each year, the bar race, and the games you kept coming back to.</span>
-        </Link>
-      </div>
+    <Band label="Records" title={r.data?.rarest[0] ? "Your personal bests." : "Your records"}>
+      {!cards ? <Skeleton h={160} /> : !cards.length ? <p style={{ color: OV.soft }}>No records in this period yet.</p>
+        : <div className="grid gap-4 md:grid-cols-3">{cards}</div>}
     </Band>
   );
 }
