@@ -10,7 +10,7 @@ import { useFilters, useLinkQuery } from "../filters";
 import { date, num } from "../format";
 import { Band, MoveBadge, OV, Poster, ScrollRow, Skeleton, StatsFrame, kicker, useAccent, usePrevRanks } from "./kit";
 import {
-  Activity, GameCard, GameRecords, GameTimeline, TimelineRow, Unlock, UnlockClock, UnlockWeekdays, YearRow, YearsRow,
+  Activity, GameCard, GameRecords, GameTimeline, PlatformSplit, SPLIT, TimelineRow, Unlock, UnlockClock, UnlockWeekdays, YearRow, YearsRow,
   busiestWeekday, gameLink, plural, rarityLine, recordCards, timeOfDayTitle,
 } from "./gamesKit";
 import { hoursShort, periodTitle, rankMove } from "./takeaways";
@@ -42,6 +42,7 @@ export function GamesOverviewPage() {
                 : <PeriodHero title={title} act={act.data} />}
       <main className="mx-auto flex max-w-[1400px] flex-col gap-12 px-4 pb-16 pt-10 sm:px-8">
         {!quiet && (lifetime ? <TopByHours items={games.data?.items} prevRank={prevRank} /> : <TopByUnlocks a={act.data} title={title} />)}
+        {lifetime && meta.data?.platform.id === "allgames" && <Platforms />}
         {lifetime && <Timeline />}
         {!quiet && <AchievementsBand a={ach.data} />}
         {!quiet && <WhenYouPlay a={act.data} />}
@@ -192,11 +193,16 @@ function CoverRow({ items }: { items: { key: string; rank: number; game: GameCar
 }
 
 function TopByHours({ items, prevRank }: { items?: RankedItem[]; prevRank: (c: RankedItem) => number | null | undefined }) {
+  // All games: each game's hours split by platform (from the timeline, which carries every game's details)
+  const combined = useMeta().data?.platform.id === "allgames";
+  const t = useStats<TimelineRow[]>("games/timeline", {}, { enabled: combined });
+  const split = new Map((t.data ?? []).map((r) => [r.game.key, r.game.platforms]));
   return (
     <Band label="By lifetime hours" title="Your top 10 games" link={["/top/channels", "All your games"]}>
       {!items ? <Skeleton h={300} /> : !items.length ? <p style={{ color: OV.soft }}>No games played yet.</p> : (
         <CoverRow items={items.map((c) => ({ key: c.key, rank: c.rank, game: { key: c.key, title: c.title ?? null, poster: c.avatar_url ?? null },
-                                             big: hoursShort(c.time_s), extra: <MoveBadge m={rankMove(c.rank, prevRank(c))} /> }))} />
+                                             big: hoursShort(c.time_s),
+                                             extra: combined ? <PlatformSplit split={split.get(c.key)} compact /> : <MoveBadge m={rankMove(c.rank, prevRank(c))} /> }))} />
       )}
     </Band>
   );
@@ -317,6 +323,43 @@ function Records() {
     <Band label="Records" title={r.data?.rarest[0] ? "Your personal bests." : "Your records"}>
       {!cards ? <Skeleton h={160} /> : !cards.length ? <p style={{ color: OV.soft }}>No records in this period yet.</p>
         : <div className="grid gap-4 md:grid-cols-3">{cards}</div>}
+    </Band>
+  );
+}
+
+/** All games: how your hours divide across platforms, each linking to that platform. */
+function Platforms() {
+  const q = useLinkQuery();
+  const t = useStats<TimelineRow[]>("games/timeline");
+  const per: Record<string, number> = {};
+  for (const r of t.data ?? []) for (const [p, m] of Object.entries(r.game.platforms ?? {})) per[p] = (per[p] ?? 0) + m;
+  const parts = Object.entries(per).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]);
+  const total = parts.reduce((s, [, m]) => s + m, 0);
+  const both = (t.data ?? []).filter((r) => Object.values(r.game.platforms ?? {}).filter((m) => m > 0).length > 1);
+  return (
+    <Band label="Across your platforms" title={parts[0] ? `${Math.round((parts[0][1] / total) * 100)}% of your hours were on ${SPLIT[parts[0][0]]?.name ?? parts[0][0]}.` : "Your platforms"}>
+      {!t.data ? <Skeleton h={160} /> : (
+        <div className="flex flex-col gap-4">
+          <div className="flex h-5 w-full overflow-hidden rounded-full border-2" style={{ borderColor: OV.ink }} aria-hidden>
+            {parts.map(([p, m]) => <span key={p} style={{ width: `${(m / total) * 100}%`, background: SPLIT[p]?.color ?? OV.soft }} />)}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {parts.map(([p, m]) => (
+              <Link key={p} to={`/${p}${q}`} className="flex items-center gap-3 rounded-2xl border-2 p-4 hover:-translate-y-0.5" style={{ background: OV.paper, borderColor: OV.ink }}>
+                <span className="h-10 w-2 shrink-0 rounded-full" style={{ background: SPLIT[p]?.color ?? OV.soft }} />
+                <span className="flex flex-col">
+                  <span className="font-bold">{SPLIT[p]?.name ?? p}</span>
+                  <span className="font-ov-display text-[22px] font-extrabold leading-tight">{hoursShort(m * 60)}</span>
+                  <span className="font-shelf-mono text-[12px]" style={{ color: OV.soft }}>{Math.round((m / total) * 100)}% of your hours</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+          {both.length > 0 && (
+            <p className="text-[15px]">On more than one: {both.slice(0, 6).map((r) => r.game.title).join(", ")}{both.length > 6 ? ` and ${both.length - 6} more` : ""}.</p>
+          )}
+        </div>
+      )}
     </Band>
   );
 }

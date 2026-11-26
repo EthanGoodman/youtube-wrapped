@@ -11,6 +11,7 @@ import { HoverBars, Ticks } from "./charts";
 import { DAYS, hourLabel, hoursShort, spanLabel } from "./takeaways";
 
 export interface GameCard { key: string; title: string | null; poster: string | null; header?: string | null; minutes?: number;
+  platforms?: Record<string, number>;
   acquired?: string | null; last_played?: string | null }
 export interface Unlock { game: GameCard; api: string; name: string; description: string | null; unlocked: string; rarity: number | null }
 export interface Activity {
@@ -262,4 +263,29 @@ export function recordCards(r: GameRecords, q: string): ReactNode[] {
                                                pic={pic(r.tracked_best_day.game)} big={hoursShort(r.tracked_best_day.est_s)}
                                                line={<>of {r.tracked_best_day.game.title}, {date(r.tracked_best_day.date)}</>} />);
   return out;
+}
+
+// ------------------------------------------------------------------ All games: the split across platforms
+
+/** Bar colors for the platforms in a combined view: clearly different from each other (Steam's and
+ *  PlayStation's own accents are both blue). */
+export const SPLIT: Record<string, { color: string; name: string }> = {
+  playstation: { color: "#2A4FA0", name: "PlayStation" }, steam: { color: "#1F7A6B", name: "Steam" }, epic: { color: "#E2A93B", name: "Epic" },
+};
+
+/** One game's (or everything's) minutes per platform as a stacked bar, with the numbers under it. */
+export function PlatformSplit({ split, compact = false }: { split?: Record<string, number> | null; compact?: boolean }) {
+  const parts = Object.entries(split ?? {}).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]);
+  const total = parts.reduce((s, [, m]) => s + m, 0);
+  if (!total) return null;
+  return (
+    <span className="flex w-full flex-col gap-1">
+      <span className="flex h-2 w-full overflow-hidden rounded-full" aria-hidden>
+        {parts.map(([p, m]) => <span key={p} style={{ width: `${(m / total) * 100}%`, background: SPLIT[p]?.color ?? OV.soft }} />)}
+      </span>
+      <span className="flex flex-wrap gap-x-2 font-shelf-mono text-[11px]" style={{ color: OV.soft }}>
+        {parts.map(([p, m]) => <span key={p}>{SPLIT[p]?.name ?? p} {compact ? `${Math.round((m / total) * 100)}%` : hoursShort(m * 60)}</span>)}
+      </span>
+    </span>
+  );
 }

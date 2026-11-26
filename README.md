@@ -219,6 +219,12 @@ PlayStation says more than Steam or Epic: for PS4 and PS5 games, lifetime hours,
 
 What's stored: per game its name, minutes, first/last played, sessions and picture; per trophy its name, description, type, when you earned it and its rarity. Nothing about friends, messages or your account. Wrapped uses `personalities-playstation.toml`.
 
+## All games (combined)
+
+With more than one game platform, **All games** puts them together: open it from the shelf's **+ more** slot, or **All platforms** on any game platform's pages. The same game on several platforms (Rocket League on Epic and PlayStation, GTA V…) becomes one game whose hours, achievements/trophies and dates are each platform's real numbers added up, with the split per platform shown.
+
+Games are matched by name: symbols, platform tags and edition words are cleaned off, then the names are compared (a near match counts, but sequel numbers must agree, so "Black Ops II" never merges with "Black Ops III"). For a rename or a wrong match, edit `game-matches.toml`. It rebuilds whenever a game platform syncs or builds. Wrapped uses `personalities-allgames.toml`.
+
 ## Crunchyroll
 
 > **Unofficial.** Crunchyroll has no "download your data" option, so the app reads your watch history the same way crunchyroll.com shows it to you: from Crunchyroll's own (private) web API, signed in with your browser cookie. It only reads **your own** history, one request a second. It can stop working whenever Crunchyroll changes its site, and it isn't affiliated with or endorsed by Crunchyroll.

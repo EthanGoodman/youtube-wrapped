@@ -197,6 +197,7 @@ export const THEMES: Record<string, PlatformTheme> = {
   steam: { family: "videos", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#2a475e,#171a21)", fg: "#ffffff" }, wrapped: YOUTUBE_WRAPPED },
   epic: { family: "videos", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#4a4560,#16151c)", fg: "#ffffff" }, wrapped: YOUTUBE_WRAPPED },
   playstation: { family: "videos", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#2a4fa0,#0e1a3a)", fg: "#ffffff" }, wrapped: YOUTUBE_WRAPPED },
+  allgames: { family: "videos", creatorShape: "poster", tile: { bg: "linear-gradient(140deg,#5a4a3a,#1c1712)", fg: "#ffffff" }, wrapped: YOUTUBE_WRAPPED },
   prime_video: {
     family: "shows", creatorShape: "poster",
     tile: { bg: "linear-gradient(140deg,#00a8e1,#0b2a4a)" },
