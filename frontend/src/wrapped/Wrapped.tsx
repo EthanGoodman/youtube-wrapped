@@ -96,7 +96,7 @@ function YearPicker({ mode, setMode }: { mode: WrappedMode; setMode: (m: Wrapped
     <div className="min-h-[100dvh] font-shelf-sans" style={{ background: OV.bg, color: OV.ink, colorScheme: "light" }}>
       <TopBar />
       <PageHeader label={`${brand.name} Wrapped`} title="Pick a year for your story.">
-        <p className="text-[17px]" style={{ color: OV.mute }}>A short story of your year: your #1, your hours, your habits. Save any card as an image.</p>
+        <p className="text-[17px]" style={{ color: OV.mute }}>A short story of your year: {games ? "your most active game, your achievements, your habits" : "your #1, your hours, your habits"}. Save any card as an image.</p>
         <ModeSwitch mode={mode} onChange={setMode} dark />
       </PageHeader>
       <PageBody>
