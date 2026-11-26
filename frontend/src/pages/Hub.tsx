@@ -1,6 +1,7 @@
 /* The home page: a shelf, and nothing else. Every app with data is a book spine as thick as its hours;
    clicking one pulls it off the shelf and opens it into the app's stats page (book3d/, WebGL, loaded on demand). Apps not added
-   yet are empty slots that say how long their data takes to arrive.
+   yet are empty slots that say how long their data takes to arrive; once you have books, they fold into one "+ N more" slot.
+   The row never wraps: spines narrow to fit, and past a readable width the smallest fold into an "Others" spine.
    Design spec: "The shelf" (flat color, no gradients/shadows/rounding, our own spine colors, self-hosted fonts). */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +12,8 @@ import { HubLink } from "../platform";
 import { shelfColors } from "../themes";
 import { EmptySlot } from "../components/shelf/EmptySlot";
 import { Spine, hoursOf, monthYear } from "../components/shelf/Spine";
-import { SHELF_MAX_H, hoursLabel, shelfHeight, slotHeight, waitRank } from "../components/shelf/scale";
+import { SHELF_MAX_H, fitShelf, hoursLabel, shelfHeight, slotHeight, spineSize, waitRank } from "../components/shelf/scale";
+import { OthersSpine } from "../components/shelf/Others";
 import { cameraDistance, tiltFromHeight } from "../components/shelf/book3d/timeline";
 
 function useMedia(query: string): boolean {
@@ -43,6 +45,20 @@ function useShelfHeight(enabled: boolean, below: number) {
   return [ref, h] as const;
 }
 
+/** The width of an element, kept up to date. */
+function useWidth(ref: React.RefObject<HTMLElement>) {
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    setW(el.clientWidth);
+    return () => ro.disconnect();
+  }, [ref]);
+  return w;
+}
+
 const loadBook = () => import("../components/shelf/book3d/scene");
 const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -70,7 +86,8 @@ export function Hub() {
   const firstVisit = !!q.data && ready.length === 0;
   // room under the shelf: lift room + plank + page padding (+ the "Add your first app" button)
   const [shelfRef, maxH] = useShelfHeight(!phone && !q.isLoading, firstVisit ? 144 : 72);
-  const slots = notYet.slice(0, firstVisit ? 5 : tablet && !phone ? 2 : 3);
+  // with books on the shelf, the apps not added yet are one "+ N more" slot (or that app's own slot when it's the only one)
+  const slots = firstVisit ? notYet.slice(0, 5) : notYet.length === 1 ? notYet : [];
   const more = notYet.length - slots.length;
   const colors = shelfColors(ready.map((p) => p.id));
   const max = Math.max(1, ...ready.map(hoursOf));
@@ -109,6 +126,15 @@ export function Hub() {
   };
 
   const slotSize = { w: tablet ? 72 : 84, h: slotHeight(tablet ? Math.min(maxH, 400) : maxH, firstVisit) };
+  // one row, never wrapping: room for the spines is the shelf minus the slot(s) after them
+  const shelfW = useWidth(shelfRef);
+  const GAP = 10;
+  const slotRoom = (slots.length + (more > 0 ? 1 : 0)) * (slotSize.w + GAP) + (slots.length + more > 0 ? 24 : 0);
+  const spineMaxW = tablet ? 180 : 220;
+  const natural = ready.map((p) => spineSize(hoursOf(p), max, spineMaxW, maxH).w);
+  const fit = shelfW && !phone ? fitShelf(natural, shelfW - slotRoom, GAP) : { widths: natural, folded: 0 };
+  const shown = ready.slice(0, fit.widths.length);
+  const others = ready.slice(fit.widths.length);
   const pad = phone ? "px-4" : tablet ? "px-6" : "px-12";
 
   return (
@@ -148,10 +174,11 @@ export function Hub() {
               <Shelf phone={phone} busy={q.isLoading} minH={maxH}>
                 {q.isLoading ? <LoadingSpines phone={phone} /> : (
                   <>
-                    {ready.map((p) => (
-                      <Spine key={p.id} p={p} max={max} color={colors[p.id]} flat={phone} maxW={tablet ? 180 : 220} maxH={maxH}
-                             onOpen={(el) => void open(p, el)} />
+                    {shown.map((p, i) => (
+                      <Spine key={p.id} p={p} max={max} color={colors[p.id]} flat={phone} maxW={spineMaxW} maxH={maxH}
+                             w={fit.widths[i]} onOpen={(el) => void open(p, el)} />
                     ))}
+                    {others.length > 0 && <OthersSpine items={others} colors={colors} h={spineSize(0, max, spineMaxW, maxH).h} />}
                     {slots.map((p, i) => (
                       <div key={p.id} className={!phone && i === 0 && ready.length ? "ml-6" : phone ? "w-full" : ""}>
                         <EmptySlot p={p} w={slotSize.w} h={slotSize.h} flat={phone} />
@@ -179,7 +206,7 @@ export function Hub() {
 function Shelf({ phone, busy, minH, children }: { phone: boolean; busy: boolean; minH: number; children: React.ReactNode }) {
   return (
     <div aria-busy={busy}>
-      <div className={phone ? "flex flex-col gap-2 pt-2" : "flex flex-wrap items-end gap-[10px] pt-3"}
+      <div className={phone ? "flex flex-col gap-2 pt-2" : "flex items-end gap-[10px] pt-3"}
            style={phone ? undefined : { minHeight: minH }}>{children}</div>
       <div aria-hidden className={`shelf-line ${phone ? "-mx-2" : "-mx-6"}`} />
     </div>

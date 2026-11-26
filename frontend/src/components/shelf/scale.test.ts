@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SHELF_MIN_H, hoursLabel, flatSpineHeight, hoursFontSize, nameFontSize, shelfHeight, shortWait, slotHeight, spineSize, waitRank, yearBoxHeight } from "./scale";
+import { OTHERS_W, SHELF_MIN_H, SPINE_MIN_W, fitShelf, hoursLabel, flatSpineHeight, hoursFontSize, nameFontSize, shelfHeight, shortWait, slotHeight, spineSize, waitRank, yearBoxHeight } from "./scale";
 
 const GLYPH = 0.42; // Bebas Neue's average advance, in em
 
@@ -74,5 +74,25 @@ describe("export wait", () => {
     expect(shortWait("instant (quick) or a few days (full)")).toBe("instant");
     expect(shortWait("a few days (link expires after ~4 days)")).toBe("a few days");
     expect(shortWait("up to 30 days")).toBe("up to 30 days");
+  });
+});
+
+describe("fitShelf", () => {
+  const sum = (ws: number[], gap: number) => ws.reduce((a, b) => a + b, 0) + gap * (ws.length - 1);
+  it("leaves a shelf that fits alone", () => {
+    expect(fitShelf([220, 160, 60], 1000, 10)).toEqual({ widths: [220, 160, 60], folded: 0 });
+  });
+  it("shrinks every spine the same share above the minimum, biggest stays biggest", () => {
+    const r = fitShelf([220, 200, 120, 80, 60], 500, 10);
+    expect(r.folded).toBe(0);
+    expect(sum(r.widths, 10)).toBeLessThanOrEqual(500);
+    expect(r.widths).toEqual([...r.widths].sort((a, b) => b - a));
+    expect(Math.min(...r.widths)).toBeGreaterThanOrEqual(SPINE_MIN_W);
+  });
+  it("folds the smallest into Others when even the minimum doesn't fit", () => {
+    const r = fitShelf(Array(12).fill(100), 600, 10);
+    expect(r.folded).toBeGreaterThan(0);
+    expect(r.widths.length + r.folded).toBe(12);
+    expect(sum(r.widths, 10) + 10 + OTHERS_W).toBeLessThanOrEqual(600);
   });
 });

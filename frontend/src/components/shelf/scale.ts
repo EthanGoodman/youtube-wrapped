@@ -21,6 +21,30 @@ export function spineSize(hours: number, max: number, maxW = 220, maxH = SHELF_M
   return { w: Math.min(maxW, Math.round(56 + 164 * r)), h: Math.round((maxH * (400 + 60 * r)) / SHELF_MAX_H) };
 }
 
+export const SPINE_MIN_W = 56;
+export const OTHERS_W = 84;
+
+/** Fit a row of spines (natural widths, biggest first) into `room` px with `gap` between them, never wrapping:
+ *  - they fit: unchanged;
+ *  - too wide: every spine gives up the same share of its width above the minimum, so the biggest stay biggest;
+ *  - still too wide at the minimum: the smallest fold into one "Others" spine (`OTHERS_W` wide) at the end.
+ *  Returns the widths of the spines kept (in order) and how many were folded. */
+export function fitShelf(widths: number[], room: number, gap: number): { widths: number[]; folded: number } {
+  const n = widths.length;
+  const total = (ws: number[], extra = 0) => ws.reduce((a, b) => a + b, 0) + gap * Math.max(0, ws.length - 1 + extra);
+  if (!n || total(widths) <= room) return { widths, folded: 0 };
+  const shrink = (ws: number[], space: number) => {
+    const above = ws.reduce((a, w) => a + (w - SPINE_MIN_W), 0);
+    const k = above ? Math.max(0, Math.min(1, (space - ws.length * SPINE_MIN_W) / above)) : 0;
+    return ws.map((w) => Math.floor(SPINE_MIN_W + (w - SPINE_MIN_W) * k));
+  };
+  if (n * SPINE_MIN_W + gap * (n - 1) <= room) return { widths: shrink(widths, room - gap * (n - 1)), folded: 0 };
+  // keep as many as fit at the minimum width next to the Others spine
+  const keep = Math.max(0, Math.floor((room - OTHERS_W) / (SPINE_MIN_W + gap)));
+  const kept = widths.slice(0, keep);
+  return { widths: shrink(kept, room - OTHERS_W - gap * keep), folded: n - keep };
+}
+
 /** An empty slot's height on a shelf whose tallest spine is `maxH` (380 of 460). */
 export function slotHeight(maxH: number, full = false): number {
   return full ? maxH : Math.round((maxH * 380) / SHELF_MAX_H);
