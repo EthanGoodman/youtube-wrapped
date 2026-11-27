@@ -88,6 +88,25 @@ def cmd_secrets(args, _cfg) -> None:
             print("Nothing to move.")
 
 
+def cmd_prime_picks(args, cfg) -> None:
+    """A checklist page for another profile's Prime Video history: tick what you watched there."""
+    import json
+    from ytw.connectors.prime_video.picks import page
+    src = Path(args.history)
+    try:
+        items = json.loads(src.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        sys.exit(f"Can't read {src.name}: {e}")
+    if not isinstance(items, list) or not all(isinstance(x, dict) for x in items):
+        sys.exit(f"{src.name} isn't a watch history saved with watch-history.js")
+    label = args.name or src.stem
+    out = cfg.platform_dir("prime_video") / f"picks-{src.stem}.html"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(page(items, label), encoding="utf-8")
+    print(f"Open {out} in your browser, tick what you watched, press Save my picks, "
+          f"and put the saved prime-picks-*.json in {out.parent} with the history.")
+
+
 def main() -> None:
     force_utf8_stdout()
     secrets.install_log_redaction()
@@ -116,12 +135,17 @@ def main() -> None:
     p.add_argument("name", nargs="?", type=str.upper, help="e.g. TMDB_TOKEN")
     p.set_defaults(func=cmd_secrets)
 
+    p = sub.add_parser("prime-picks", help="Prime Video: a checklist of another profile's titles to tick yours")
+    p.add_argument("history", help="that profile's watch history .json (from watch-history.js)")
+    p.add_argument("--name", help="what to call the profile (default: the file name)")
+    p.set_defaults(func=cmd_prime_picks)
+
     p = sub.add_parser("investigate-delay", help="Report on videos logged hours after their pre-roll ad")
     p.add_argument("--min-gap-hours", type=float, default=1.0)
     p.set_defaults(func=cmd_investigate_delay)
 
     for name, sp in sub.choices.items():
-        if name not in ("investigate-delay", "secrets"):
+        if name not in ("investigate-delay", "secrets", "prime-picks"):
             sp.add_argument("--platform", default=platforms.DEFAULT, choices=sorted(platforms.PLATFORMS),
                             help="which platform (default: youtube)")
 

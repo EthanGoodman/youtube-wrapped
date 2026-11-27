@@ -47,6 +47,16 @@ def slug(*parts: str | None) -> str:
     return "|".join(_SLUG.sub("-", (p or "").lower()).strip("-") for p in parts)
 
 
+def _episode_number(attributes: str | None) -> int | None:
+    """Prime Video keeps "Episode 8" apart from the episode's name; Netflix's attributes are plain text."""
+    if not attributes or not attributes.startswith("{"):
+        return None
+    try:
+        return json.loads(attributes).get("episode_number")
+    except (ValueError, AttributeError):
+        return None
+
+
 def init(conn: sqlite3.Connection) -> None:
     db.init_db(conn)
     conn.executescript(VIEWS_SCHEMA)
@@ -86,8 +96,10 @@ def ingest(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo, profile: str | 
             "duplicates": dropped, "supplemental": sum(1 for v in views if v.supplemental)}
 
 
-def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap_s: float = 1800) -> int:
-    """Fill watches / items / creators from `views` (supplemental rows skipped)."""
+def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap_s: float = 1800,
+          search_url: str = "https://www.netflix.com/search?q=") -> int:
+    """Fill watches / items / creators from `views` (supplemental rows skipped). Prime Video's views share
+    this table, with its own search link; `attributes` may carry an episode number to fall back on."""
     fallback = {"episode": cfg_netflix.get("fallback_episode_minutes", 42) * 60,
                 "movie": cfg_netflix.get("fallback_movie_minutes", 110) * 60}
     rows = conn.execute("SELECT * FROM views WHERE supplemental IS NULL "
@@ -121,6 +133,9 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
             season = season or arc
         t = info("tv", show) if show else info("movie", r["title"])
         ep = find_episode(t["tmdb_id"], season, episode) if t and show else None
+        number = _episode_number(r["attributes"])
+        if t and show and not ep and number:
+            ep = find_episode(t["tmdb_id"], season, f"Episode {number}")
         runtime_min = (ep["runtime_min"] if ep and ep["runtime_min"] else None) or (t["runtime_min"] if t else None)
         runtime_s = runtime_min * 60 if runtime_min else None
         item_id = ("ep:" + slug(show, season, episode)) if show else ("mv:" + slug(r["title"]))
@@ -152,7 +167,7 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
                 tmdb.img(ep["still_path"], "w300") if ep and ep["still_path"] else (tmdb.img(t["poster_path"], "w185") if t else None),
                 tmdb.img((ep["still_path"] if ep else None) or t["backdrop_path"] or t["poster_path"], "w780") if t else None,
                 runtime_s, t["first_air_date"] if t else None, None,
-                "https://www.netflix.com/search?q=" + quote(show or r["title"]),
+                search_url + quote(show or r["title"]),
                 json.dumps({"show": show, "season": season, "episode": episode, "kind": kind,
                             "netflix_title": r["title"], "year": t["year"] if t else None,
                             "overview": t["overview"] if t and not show else None,
@@ -167,7 +182,7 @@ def build(conn: sqlite3.Connection, tz: ZoneInfo, cfg_netflix: dict, session_gap
                 creator_id, "ok" if t else "unknown", t["name"] if t else show, None,
                 tmdb.img(t["poster_path"], "w185") if t else None, None, t["episodes"] if t else None,
                 t["country"] if t else None, t["first_air_date"] if t else None,
-                "https://www.netflix.com/search?q=" + quote(show),
+                search_url + quote(show),
                 json.dumps({"topics": json.loads(t["genres"] or "[]"), "seasons": t["seasons"], "year": t["year"],
                             "overview": t["overview"], "poster": tmdb.img(t["poster_path"], "w500"),
                             "backdrop": tmdb.img(t["backdrop_path"], "w1280"), "tmdb_id": t["tmdb_id"]})

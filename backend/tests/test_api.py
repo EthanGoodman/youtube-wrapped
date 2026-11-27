@@ -157,15 +157,16 @@ def test_platforms_list(client):
     assert {"youtube", "netflix", "spotify", "prime_video", "tiktok", "instagram", "crunchyroll"} <= set(ps)
     assert ps["youtube"]["implemented"] and ps["youtube"]["has_data"] and ps["youtube"]["items"] == 13
     assert ps["netflix"]["implemented"] is True and ps["netflix"]["has_data"] is False
-    assert ps["prime_video"]["implemented"] is False and ps["prime_video"]["issue"] == 4 and ps["prime_video"]["export_steps"]
+    assert ps["tiktok"]["implemented"] is False and ps["tiktok"]["issue"] == 5 and ps["tiktok"]["export_steps"]
+    assert ps["prime_video"]["implemented"] is True and "series" in ps["prime_video"]["capabilities"]
     assert ps["spotify"]["implemented"] is True and ps["spotify"]["family"] == "music"
 
 
 def test_platform_param(client):
     assert client.get("/api/overview?range=2024&platform=youtube").json()["videos"] == 9
     assert client.get("/api/meta").json()["platform"]["vocab"]["creator"] == "channel"
-    assert client.get("/api/overview?platform=prime_video").status_code == 404     # not supported yet
-    assert "#4" in client.get("/api/overview?platform=prime_video").json()["detail"]
+    assert client.get("/api/overview?platform=tiktok").status_code == 404     # not supported yet
+    assert "#5" in client.get("/api/overview?platform=tiktok").json()["detail"]
     assert client.get("/api/overview?platform=netflix").status_code == 503     # supported, no data imported
     assert client.get("/api/overview?platform=myspace").status_code == 404     # unknown
 

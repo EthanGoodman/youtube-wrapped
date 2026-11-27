@@ -9,7 +9,7 @@ A local, private stats dashboard and year-in-review ("Wrapped") for the apps you
 | YouTube | ✅ Supported |
 | Netflix | ✅ Supported (see [Netflix](#netflix)) |
 | Spotify | ✅ Supported (see [Spotify](#spotify)) |
-| Prime Video | Planned ([#4](https://github.com/EthanGoodman/youtube-wrapped/issues/4)) |
+| Prime Video | ✅ Supported (see [Prime Video](#prime-video)) |
 | TikTok | Planned ([#5](https://github.com/EthanGoodman/youtube-wrapped/issues/5)) |
 | Instagram | ✅ Supported (see [Instagram](#instagram)) |
 | Crunchyroll | ✅ Supported, unofficial (see [Crunchyroll](#crunchyroll)) |
@@ -151,6 +151,31 @@ Notes on the data:
 - Netflix sometimes writes an episode without its show (": Episode 5"). Those count in your totals as **Unknown show** but are left out of show rankings and progress.
 
 *This product uses the TMDB API but is not endorsed or certified by TMDB.*
+
+## Prime Video
+
+Amazon's data export has exact start times and minutes watched for every playback on the account, but not which profile played it. Each profile's watch-history page says what that profile watched and when. Together they give only your own viewing.
+
+1. **The export (takes a few days to a month):** amazon.com → *Request your data* → Prime Video. Put the `.zip` (it has `Your Prime Video Viewing Activity/Viewing History.csv`) in `data/prime_video/`.
+2. **Your profile's history:** sign in as your profile at primevideo.com/settings/watch-history, press F12 → *Console*, paste everything in [`backend/ytw/connectors/prime_video/watch-history.js`](backend/ytw/connectors/prime_video/watch-history.js) and press Enter. It scrolls through the page and downloads `prime-watch-history.json`. Put it in `data/prime_video/`. The script only reads the page; it sends nothing anywhere.
+3. **Other profiles you watched on (optional):** save each one's history the same way, then make a checklist of its shows and movies:
+   ```bash
+   python backend/cli.py prime-picks data/prime_video/their-history.json --name "Profile 2"
+   ```
+   Open the page it writes, tick what you watched, press *Save my picks*, and put the `prime-picks-*.json` in `data/prime_video/`. Each history needs a picks file except yours, so it's clear which profile is yours (tick nothing if none of it was you).
+4. Save a TMDB token as in [Netflix](#netflix) step 3, then run:
+   ```bash
+   python backend/cli.py ingest --platform prime_video
+   python backend/cli.py enrich --platform prime_video
+   ```
+
+Which playbacks count:
+- Each playback goes to the profile item with the same title whose watch time is the nearest at or after it. Every saved profile's items compete for it, so other people's viewing doesn't land on you. Playbacks on profiles you didn't save aren't counted.
+- Everything on your profile counts. On another profile, the shows and movies you ticked count, except episodes also on your profile, which count once (from yours). A movie on both counts as two watches.
+- Trailers and promos never count. Only the title, start time and seconds watched are kept, never the city, zip code, internet provider or device.
+- A profile's history starts when the profile was made, so viewing from before then needs that older profile's history and picks.
+
+TMDB fixes go in `data/prime_video/overrides.toml`, the same way as Netflix. Wrapped personalities are in `personalities-prime_video.toml`.
 
 ## Spotify
 

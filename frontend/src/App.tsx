@@ -38,7 +38,7 @@ import { setChartTheme } from "./theme";
 import { applyThemeColors, themeOf } from "./themes";
 
 /** Platforms on the new stats pages (the rest keep the old layout until they move over). */
-const SHOWS_NEW = ["netflix", "crunchyroll"];
+const SHOWS_NEW = ["netflix", "crunchyroll", "prime_video"];
 const MUSIC_NEW = ["spotify"];
 const GAMES_NEW = GAME_PLATFORMS;
 const SOCIAL = SOCIAL_PLATFORMS;

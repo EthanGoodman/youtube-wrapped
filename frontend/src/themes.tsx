@@ -202,17 +202,7 @@ export const THEMES: Record<string, PlatformTheme> = {
     family: "shows", creatorShape: "poster",
     tile: { bg: "linear-gradient(140deg,#00a8e1,#0b2a4a)" },
     wrapped: showsWrapped("#00a8e1", "#0a7fb0", "#0b4f75", "#0b2a4a", "#05080d"),
-    shell: NETFLIX_LOOK,
-    // Prime Video's navy and blue (look-alike only; refine with its connector in #4)
-    colors: {
-      bg: "15 23 30", card: "26 36 46", raised: "37 50 62", line: "51 65 78", ink: "255 255 255",
-      sub: "140 157 172", muted: "100 116 130", accent: "0 168 225", "accent-dark": "0 130 180",
-      "accent-soft": "77 199 240", up: "43 166 64", down: "255 78 69",
-    },
-    chart: {
-      accent: "#00a8e1", accentHi: "#7fd8f5", surface: "#1a242e", empty: "#25323e",
-      ramp: ["#0d2836", "#0b3b52", "#09506f", "#06668d", "#027fae", "#00a8e1", "#7fd8f5"],
-    },
+    shell: { ...NETFLIX_LOOK, footer: { ...NETFLIX_LOOK.footer, ...TMDB_CREDIT } },
   },
   tiktok: { family: "videos", creatorShape: "circle", tile: { bg: "linear-gradient(140deg,#25f4ee 0%,#111 45%,#fe2c55 100%)" }, wrapped: YOUTUBE_WRAPPED },
   instagram: { family: "videos", creatorShape: "circle", tile: { bg: "linear-gradient(140deg,#f58529,#dd2a7b 50%,#8134af)" }, wrapped: YOUTUBE_WRAPPED },
@@ -248,7 +238,7 @@ const SHELF: Record<string, [string, string]> = {
   epic: ["#4A4560", "#FFFFFF"],
   playstation: ["#2A4FA0", "#FFFFFF"],
   instagram: ["#A8366B", "#FFFFFF"],
-  prime_video: ["#2F5D8A", "#FFFFFF"],
+  prime_video: ["#1F7A8C", "#FFFFFF"],
 };
 const SHELF_FALLBACK: [string, string][] = [["#7A5C99", "#FFFFFF"], ["#C9A227", "#141312"], ["#4F7F7A", "#FFFFFF"], ["#9C4F6B", "#FFFFFF"]];
 
