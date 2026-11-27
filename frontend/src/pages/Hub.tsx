@@ -93,8 +93,9 @@ export function Hub() {
   const firstVisit = !!q.data && withData.length === 0;
   // room under the shelf: lift room + plank + page padding (+ the "Add your first app" button)
   const [shelfRef, maxH] = useShelfHeight(!phone && !q.isLoading, firstVisit ? 144 : 72);
-  // with books on the shelf, the apps not added yet are one "+ N more" slot (or that app's own slot when it's the only one)
-  const slots = firstVisit ? notYet.slice(0, 5) : notYet.length === 1 ? notYet : [];
+  // with books on the shelf, the apps not added yet are one "+ N more" slot (or that app's own slot when it's the
+  // only one, unless there are magazines: then it's the "+ more" lying on their stack, never a bar of its own)
+  const slots = firstVisit ? notYet.slice(0, 5) : notYet.length === 1 && !magazines.length ? notYet : [];
   const more = notYet.length - slots.length;
   const colors = shelfColors([...ready, ...magazines].map((p) => p.id));
   const max = Math.max(1, ...ready.map(hoursOf));

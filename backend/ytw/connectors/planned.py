@@ -4,12 +4,6 @@ from .base import Manifest, vocab
 
 PLANNED = (
     Manifest(
-        "prime_video", "Prime Video", False, "prime_video", vocab("show", "shows", "episode", "episodes"),
-        frozenset({"genres"}),
-        ("amazon.com → Request your data → Prime Video",
-         "Put the Digital.PrimeVideo.ViewingHistory CSV in data/prime_video/"),
-        "up to a month", issue=4, order=4),
-    Manifest(
         "tiktok", "TikTok", False, "tiktok", vocab("creator", "creators", "video", "videos"),
         frozenset({"search", "estimated_time"}),
         ("TikTok → Settings and privacy → Account → Download your data → JSON",
