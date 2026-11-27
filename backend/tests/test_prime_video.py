@@ -65,6 +65,13 @@ def test_split_names():
     assert pv.split_show("Glass Harbor - Season 2") == ("Glass Harbor", "Season 2")
     assert pv.split_show("Glass Harbor Season 3") == ("Glass Harbor", "Season 3")
     assert pv.split_show("Seasons of Rain") == ("Seasons of Rain", None)
+    assert pv.split_show("Harbor Town: The Complete Second Season") == ("Harbor Town", "Season 2")
+    assert pv.clean_title("Paper Comet (2013) (With Bonus Features)") == "Paper Comet"
+    assert pv.clean_title("Paper Comet (Extended Version)") == "Paper Comet"
+    assert pv.clean_title("Comet (Part 2)") == "Comet (Part 2)"
+    assert pv.clean_title("Paper Comet (2013) With Bonus Features") == "Paper Comet"
+    assert pv.clean_title("Paper Comet Extended Version") == "Paper Comet"
+    assert pv.clean_title("Space Saga (Episode VIII)") == "Space Saga (Episode VIII)"
     assert pv.split_episode("Episode 8: The Long Way") == ("The Long Way", 8)
     assert pv.split_episode("Episode 4") == ("Episode 4", 4)
     assert pv.item_key(MINE[0]) == pv.norm("Low Tide-Glass Harbor - Season 1")

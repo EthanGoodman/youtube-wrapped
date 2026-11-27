@@ -61,10 +61,31 @@ class ProfileItem:
     number: int | None
 
 
+_ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth")
+_COMPLETE = re.compile(r"^(.*?)\s*[-–:,]\s*the complete (" + "|".join(_ORDINALS) + r") season\b.*$", re.I)
+# Amazon's extras on a store title: "(Extended Version)", "(2013) (With Bonus Features)", "(4K UHD)"
+_EXTRAS = re.compile(r"\s*(?:\((?:\d{4}|[^)]*(?:version|edition|cut|bonus|features|uhd|4k|hd|subtitled|dubbed)[^)]*)\)"
+                     r"|[-–:]?\s*(?:with bonus features|bonus features|(?:extended|theatrical|unrated|special) (?:version|edition|cut)"
+                     r"|director'?s cut|4k uhd))\s*$", re.I)
+
+
+def clean_title(title: str) -> str:
+    """'Prisoners (2013) (With Bonus Features)' -> 'Prisoners'."""
+    t = title.strip()
+    while (u := _EXTRAS.sub("", t)) != t and u:
+        t = u
+    return t
+
+
 def split_show(title: str) -> tuple[str, str | None]:
     """'The Boys - Season 1' -> ('The Boys', 'Season 1'); a title without a season stays whole."""
     m = _SEASON.match(title.strip())
-    return (m.group(1).strip(), f"Season {int(m.group(2))}") if m and m.group(1).strip() else (title.strip(), None)
+    if m and m.group(1).strip():
+        return clean_title(m.group(1)), f"Season {int(m.group(2))}"
+    m = _COMPLETE.match(title.strip())
+    if m and m.group(1).strip():
+        return clean_title(m.group(1)), f"Season {_ORDINALS.index(m.group(2).lower()) + 1}"
+    return clean_title(title), None
 
 
 def split_episode(title: str) -> tuple[str, int | None]:
@@ -229,7 +250,7 @@ def ingest(conn: sqlite3.Connection, folder: Path, tz: ZoneInfo) -> dict:
     rows = []
     for i, ((start, secs, title, _), it) in enumerate(mine):
         local = datetime.fromtimestamp(start, timezone.utc).astimezone(tz)
-        rows.append(("full", title, it.show, it.season, it.episode, it.kind, local.date().isoformat(), start,
+        rows.append(("full", clean_title(title) if it.kind == "movie" else title, it.show, it.season, it.episode, it.kind, local.date().isoformat(), start,
                      round(secs), it.profile, None, None, None,
                      json.dumps({"episode_number": it.number}) if it.number else None, None, i))
     nf.init(conn)
