@@ -21,13 +21,14 @@ def page(items: list[dict], label: str) -> str:
         g["n"] += 0 if movie else 1
         at = float(x.get("watchedAt") or 0)
         g["first"], g["last"] = min(g["first"], at), max(g["last"], at)
-    yr = lambda ms: datetime.fromtimestamp(ms / 1000, timezone.utc).year
+    def yr(ms: float) -> int:
+        return datetime.fromtimestamp(ms / 1000, timezone.utc).year
     rows = sorted(groups.items(), key=lambda kv: (-kv[1]["last"], kv[0][1].lower()))
     data = [{"name": name, "movie": movie, "titles": sorted(g["titles"]), "n": g["n"],
              "span": str(yr(g["first"])) if yr(g["first"]) == yr(g["last"]) else f"{yr(g['first'])}–{yr(g['last'])}"}
             for (movie, name), g in rows]
-    # </script> can't appear inside the inline data
-    js = lambda v: json.dumps(v).replace("</", "<\\/")
+    def js(v) -> str:   # </script> can't appear inside the inline data
+        return json.dumps(v).replace("</", "<\\/")
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Which did you watch?</title>
 <style>
